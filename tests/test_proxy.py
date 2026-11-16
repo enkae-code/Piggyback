@@ -8,7 +8,10 @@ from unittest import mock
 from piggyback import proxy as proxy_module
 from piggyback.proxy import EgressProxy
 
-from .test_netpolicy import infos
+try:
+    from .test_netpolicy import infos
+except ImportError:  # plain `discover -s tests` without -t . imports test modules top-level
+    from test_netpolicy import infos
 
 
 class Hello(http.server.BaseHTTPRequestHandler):
