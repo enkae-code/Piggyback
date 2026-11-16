@@ -135,6 +135,13 @@ class Protocol(unittest.TestCase):
         replies = exchange(mcp.Session([], None), {"jsonrpc": "2.0", "id": 5})
         self.assertEqual(replies[0]["id"], 5)
         self.assertEqual(replies[0]["error"]["code"], -32600)
+        # An unreadable id is never echoed: NaN would make the reply invalid JSON.
+        replies = exchange(mcp.Session([], None), b'{"jsonrpc":"2.0","id":NaN}')
+        self.assertIsNone(replies[0]["id"])
+
+    def test_wrong_jsonrpc_version_is_an_invalid_request(self):
+        line = {"jsonrpc": "1.0", "id": 1, "method": "ping"}
+        self.assertEqual(exchange(mcp.Session([], None), line)[0]["error"]["code"], -32600)
 
     def test_non_string_method_is_an_invalid_request_even_with_bad_params(self):
         replies = exchange(
@@ -224,6 +231,11 @@ class Tools(unittest.TestCase):
         self.assertIn("No differences above the thresholds.", second)
         self.assertIn("## Fixed since the last check", second)
         self.assertIn("- Heading type", second)
+
+    def test_check_with_two_references_says_it_compares_against_the_first(self):
+        session = mcp.Session([REF_URL, "https://93.184.216.35/"], BUILD_URL, self.fake)
+        text = self.text(exchange(session, call("check"))[0])
+        self.assertIn("Differences are against the first reference only.", text)
 
     def test_refresh_moves_the_reference_without_marking_a_fix(self):
         exchange(self.session, call("check"))  # the build differs from the reference
