@@ -111,7 +111,8 @@ def _capture(req):
             page.emulate_media(reduced_motion="reduce")
             fingerprint["reduced_motion"] = {
                 "still_running": page.evaluate(
-                    "() => document.getAnimations().filter((animation) => animation.playState === 'running').length"
+                    "() => document.getAnimations()"
+                    ".filter((animation) => animation.playState === 'running').length"
                 )
             }
             if req["screenshot"]:

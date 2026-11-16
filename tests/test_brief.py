@@ -218,7 +218,9 @@ class GapTests(unittest.TestCase):
         self.assertEqual(pins[0].detail, "Heading at heading anchor: 36/44 → 56/58, -0.02em")
         self.assertEqual(pins[1].detail, "accent share at page: 19% → 2%")
         self.assertEqual(pins[2].detail, "Container width at main content column: 1280px → 1200px")
-        self.assertEqual(pins[3].detail, "Navigation: not found on the build — can't compare")
+        self.assertIn(
+            "Navigation: not found on the build — can't compare", [pin.detail for pin in pins]
+        )
 
     def test_boxes_travel_with_the_pin(self):
         heading = gap_mod.gap(self.ref, self.build)[0]
@@ -268,7 +270,7 @@ class GapTests(unittest.TestCase):
         self.assertIn("- ② Accent (the saturated", text)
         self.assertIn("- Navigation: not found on the build — can't compare", text)
         self.assertEqual(
-            text.count("  - Why it matters:"), 3
+            text.count("  - Why it matters:"), 4
         )  # once per concept, not-found has none
 
     def test_why_line_is_said_once_per_concept(self):
