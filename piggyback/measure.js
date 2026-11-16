@@ -210,8 +210,16 @@
     if (!siblings.has(sig)) siblings.set(sig, []);
     siblings.get(sig).push(b);
   }
-  // A card is a visible box with text or child elements: an empty decorative span is not one.
-  const isCard = (b) => b.area >= 2500 && (textOf(b.el) !== "" || b.el.children.length > 0);
+  // A card: a box with text or child elements, at least 120x80, fully inside the viewport (an
+  // off-screen carousel slide is not on the page), and never a control on its own.
+  const CONTROL = "button, input, [role=button]";
+  const isCard = (b) =>
+    b.r.width >= 120 &&
+    b.r.height >= 80 &&
+    b.r.left >= 0 &&
+    b.r.right <= VW &&
+    (textOf(b.el) !== "" || b.el.children.length > 0) &&
+    !b.el.matches(CONTROL);
   let repeated = null;
   for (const siblings of groups.values()) {
     for (const list of siblings.values()) {
@@ -222,17 +230,33 @@
     }
   }
 
-  // Container: the nearest ancestor of the body text (else the heading) that sets a px max-width
-  // and renders narrower than the viewport. Null when there is none: never a guess.
-  const column = (anchor) => {
-    for (let el = anchor ? anchor.el.parentElement : null; el; el = el.parentElement) {
-      if (!/^[\d.]+px$/.test(getComputedStyle(el).maxWidth)) continue;
-      const width = el.getBoundingClientRect().width;
-      return width > 0 && width < VW ? width : null;
+  // Page column: a box that is centred and narrower than the viewport, 100px tall or more.
+  // Widths are content widths (minus horizontal padding); each one weighs its visible area and the
+  // heaviest wins, widest on a tie. Null when no box qualifies: never a guess. Body text measure
+  // is not used: a narrow text block would otherwise stand in for the page column.
+  const COLUMN_MIN_HEIGHT = 100;
+  const CENTRE_TOLERANCE = 2;
+  const columns = new Map();
+  for (const b of boxes) {
+    const narrow = /^[\d.]+px$/.test(b.cs.maxWidth) || b.r.width < VW;
+    const left = b.r.left;
+    const right = VW - b.r.right;
+    if (!narrow || b.area <= 0 || b.r.height < COLUMN_MIN_HEIGHT) continue;
+    if (left <= 0 || right <= 0 || Math.abs(left - right) > CENTRE_TOLERANCE) continue;
+    const padding = parseFloat(b.cs.paddingLeft) + parseFloat(b.cs.paddingRight);
+    const content = Math.round(b.r.width - padding);
+    columns.set(content, (columns.get(content) || 0) + b.area);
+  }
+  let container = null;
+  for (const [width, area] of columns) {
+    if (
+      container === null ||
+      area > columns.get(container) ||
+      (area === columns.get(container) && width > container)
+    ) {
+      container = width;
     }
-    return null;
-  };
-  const container = column(body || heading);
+  }
 
   return {
     viewport: { width: VW, height: VH },
@@ -241,7 +265,7 @@
     radius,
     shadow,
     spacing,
-    container_width: container === null ? null : round(container),
+    container_width: container,
     motion,
     effects: { gradient_text: gradientText, tinted_icon_squares: tintedIconSquares },
     anchors: {

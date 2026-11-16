@@ -135,6 +135,20 @@ class MeasureIntegration(unittest.TestCase):
         self.assertEqual(result["anchors"]["heading"]["text"], "Ship faster")
         self.assertIsNone(result["anchors"]["card"])  # empty 120px boxes are not cards
 
+    def test_narrow_text_block_does_not_stand_in_for_the_column(self):
+        result = measure(f"{self.base}/container-column.html", allow_loopback=True)
+        self.assertEqual(result["container_width"], 1120)  # 1200px box less 40px padding a side
+
+    def test_carousel_slides_off_the_edge_are_not_cards(self):
+        result = measure(f"{self.base}/carousel.html", allow_loopback=True)
+        self.assertEqual(result["anchors"]["card"]["count"], 3)  # five slides, two off screen
+        self.assertGreaterEqual(result["anchors"]["card"]["box"]["x"], 0)
+
+    def test_button_row_is_not_a_card(self):
+        result = measure(f"{self.base}/button-row.html", allow_loopback=True)
+        self.assertIsNone(result["anchors"]["card"])
+        self.assertEqual(result["anchors"]["cta"]["tag"], "button")
+
     def test_no_max_width_means_no_container(self):
         self.assertIsNone(
             measure(f"{self.base}/plain.html", allow_loopback=True)["container_width"]
