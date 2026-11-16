@@ -100,6 +100,12 @@ class MeasureIntegration(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_text_anchor_boxes_hug_the_text(self):
+        # The h1 block spans the viewport; its pin box must be the "Fixture heading" ink only.
+        anchors = measure(f"{self.base}/index.html", allow_loopback=True)["anchors"]
+        self.assertLess(anchors["heading"]["box"]["width"], 600)
+        self.assertGreater(anchors["heading"]["box"]["width"], 100)
+
     def test_index_fingerprint_and_policy(self):
         with tempfile.TemporaryDirectory() as tmp:
             shot = Path(tmp) / "shot.png"

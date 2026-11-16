@@ -190,7 +190,15 @@
   ).length;
 
   // Anchors. Each is null when the page has no such element; never guessed.
-  const describe = (b) =>
+  // Text anchors (heading, body) are blocks as wide as their container; their pin belongs on the
+  // ink, so their box is the bounding box of their text, falling back to the element box.
+  const inkRect = (b) => {
+    const range = document.createRange();
+    range.selectNodeContents(b.el);
+    const r = range.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 ? r : b.r;
+  };
+  const describe = (b, ink = false) =>
     b && {
       tag: b.tag.toLowerCase(),
       text: seenText(b.el).replace(/\s+/g, " ").trim().slice(0, 80),
@@ -203,12 +211,12 @@
       background: b.cs.backgroundColor,
       radius: b.cs.borderTopLeftRadius,
       padding: [b.cs.paddingTop, b.cs.paddingRight, b.cs.paddingBottom, b.cs.paddingLeft],
-      box: {
-        x: Math.round(b.r.left),
-        y: Math.round(b.r.top),
-        width: Math.round(b.r.width),
-        height: Math.round(b.r.height),
-      },
+      box: ((r) => ({
+        x: Math.round(r.left),
+        y: Math.round(r.top),
+        width: Math.round(r.width),
+        height: Math.round(r.height),
+      }))(ink ? inkRect(b) : b.r),
     };
   // Score keys: font size or CTA background dominates, visible area breaks ties.
   const heading = best(
@@ -308,8 +316,8 @@
     motion,
     effects: { gradient_text: gradientText, tinted_icon_squares: tintedIconSquares },
     anchors: {
-      heading: describe(heading),
-      body: describe(body),
+      heading: describe(heading, true),
+      body: describe(body, true),
       cta: describe(cta),
       nav: describe(nav),
       card: repeated === null ? null : { count: repeated.length, ...describe(repeated[0]) },
