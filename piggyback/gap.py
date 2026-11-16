@@ -39,7 +39,7 @@ def _absent(label, ref_value, build_value):
     return f"{label}: not found on the {' and the '.join(sides)} — can't compare"
 
 
-def _type_gap(label, ref_anchor, build_anchor, sizes):
+def _type_gap(label, location, ref_anchor, build_anchor, sizes):
     """Pin detail when an anchor's type or tracking differs by more than tolerance, else None.
 
     The pin reads current build -> reference target, as the plan's examples do.
@@ -57,7 +57,7 @@ def _type_gap(label, ref_anchor, build_anchor, sizes):
     def type_text(size, line):
         return f"{fp.fmt(size)}/{'normal' if line is None else fp.fmt(line)}"
 
-    detail = f"{label} {type_text(bf, bl)} → {type_text(rf, rl)}"
+    detail = f"{label} at {location}: {type_text(bf, bl)} → {type_text(rf, rl)}"
     if tracking_differs:
         detail += f", {rt / rf:.2f}em"
     return detail
@@ -75,7 +75,7 @@ def _anchor_rows(ref, build):
         if rf is None or bf is None or rf <= 0 or bf <= 0:
             absent.append((None, f"{label}: font size not measured — can't compare"))
             continue
-        detail = _type_gap(label, ref_anchor, build_anchor, (rf, bf))
+        detail = _type_gap(label, name + " anchor", ref_anchor, build_anchor, (rf, bf))
         if detail:
             boxes = (fp.box(ref_anchor.get("box")), fp.box(build_anchor.get("box")))
             rows.append((concept, detail, *boxes))
@@ -90,13 +90,21 @@ def _page_rows(ref, build):
         absent.append((None, _absent("Accent share", ref_share, build_share)))
     elif abs(round(ref_share - build_share, 4)) > SHARE_TOLERANCE:
         now, target = round(build_share * 100, 1), round(ref_share * 100, 1)
-        rows.append(("accent", f"accent on {now:g}% of the page → {target:g}%", None, None))
+        rows.append(("accent", f"accent share at page: {now:g}% → {target:g}%", None, None))
 
     ref_width, build_width = (fp.number(fp.get(d, "container_width")) for d in (ref, build))
     if ref_width is None or build_width is None:
         absent.append((None, _absent("Container width", ref_width, build_width)))
     elif abs(ref_width - build_width) > PX_TOLERANCE:
-        rows.append(("container", f"{fp.fmt(build_width)}px → {fp.fmt(ref_width)}px", None, None))
+        rows.append(
+            (
+                "container",
+                f"Container width at main content column: {fp.fmt(build_width)}px "
+                f"→ {fp.fmt(ref_width)}px",
+                None,
+                None,
+            )
+        )
     return rows, absent
 
 

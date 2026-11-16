@@ -5,6 +5,7 @@ from pathlib import Path
 from piggyback import brief as brief_mod
 from piggyback import fingerprint as fp
 from piggyback import gap as gap_mod
+from piggyback import glossary
 
 FIXTURES = Path(__file__).parent / "fixtures" / "fingerprints"
 BRACKETS = re.compile(r"(?<!\\)[\[\]`<>]")  # an unescaped character a renderer could act on
@@ -155,6 +156,14 @@ class BriefTests(unittest.TestCase):
 
 
 class GapTests(unittest.TestCase):
+    def test_glossary_includes_six_plain_language_concepts(self):
+        for concept in ("proximity", "sibling_gap", "rhythm", "density", "section_fill", "leading"):
+            with self.subTest(concept=concept):
+                title, definition = glossary.TERMS[concept]
+                self.assertTrue(title and definition)
+                self.assertLessEqual(len(definition.split(".")) - 1, 3)
+                self.assertNotIn("good design", definition.lower())
+
     def setUp(self):
         self.ref = load("ref.json")
         self.build = load("build.json")
@@ -162,9 +171,9 @@ class GapTests(unittest.TestCase):
     def test_pins_only_on_anchors_both_pages_have(self):
         pins = gap_mod.gap(self.ref, self.build)
         self.assertEqual([pin.number for pin in pins], [1, 2, 3, None])
-        self.assertEqual(pins[0].detail, "Heading 36/44 → 56/58, -0.02em")
-        self.assertEqual(pins[1].detail, "accent on 19% of the page → 2%")
-        self.assertEqual(pins[2].detail, "1280px → 1200px")
+        self.assertEqual(pins[0].detail, "Heading at heading anchor: 36/44 → 56/58, -0.02em")
+        self.assertEqual(pins[1].detail, "accent share at page: 19% → 2%")
+        self.assertEqual(pins[2].detail, "Container width at main content column: 1280px → 1200px")
         self.assertEqual(pins[3].detail, "Navigation: not found on the build — can't compare")
 
     def test_boxes_travel_with_the_pin(self):
