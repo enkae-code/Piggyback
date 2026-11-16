@@ -17,7 +17,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2C3E50?style=flat" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-2C3E50?style=flat&logo=python&logoColor=white" alt="Python 3.11+">
-  <a href="https://github.com/enkae-code/piggyback-design/actions/workflows/ci.yml"><img src="https://github.com/enkae-code/piggyback-design/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/enkae-code/piggyback/actions/workflows/ci.yml"><img src="https://github.com/enkae-code/piggyback/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="#status"><img src="https://img.shields.io/badge/status-pre--release-F39C12?style=flat" alt="Status: pre-release"></a>
 </p>
 
