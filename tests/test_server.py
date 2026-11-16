@@ -145,6 +145,40 @@ class ScreenTests(unittest.TestCase):
         flags = [call.kwargs["allow_loopback"] for call in self.measure.call_args_list]
         self.assertEqual(flags, [False, True])
 
+    def test_public_build_gets_no_loopback_reach(self):
+        self.assertEqual(self.post_measure({"build": "https://example.com/"})[0], 200)
+        self.assertEqual(self.measure.call_args.kwargs["allow_loopback"], False)
+
+    def test_private_build_is_refused_before_any_work(self):
+        status, _ = self.post_measure(
+            {"references": ["https://example.com"], "build": "http://10.0.0.1/"}
+        )
+        self.assertEqual(status, 400)
+        self.measure.assert_not_called()
+
+    def test_overlong_url_is_refused(self):
+        url = "https://example.com/" + "a" * server.MAX_URL
+        self.assertEqual(self.post_measure({"references": [url]})[0], 400)
+        self.measure.assert_not_called()
+
+    def test_null_origin_is_refused(self):
+        self.assertEqual(self.call("GET", "/", token=False, origin="null")[0], 403)
+
+    def test_unexpected_error_is_a_500_not_a_dropped_connection(self):
+        self.measure.side_effect = KeyError("boom")
+        status, data = self.post_measure({"references": ["https://example.com"]})
+        self.assertEqual(status, 500)
+        self.assertNotIn("boom", data["error"])
+        self.assertTrue(self.screen.busy.acquire(blocking=False))
+        self.screen.busy.release()
+
+    def test_brief_refuses_to_write_through_a_symlink(self):
+        self.post_measure({"references": ["https://example.com"]})
+        target = Path(self.tmp.name, "elsewhere.txt")
+        Path(self.tmp.name, "BRIEF.md").symlink_to(target)
+        self.assertEqual(self.call("POST", "/api/brief", {})[0], 409)
+        self.assertFalse(target.exists())
+
     def test_reference_only_is_a_brief_with_no_paths_in_the_payload(self):
         status, data = self.post_measure({"references": ["https://example.com"]})
         self.assertEqual(status, 200)

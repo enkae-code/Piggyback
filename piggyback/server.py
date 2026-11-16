@@ -4,9 +4,12 @@ Stdlib only. Every API call carries the per-launch token; Host and Origin must n
 Results live in memory for the session. Screenshots are served by opaque id from a temp dir.
 """
 
+import ipaddress
 import json
 import re
 import secrets
+import signal
+import sys
 import tempfile
 import threading
 import webbrowser
@@ -30,7 +33,7 @@ STATIC = {
 }
 CSP = (
     "default-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; "
-    "frame-ancestors 'none'"
+    "frame-ancestors 'none'; form-action 'none'"
 )
 HEADERS = {
     "Content-Security-Policy": CSP,
@@ -57,6 +60,15 @@ def _loopback(url):
         return url
     port = f":{parts.port}" if parts.port else ""
     return parts._replace(netloc=f"127.0.0.1{port}").geturl()
+
+
+def _on_this_machine(url):
+    """True for a literal loopback address (localhost is already rewritten to 127.0.0.1). Only these
+    builds get loopback reach: a hosted preview must not be able to call your local servers."""
+    try:
+        return ipaddress.ip_address((urlsplit(url).hostname or "").strip("[]")).is_loopback
+    except ValueError:
+        return False
 
 
 def _shape(refs, build):
@@ -211,7 +223,7 @@ class Screen(ThreadingHTTPServer):
 
         fps = [shoot(url, False) for url in refs]
         # The page shows the build as the user typed it (localhost), not the address we measured.
-        build_fp = shoot(build, True, typed) if build else None
+        build_fp = shoot(build, _on_this_machine(build), typed) if build else None
         payload, text = _render(fps, build_fp)
         for old in self.shots.values():
             old.unlink(missing_ok=True)
@@ -292,6 +304,8 @@ class Handler(BaseHTTPRequestHandler):
             result = self.server.run(refs, build, body.get("build") or None)
         except MeasureError as exc:
             return self._error(422, str(exc))
+        except Exception:  # noqa: BLE001 - answer the page instead of dropping the connection
+            return self._error(500, "measure failed unexpectedly; see the terminal")
         finally:
             self.server.busy.release()
         return self._json(200, result)
@@ -301,6 +315,8 @@ class Handler(BaseHTTPRequestHandler):
         if text is None:
             return self._error(409, "measure first, then copy the brief")
         path = self.server.out_dir / "BRIEF.md"
+        if path.is_symlink():
+            return self._error(409, f"refusing to write through a symlink: {path}")
         try:
             path.write_text(text, encoding="utf-8")
         except OSError as exc:
@@ -326,6 +342,14 @@ class Handler(BaseHTTPRequestHandler):
 
 def serve(port=0, out_dir="."):
     """Run until Ctrl-C. Prints the URL (with the session token) and opens the browser."""
+    if not Path(out_dir).is_dir():
+        raise SystemExit(f"piggyback: --out {out_dir} is not a directory")
+    # SIGTERM/SIGHUP unwind like Ctrl-C so the screenshot folder is removed.
+    for sig in (signal.SIGTERM, getattr(signal, "SIGHUP", None)):
+        if sig is not None:
+            signal.signal(sig, lambda *_: sys.exit(0))
+    # ponytail: the token rides in the opened URL, so other local users can see it in the process
+    # list; on a shared machine open a 0600 redirect file instead (as Jupyter does).
     with tempfile.TemporaryDirectory(prefix="piggyback-shots-") as shot_dir:
         screen = Screen(port, out_dir, shot_dir)
         url = f"http://127.0.0.1:{screen.port}/?t={screen.token}"
