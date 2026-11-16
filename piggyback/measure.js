@@ -2,6 +2,7 @@
 // Captured strings (heading text, class names) are returned as data and never evaluated.
 () => {
   // clientWidth leaves out a visible scrollbar, so centring matches where the layout puts content.
+  // ponytail: untested in CI, headless Chromium never lays out scrollbars (innerWidth == clientWidth).
   const VW = document.documentElement.clientWidth;
   const VH = window.innerHeight;
   const round = (n) => Math.round(n * 100) / 100;
