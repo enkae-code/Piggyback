@@ -49,8 +49,10 @@ class LoadTests(unittest.TestCase):
         return Path(name)
 
     def test_deeply_nested_json_is_a_value_error_not_a_crash(self):
+        # Older parsers hit RecursionError ("not valid JSON"); newer 3.14 builds parse it and the
+        # shape check refuses it. Either way it must be a ValueError, never a crash.
         path = self.write(b"[" * 100_000 + b"]" * 100_000)
-        with self.assertRaisesRegex(ValueError, "not valid JSON"):
+        with self.assertRaisesRegex(ValueError, "not valid JSON|not a fingerprint object"):
             fp.load(path)
 
     def test_non_object_json_is_refused(self):
