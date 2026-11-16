@@ -71,9 +71,10 @@ class RealSampleGolden(unittest.TestCase):
         self.assertIn('  text-1: "#f7f8f8"', front)
         self.assertIn('    fontFamily: "Inter Variable, Berkeley Mono"', front)
         self.assertIn('    "16": "16px"', front)
-        self.assertIn('  radius-1: "9999px"', front)
-        self.assertIn('  radius-2: "400px"', front)
+        self.assertIn('  full: "9999px"', front)
+        self.assertIn('  radius-1: "400px"', front)
         self.assertNotIn("rgba(", front)
+        self.assertNotIn("opacity", front)
         body = brief_mod.design_md(self.ref).split("---\n", 2)[2]
         self.assertIn("- Container width: 1344px", body)
 

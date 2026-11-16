@@ -16,8 +16,8 @@ TERMS = {
     "accent": (
         "Accent (the saturated colour that draws the eye)",
         "A small share keeps it for emphasis; a large share competes with the content. "
-        "Hallmark's line (not Piggyback's verdict): past about 5% of a viewport it warns, "
-        "past 8% it fails.",
+        "Hallmark's line (not Piggyback's verdict): accent past about 5% of a viewport is a "
+        "reflex unless the design declares that posture; its render check fails past 8%.",
     ),
     "radius": (
         "Radius (how rounded the corners of a box are)",

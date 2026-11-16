@@ -147,6 +147,12 @@ class BriefTests(unittest.TestCase):
         ref = {"type": {"font_size": [{"value": "13.3333px", "share": 1}]}}
         self.assertIn("13.3px", brief_mod.brief([ref]))
 
+    def test_sizes_that_round_alike_are_listed_once(self):
+        rows = [{"value": "13.3333px", "share": 0.5}, {"value": "13.34px", "share": 0.5}]
+        ref = {"type": {"font_size": rows}}
+        self.assertNotIn("13.3px, 13.3px", brief_mod.brief([ref]))
+        self.assertEqual(brief_mod.design_md(ref).count('"13.3": '), 1)
+
 
 class GapTests(unittest.TestCase):
     def setUp(self):

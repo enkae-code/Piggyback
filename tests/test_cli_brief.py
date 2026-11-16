@@ -93,6 +93,14 @@ class DesignMdCliTests(unittest.TestCase):
             self.assertIn("already exists", err)
             self.assertEqual(victim.read_text(encoding="utf-8"), "keep")
 
+    def test_out_and_design_md_must_be_different_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "D.md"
+            code, _, err = run(["brief", REF, "--out", str(target), "--design-md", str(target)])
+            self.assertEqual(code, 1)
+            self.assertIn("different files", err)
+            self.assertFalse(target.exists())
+
     def test_design_md_never_replaces_an_existing_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "DESIGN.md"

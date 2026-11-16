@@ -102,6 +102,8 @@ def run_brief(paths, build_path, out, design_path=None):
             build = fingerprints.load(build_path)
             text += "\n" + gap_mod.render(gap_mod.gap(refs[0], build))
         if design_path:
+            if out and Path(out).resolve() == Path(design_path).resolve():
+                raise ValueError("--out and --design-md must be different files")
             _write_design(design_path, brief_mod.design_md(refs[0]))
     except (OSError, ValueError) as exc:
         print(f"brief failed: {exc}", file=sys.stderr)
