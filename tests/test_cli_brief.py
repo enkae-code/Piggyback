@@ -101,6 +101,15 @@ class DesignMdCliTests(unittest.TestCase):
             self.assertIn("different files", err)
             self.assertFalse(target.exists())
 
+    def test_bad_out_path_fails_cleanly_and_writes_no_design_md(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            design = Path(tmp) / "DESIGN.md"
+            out = Path(tmp) / "missing" / "BRIEF.md"
+            code, _, err = run(["brief", REF, "--out", str(out), "--design-md", str(design)])
+            self.assertEqual(code, 1)
+            self.assertIn("brief failed:", err)
+            self.assertFalse(design.exists())
+
     def test_design_md_never_replaces_an_existing_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "DESIGN.md"
