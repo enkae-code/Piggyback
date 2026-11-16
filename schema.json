@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Piggyback reference frontmatter (spec v1)",
+  "type": "object",
+  "required": ["piggyback", "by", "by_kind", "license"],
+  "properties": {
+    "piggyback": {"const": 1},
+    "by": {"type": "string", "minLength": 1, "description": "Who made or wrote the reference; free text."},
+    "by_kind": {"enum": ["human", "agent"]},
+    "license": {
+      "description": "SPDX licence identifier, or inspiration-only.",
+      "anyOf": [
+        {"const": "inspiration-only"},
+        {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9.+-]*$"}
+      ]
+    },
+    "attribution": {"type": "string", "minLength": 1},
+    "license_url": {"type": "string", "pattern": "^https?://"},
+    "captured_with": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}
