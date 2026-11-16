@@ -34,7 +34,7 @@ class McpIntegration(unittest.TestCase):
         cls.site.server_close()
 
     def test_check_on_the_loopback_build_reports_defaults(self):
-        build = f"http://127.0.0.1:{self.site.server_address[1]}/index.html"
+        build = f"http://127.0.0.1:{self.site.server_address[1]}/effects.html"
         request = {
             "jsonrpc": "2.0",
             "id": 1,
