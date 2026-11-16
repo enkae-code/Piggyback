@@ -9,13 +9,18 @@
 <body>
   <a class="skip" href="#main">Skip to measure</a>
   <header class="top">
-    <img class="logo" src="/logo.svg" alt="Piggyback" width="90" height="28">
-    <p class="status" id="status" role="status" aria-live="polite"></p>
+    <div class="wrap top-row">
+      <img class="logo" src="/logo.svg" alt="Piggyback" width="90" height="28">
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </div>
   </header>
-  <main id="main">
+  <main id="main" class="wrap">
     <form class="slots" id="slots" novalidate>
-      <fieldset class="slot">
-        <legend>Reference <span class="hint">1 to 3, a page you admire</span></legend>
+      <section class="slot" role="group" aria-labelledby="ref-title">
+        <div class="slot-head">
+          <h2 class="slot-title" id="ref-title">Reference</h2>
+          <p class="hint">1 to 3, a page you admire</p>
+        </div>
         <ul class="chips" id="ref-list"></ul>
         <div class="row">
           <label class="vh" for="ref-input">Reference URL</label>
@@ -24,15 +29,18 @@
           <button type="button" class="btn" id="ref-add">Add reference</button>
         </div>
         <p class="error" id="ref-error" hidden></p>
-      </fieldset>
-      <fieldset class="slot">
-        <legend>Your build <span class="hint">optional: localhost or a preview link</span></legend>
+      </section>
+      <section class="slot" role="group" aria-labelledby="build-title">
+        <div class="slot-head">
+          <h2 class="slot-title" id="build-title">Your build</h2>
+          <p class="hint">Optional: localhost or a preview link</p>
+        </div>
         <div class="row">
           <label class="vh" for="build-input">Build URL</label>
           <input id="build-input" type="url" inputmode="url" autocomplete="off" spellcheck="false"
                  placeholder="http://localhost:3000">
         </div>
-      </fieldset>
+      </section>
       <div class="actions">
         <button type="submit" class="btn primary" id="measure">Measure</button>
         <button type="button" class="btn" id="rerun" hidden>Re-run</button>
@@ -43,6 +51,13 @@
     <textarea class="fallback" id="fallback" readonly hidden aria-label="BRIEF.md text"></textarea>
     <section class="result" id="result" aria-live="polite"></section>
   </main>
+  <dialog id="zoom" aria-labelledby="zoom-title">
+    <div class="zoom-head">
+      <h2 class="section-title" id="zoom-title"></h2>
+      <button type="button" class="btn" id="zoom-close">Close</button>
+    </div>
+    <div id="zoom-body"></div>
+  </dialog>
   <script src="/app.js"></script>
 </body>
 </html>

@@ -90,12 +90,41 @@ def _slots(body):
     return refs, build
 
 
+HEX = re.compile(r"#[0-9a-fA-F]{6}\b")
+PX = re.compile(r"(\d+(?:\.\d+)?)px")
+
+
+def _visual(concept, detail):
+    """Values the page draws (swatches, type sizes, radii) read from the measured detail text."""
+    if concept == "palette":
+        items = HEX.findall(detail)
+        return {"kind": "swatches", "items": items} if items else None
+    if concept in ("type_scale", "radius"):
+        items = [float(value) for value in PX.findall(detail)]
+        kind = "sizes" if concept == "type_scale" else "radii"
+        return {"kind": kind, "items": items} if items else None
+    return None
+
+
 def _line(concept, detail, seen):
     """One glossary line. The why-it-matters sentence is shown once per concept on the page."""
     name, reason = TERMS[concept]
     why = None if concept in seen else reason
     seen.add(concept)
-    return {"concept": concept, "name": name, "detail": _plain(detail), "why": why}
+    text = _plain(detail)
+    return {
+        "concept": concept,
+        "name": name,
+        "detail": text,
+        "why": why,
+        "visual": _visual(concept, text),
+    }
+
+
+def _arrow(line):
+    """Split 'build → reference' so the page can show the two values apart."""
+    before, sep, after = line["detail"].partition(" → ")
+    return {**line, "before": before, "after": after} if sep else line
 
 
 def _view(fp):
@@ -129,7 +158,7 @@ def _compare(fps, build_fp, seen):
     pins = gap_mod.gap(fps[0], build_fp)
     views = [
         {
-            **_line(pin.concept, pin.detail, seen),
+            **_arrow(_line(pin.concept, pin.detail, seen)),
             "number": pin.number,
             "ref_box": pin.ref_box,
             "build_box": pin.build_box,
@@ -170,18 +199,19 @@ class Screen(ThreadingHTTPServer):
         self.shots = {}  # opaque id -> screenshot path, last run only
         self.last_text = None  # BRIEF.md text of the last run
 
-    def run(self, refs, build):
+    def run(self, refs, build, typed=None):
         shots = {}
 
-        def shoot(url, allow_loopback):
+        def shoot(url, allow_loopback, shown=None):
             shot_id = secrets.token_hex(16)
             path = self.shot_dir / f"{shot_id}.png"
             fp = measure(url, allow_loopback=allow_loopback, screenshot=path)
             shots[shot_id] = path
-            return {**fp, "shot": shot_id}
+            return {**fp, "url": shown or fp["url"], "shot": shot_id}
 
         fps = [shoot(url, False) for url in refs]
-        build_fp = shoot(build, True) if build else None
+        # The page shows the build as the user typed it (localhost), not the address we measured.
+        build_fp = shoot(build, True, typed) if build else None
         payload, text = _render(fps, build_fp)
         for old in self.shots.values():
             old.unlink(missing_ok=True)
@@ -259,7 +289,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.server.busy.acquire(blocking=False):
             return self._error(429, "a measure is already running")
         try:
-            result = self.server.run(refs, build)
+            result = self.server.run(refs, build, body.get("build") or None)
         except MeasureError as exc:
             return self._error(422, str(exc))
         finally:

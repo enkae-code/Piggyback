@@ -201,6 +201,16 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(written, body["text"])
         self.assertTrue(written.startswith("# Design brief"))
 
+    def test_build_is_shown_as_typed_and_visuals_come_from_measured_values(self):
+        _, data = self.post_measure(
+            {"references": ["https://example.com"], "build": "http://localhost:3000"}
+        )
+        self.assertEqual(data["build"]["url"], "http://localhost:3000")
+        _, brief = self.post_measure({"references": ["https://example.com"]})
+        visuals = [line["visual"] for line in brief["references"][0]["lines"]]
+        kinds = {visual["kind"] for visual in visuals if visual}
+        self.assertTrue({"swatches", "sizes", "radii"} <= kinds)
+
     def test_compare_result_names_pins_and_not_found_once_per_concept(self):
         _, data = self.post_measure(
             {"references": ["https://example.com"], "build": "http://localhost:3000"}
