@@ -105,6 +105,11 @@ class MeasureIntegration(unittest.TestCase):
         anchors = measure(f"{self.base}/index.html", allow_loopback=True)["anchors"]
         self.assertLess(anchors["heading"]["box"]["width"], 600)
         self.assertGreater(anchors["heading"]["box"]["width"], 100)
+        # Text parked off to the side (animated headings) must not stretch the box past the element.
+        box = measure(f"{self.base}/heading-offscreen.html", allow_loopback=True)["anchors"][
+            "heading"
+        ]["box"]
+        self.assertLessEqual(box["x"] + box["width"], 1440)
 
     def test_index_fingerprint_and_policy(self):
         with tempfile.TemporaryDirectory() as tmp:

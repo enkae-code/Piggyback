@@ -191,12 +191,17 @@
 
   // Anchors. Each is null when the page has no such element; never guessed.
   // Text anchors (heading, body) are blocks as wide as their container; their pin belongs on the
-  // ink, so their box is the bounding box of their text, falling back to the element box.
+  // ink, so their box is the bounding box of their text clipped to the element (animated headings
+  // park copies of their words off to the side), falling back to the element box.
   const inkRect = (b) => {
     const range = document.createRange();
     range.selectNodeContents(b.el);
     const r = range.getBoundingClientRect();
-    return r.width > 0 && r.height > 0 ? r : b.r;
+    const left = Math.max(r.left, b.r.left);
+    const top = Math.max(r.top, b.r.top);
+    const width = Math.min(r.right, b.r.right) - left;
+    const height = Math.min(r.bottom, b.r.bottom) - top;
+    return width > 0 && height > 0 ? { left, top, width, height } : b.r;
   };
   const describe = (b, ink = false) =>
     b && {
