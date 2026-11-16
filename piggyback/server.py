@@ -6,12 +6,14 @@ Results live in memory for the session. Screenshots are served by opaque id from
 
 import ipaddress
 import json
+import os
 import re
 import secrets
 import signal
 import sys
 import tempfile
 import threading
+import traceback
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -20,6 +22,7 @@ from urllib.parse import urlsplit
 from . import brief as brief_mod
 from . import defaults as defaults_mod
 from . import gap as gap_mod
+from . import netpolicy
 from .glossary import TERMS
 from .measure import MeasureError, check_url, measure
 
@@ -99,6 +102,10 @@ def _slots(body):
         check_url(url)
     if build:
         check_url(build, allow_loopback=True)
+        # Loopback reach is only for a literal loopback address (see run); a name that resolves to
+        # loopback (lvh.me, 127.1) would be measured without it and fail late with a CLI hint.
+        if not _on_this_machine(build) and not netpolicy.url_allowed(build):
+            raise ValueError("for a build on this machine, use localhost or 127.0.0.1")
     return refs, build
 
 
@@ -305,6 +312,7 @@ class Handler(BaseHTTPRequestHandler):
         except MeasureError as exc:
             return self._error(422, str(exc))
         except Exception:  # noqa: BLE001 - answer the page instead of dropping the connection
+            traceback.print_exc()
             return self._error(500, "measure failed unexpectedly; see the terminal")
         finally:
             self.server.busy.release()
@@ -317,8 +325,11 @@ class Handler(BaseHTTPRequestHandler):
         path = self.server.out_dir / "BRIEF.md"
         if path.is_symlink():
             return self._error(409, f"refusing to write through a symlink: {path}")
+        # O_NOFOLLOW closes the check-then-open gap where the OS has it (not on Windows).
+        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
         try:
-            path.write_text(text, encoding="utf-8")
+            with os.fdopen(os.open(path, flags, 0o644), "w", encoding="utf-8") as out:
+                out.write(text)
         except OSError as exc:
             return self._error(500, f"could not write {path}: {exc.strerror}")
         return self._json(200, {"path": str(path), "text": text})

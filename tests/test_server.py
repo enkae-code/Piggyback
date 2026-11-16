@@ -156,6 +156,15 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.measure.assert_not_called()
 
+    def test_build_name_resolving_to_loopback_is_refused_with_a_screen_hint(self):
+        # Only the policy's resolver is faked; the test client still resolves normally.
+        with mock.patch("piggyback.netpolicy.socket") as fake:
+            fake.getaddrinfo.return_value = [(2, 1, 6, "", ("127.0.0.1", 0))]
+            status, data = self.post_measure({"build": "http://lvh.me:3000/"})
+        self.assertEqual(status, 400)
+        self.assertIn("localhost or 127.0.0.1", data["error"])
+        self.measure.assert_not_called()
+
     def test_overlong_url_is_refused(self):
         url = "https://example.com/" + "a" * server.MAX_URL
         self.assertEqual(self.post_measure({"references": [url]})[0], 400)
