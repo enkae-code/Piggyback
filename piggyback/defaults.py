@@ -59,13 +59,20 @@ def _repeated_motion(build):
         props = fp.get(row, "props")
         count = fp.number(fp.get(row, "count"))
         duration = fp.number(fp.get(row, "duration"))
-        if not isinstance(props, list) or count is None or duration is None:
+        if not _names(props) or count is None or duration is None:
             continue
         if {"opacity", "transform"} <= set(props) and count >= MIN_REPEATS:
             return (
                 "repeated_motion",
                 f"opacity and transform on {count:g} elements over {duration:g}ms",
             )
+    return None
+
+
+def _names(props):
+    """Property names from a motion row: a list of strings, or None for anything else."""
+    if isinstance(props, list) and all(isinstance(prop, str) for prop in props):
+        return props
     return None
 
 

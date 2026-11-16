@@ -3,39 +3,49 @@
 import json
 import math
 import re
-from pathlib import Path
+import unicodedata
 
 MAX_BYTES = 5 * 1024 * 1024
 MAX_TEXT = 60
-CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]")
 MARKDOWN = re.compile(r"([\\`*_\[\]<>|#~!])")
 PX = re.compile(r"-?\d+(?:\.\d+)?px")
 RGB = re.compile(r"rgba?\([\d.,\s/%]{1,80}\)")
-FONT = re.compile(r"[A-Za-z0-9][A-Za-z0-9 .-]{0,39}")
-# Heuristic only: a font name that reads like an instruction is dropped. A name made of plain
-# words can still get through, so BRIEF.md names fonts and never tells the agent to install them.
+# Shell metacharacters (/ ; | & $ ` quotes) are outside the set, so they never reach BRIEF.md.
+FONT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9 ._-]{0,39}")
+# Heuristic only, and kept to words no real font is named with. The character set and length cap
+# do the real work; the framing line in BRIEF.md tells the agent these values are data.
 COMMAND_WORDS = re.compile(
-    r"\b(ignore|instructions?|install|npm|pip|curl|wget|exec|run|prompt|assistant|system)\b",
+    r"\b(ignore|instructions?|install|npm|pip|curl|wget|exec)\b",
     re.IGNORECASE,
 )
 
 
 def load(path):
     """Parse one fingerprint file. Raises ValueError for anything that is not a JSON object."""
-    if Path(path).stat().st_size > MAX_BYTES:
+    with open(path, "rb") as handle:  # bounded read: FIFOs and devices report no useful size
+        raw = handle.read(MAX_BYTES + 1)
+    if len(raw) > MAX_BYTES:
         raise ValueError(f"{path}: larger than 5 MB")
     try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
-    except ValueError:  # JSON and UTF-8 decode errors
+        data = json.loads(raw.decode("utf-8"))
+    except (ValueError, RecursionError):  # bad JSON, bad UTF-8, or nesting too deep to parse
         raise ValueError(f"{path}: not valid JSON") from None
     if not isinstance(data, dict):
         raise ValueError(f"{path}: not a fingerprint object")
     return data
 
 
+def hidden(char):
+    """Control, format (bidi, zero-width, tags, BOM), unassigned, private-use and surrogate
+    characters: none show a reader anything, so none reach BRIEF.md. Line and paragraph
+    separators (Zl, Zp) are whitespace, so the split in clean() already removes them."""
+    return unicodedata.category(char)[0] == "C"
+
+
 def clean(text, limit=MAX_TEXT):
-    """Text safe inside BRIEF.md: no control characters, markdown escaped, length capped."""
-    flat = " ".join(CONTROL.sub(" ", str(text)).split())[:limit]
+    """Text safe inside BRIEF.md: no hidden characters, markdown escaped, length capped."""
+    flat = "".join(" " if hidden(char) else char for char in str(text))
+    flat = " ".join(flat.split())[:limit]
     return MARKDOWN.sub(r"\\\1", flat)
 
 
