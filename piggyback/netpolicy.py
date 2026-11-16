@@ -9,11 +9,17 @@ BLOCKED_NAMES = ("localhost", ".localhost", ".local")
 
 
 def ip_allowed(ip, allow_loopback=False):
-    if ip.is_loopback:  # IPv4-mapped loopback (::ffff:127.0.0.1) counts too
+    # Older 3.11 patch releases judge ::ffff:a.b.c.d by its IPv6 form and call 6to4 and Teredo
+    # global, so unwrap the mapped form and refuse the tunnels (they can wrap any IPv4) here.
+    if ip.version == 6:
+        if ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        elif ip.sixtofour is not None or ip.teredo is not None:
+            return False
+    if ip.is_loopback:
         return allow_loopback
-    # is_global already rejects CGNAT, private, unspecified, 6to4, Teredo and IPv4-mapped
-    # private space (same answers as IPv4 on 3.11-3.14). It does not reject multicast or
-    # reserved space such as 4000::/3, so those stay explicit.
+    # is_global rejects CGNAT, private and unspecified space; not multicast or reserved space
+    # such as 4000::/3, so those stay explicit.
     return ip.is_global and not (ip.is_multicast or ip.is_reserved)
 
 
