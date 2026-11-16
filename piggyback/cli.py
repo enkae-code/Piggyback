@@ -8,7 +8,7 @@ from pathlib import Path
 
 from . import format as ref_format
 from .browser import BrowserUnavailable, launch
-from .measure import MeasureError, measure
+from .measure import MeasureError, check_url, measure
 
 SANDBOX_HELP = (
     "Chromium would not start with its sandbox. Install Google Chrome, or run "
@@ -21,9 +21,15 @@ SANDBOX_HELP = (
 
 def check_refs(directory):
     root = Path(directory)
+    if not root.is_dir():
+        print(f"{directory}: not a directory")
+        return 1
     refs = root / "refs" if (root / "refs").is_dir() else root
-    failures = 0
     paths = sorted(refs.glob("*.md"))
+    if not paths:
+        print(f"{refs}: no refs found")
+        return 1
+    failures = 0
     for path in paths:
         try:
             meta, *_ = ref_format.parse_ref(path.read_text(encoding="utf-8"))
@@ -45,6 +51,11 @@ def viewport_arg(value):
 
 
 def run_measure(url, out, viewport, allow_loopback):
+    try:
+        check_url(url, allow_loopback)
+    except MeasureError as exc:
+        print(f"measure failed: {exc}", file=sys.stderr)
+        return 1
     out_dir = Path(out)
     out_dir.mkdir(parents=True, exist_ok=True)
     shot = out_dir / "screenshot.png"
@@ -74,17 +85,22 @@ def doctor():
         print("playwright: not installed; run: pip install 'piggyback-design[measure]'")
         return 1
     print("playwright: installed")
-    with sync_playwright() as p:
-        try:
-            browser, label = launch(p)
-        except BrowserUnavailable as exc:
-            print(f"browser: FAILED {exc}")
-            print(SANDBOX_HELP)
-            return 1
-        print(
-            f"browser: starts with sandbox ({label}, {browser.browser_type.name} {browser.version})"
-        )
-        browser.close()
+    try:
+        with sync_playwright() as p:
+            try:
+                browser, label = launch(p)
+            except BrowserUnavailable as exc:
+                print(f"browser: FAILED {exc}")
+                print(SANDBOX_HELP)
+                return 1
+            print(
+                f"browser: starts with sandbox ({label}, "
+                f"{browser.browser_type.name} {browser.version})"
+            )
+            browser.close()
+    except Exception as exc:  # the Playwright driver itself did not start
+        print(f"playwright: FAILED to start: {(str(exc).strip() or repr(exc)).splitlines()[0]}")
+        return 1
     return 0
 
 

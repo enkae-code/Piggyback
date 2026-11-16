@@ -79,7 +79,7 @@ def _license_ok(value):
 def _field_problems(meta):
     # Each rule: (key, is_valid(value) for present values, message).
     rules = (
-        ("piggyback", lambda v: v == VERSION, f"piggyback must be {VERSION}"),
+        ("piggyback", lambda v: type(v) is int and v == VERSION, f"piggyback must be {VERSION}"),
         ("by", _is_text, "by must be non-empty text"),
         ("by_kind", lambda v: v in BY_KINDS, f"by_kind must be one of: {', '.join(BY_KINDS)}"),
         ("license", _license_ok, "license must be an SPDX id or inspiration-only"),

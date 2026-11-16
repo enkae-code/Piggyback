@@ -32,6 +32,18 @@ class CheckRefsTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("by_kind must be one of", out)
 
+    def test_empty_refs_dir_fails(self):
+        code, out = self.run_check({})
+        self.assertEqual(code, 1)
+        self.assertIn("no refs found", out)
+
+    def test_missing_dir_fails(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = check_refs("/no/such/piggyback/dir")
+        self.assertEqual(code, 1)
+        self.assertIn("not a directory", out.getvalue())
+
     def test_unparseable_file_reported(self):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "x.md").write_text("no fences here", encoding="utf-8")

@@ -1,9 +1,27 @@
+import contextlib
+import io
+import tempfile
 import unittest
+from pathlib import Path
 
+from piggyback.cli import main
 from piggyback.measure import MeasureError, measure
 
 
 class MeasureRefusalTests(unittest.TestCase):
+    def test_hint_only_when_loopback_would_be_allowed(self):
+        with self.assertRaises(MeasureError) as ctx:
+            measure("http://10.0.0.1/")
+        self.assertNotIn("--allow-loopback", str(ctx.exception))
+
+    def test_cli_refuses_before_creating_out_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "new"
+            with contextlib.redirect_stderr(io.StringIO()):
+                code = main(["measure", "http://10.0.0.1/", "--out", str(out)])
+            self.assertEqual(code, 1)
+            self.assertFalse(out.exists())
+
     # These refuse before any browser starts, so they run without Playwright.
     def test_loopback_refused_without_flag(self):
         with self.assertRaisesRegex(MeasureError, "--allow-loopback"):

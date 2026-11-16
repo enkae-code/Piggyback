@@ -39,6 +39,7 @@ class FormatTests(unittest.TestCase):
         cases = {
             "missing by": {**GOOD, "by": None},
             "bad version": {**GOOD, "piggyback": 2},
+            "bool version": {**GOOD, "piggyback": True},  # True == 1 in Python
             "bad by_kind": {**GOOD, "by_kind": "brodey"},
             "bad licence": {**GOOD, "license": "not a licence!"},
             "bad licence url": {**GOOD, "license_url": "file:///etc/passwd"},
