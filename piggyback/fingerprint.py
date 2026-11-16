@@ -77,6 +77,23 @@ def rgb(value):
     return value if isinstance(value, str) and RGB.fullmatch(value) else None
 
 
+def rgba(value):
+    """(red, green, blue, alpha) from a computed 'rgb()' or 'rgba()' string, or None."""
+    if not isinstance(value, str) or not RGB.fullmatch(value) or "%" in value:
+        return None
+    nums = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", value)]
+    if len(nums) == 3:
+        nums.append(1.0)
+    if len(nums) != 4 or max(nums[:3]) > 255 or nums[3] > 1:
+        return None
+    return tuple(nums)
+
+
+def fmt(value):
+    """A number for BRIEF.md and pins: one decimal at most, so 13.3333 reads 13.3."""
+    return f"{round(value, 1):g}"
+
+
 def font_names(value):
     """Family names from a computed font-family list, instruction-like names dropped."""
     names = []

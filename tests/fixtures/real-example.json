@@ -1,0 +1,108 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "type": {
+    "font_size": [
+      {
+        "value": "14px",
+        "share": 0.78
+      },
+      {
+        "value": "16px",
+        "share": 0.22
+      }
+    ],
+    "line_height": [
+      {
+        "value": "22.4px",
+        "share": 0.78
+      },
+      {
+        "value": "25.6px",
+        "share": 0.22
+      }
+    ],
+    "letter_spacing": [
+      {
+        "value": "normal",
+        "share": 1
+      }
+    ],
+    "font_weight": [
+      {
+        "value": "400",
+        "share": 1
+      }
+    ],
+    "families": [
+      {
+        "value": "system-ui, sans-serif",
+        "share": 1
+      }
+    ]
+  },
+  "palette": {
+    "text": [
+      {
+        "value": "rgb(0, 0, 0)",
+        "share": 0.99
+      },
+      {
+        "value": "rgb(0, 0, 238)",
+        "share": 0.01
+      }
+    ],
+    "background": [],
+    "accent_share": 0
+  },
+  "radius": [],
+  "shadow": [],
+  "spacing": {
+    "gaps": [],
+    "padding": []
+  },
+  "container_width": 44,
+  "motion": [],
+  "effects": {
+    "gradient_text": 0,
+    "tinted_icon_squares": 0
+  },
+  "anchors": {
+    "heading": null,
+    "body": {
+      "tag": "p",
+      "text": "This domain is for use in documentation examples without needing permission. Thi",
+      "font_size": "16px",
+      "line_height": "25.6px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "system-ui, sans-serif",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 512,
+        "y": 241,
+        "width": 416,
+        "height": 102
+      }
+    },
+    "cta": null,
+    "nav": null,
+    "card": null
+  },
+  "url": "https://example.com",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "bundled chromium",
+  "captured_at": "2026-11-16T08:39:33+00:00",
+  "blocked_requests": [],
+  "screenshot": "/home/brodey/.hermes/cache/scratch/pb2/build/screenshot.png"
+}

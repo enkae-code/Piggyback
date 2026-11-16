@@ -30,7 +30,7 @@ class BriefCliTests(unittest.TestCase):
         code, out, _ = run(["brief", REF, "--build", BUILD])
         self.assertEqual(code, 0)
         self.assertIn("## Differences (build → reference)", out)
-        self.assertIn("- ① Type scale", out)
+        self.assertIn("- ① Heading type", out)
 
     def test_build_needs_exactly_one_reference(self):
         code, out, err = run(["brief", REF, BUILD, "--build", BUILD])

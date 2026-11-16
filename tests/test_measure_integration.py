@@ -125,6 +125,21 @@ class MeasureIntegration(unittest.TestCase):
         rise = [m for m in result["motion"] if {"opacity", "transform"} <= set(m["props"])]
         self.assertEqual(rise[0]["count"], 3)
 
+    def test_container_is_the_centred_body_column(self):
+        result = measure(f"{self.base}/container-body.html", allow_loopback=True)
+        self.assertEqual(result["container_width"], 416)  # body max-width: 26em at 16px
+
+    def test_container_is_the_inner_wrapper_and_hidden_text_is_dropped(self):
+        result = measure(f"{self.base}/container-sections.html", allow_loopback=True)
+        self.assertEqual(result["container_width"], 1100)
+        self.assertEqual(result["anchors"]["heading"]["text"], "Ship faster")
+        self.assertIsNone(result["anchors"]["card"])  # empty 120px boxes are not cards
+
+    def test_no_max_width_means_no_container(self):
+        self.assertIsNone(
+            measure(f"{self.base}/plain.html", allow_loopback=True)["container_width"]
+        )
+
     def test_missing_anchor_is_null(self):
         result = measure(f"{self.base}/plain.html", allow_loopback=True)
         self.assertIsNone(result["anchors"]["cta"])

@@ -33,6 +33,18 @@
       .map(([value, w]) => ({ value, share: round(w / sum) }));
   };
   const textOf = (el) => (el.innerText || "").trim();
+  // Text a reader sees: visually-hidden copies (1px boxes) are skipped; innerText keeps them.
+  const seenText = (el) => {
+    let out = "";
+    for (const node of el.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE) out += node.textContent;
+      else if (node.nodeType === Node.ELEMENT_NODE) {
+        const r = node.getBoundingClientRect();
+        if (r.width > 1 && r.height > 1) out += ` ${seenText(node)} `;
+      }
+    }
+    return out;
+  };
   const best = (list, score) =>
     list.reduce((top, b) => (top === null || score(b) > score(top) ? b : top), null);
 
@@ -99,14 +111,12 @@
   // Spacing: vertical gaps between children that overlap horizontally (stacked), plus padding.
   const gaps = [];
   const padding = [];
-  let container = null;
   for (const b of boxes) {
     for (const side of ["paddingTop", "paddingRight", "paddingBottom", "paddingLeft"]) {
       if (b.cs[side] !== "0px") padding.push([b.cs[side], 1]);
     }
     const kids = [...b.el.children].map((c) => byEl.get(c)).filter(Boolean);
     if (kids.length < 2) continue;
-    if (b.r.width < VW && (container === null || b.r.width > container)) container = b.r.width;
     kids.sort((x, y) => x.r.top - y.r.top);
     for (let i = 1; i < kids.length; i++) {
       const prev = kids[i - 1].r;
@@ -158,7 +168,7 @@
   const describe = (b) =>
     b && {
       tag: b.tag.toLowerCase(),
-      text: textOf(b.el).slice(0, 80),
+      text: seenText(b.el).replace(/\s+/g, " ").trim().slice(0, 80),
       font_size: b.cs.fontSize,
       line_height: b.cs.lineHeight,
       letter_spacing: b.cs.letterSpacing,
@@ -200,14 +210,29 @@
     if (!siblings.has(sig)) siblings.set(sig, []);
     siblings.get(sig).push(b);
   }
+  // A card is a visible box with text or child elements: an empty decorative span is not one.
+  const isCard = (b) => b.area >= 2500 && (textOf(b.el) !== "" || b.el.children.length > 0);
   let repeated = null;
   for (const siblings of groups.values()) {
     for (const list of siblings.values()) {
-      if (list.length >= 3 && (repeated === null || list.length > repeated.length)) {
-        repeated = list;
+      const cards = list.filter(isCard);
+      if (cards.length >= 3 && (repeated === null || cards.length > repeated.length)) {
+        repeated = cards;
       }
     }
   }
+
+  // Container: the nearest ancestor of the body text (else the heading) that sets a px max-width
+  // and renders narrower than the viewport. Null when there is none: never a guess.
+  const column = (anchor) => {
+    for (let el = anchor ? anchor.el.parentElement : null; el; el = el.parentElement) {
+      if (!/^[\d.]+px$/.test(getComputedStyle(el).maxWidth)) continue;
+      const width = el.getBoundingClientRect().width;
+      return width > 0 && width < VW ? width : null;
+    }
+    return null;
+  };
+  const container = column(body || heading);
 
   return {
     viewport: { width: VW, height: VH },

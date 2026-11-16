@@ -8,6 +8,7 @@ from piggyback import gap as gap_mod
 
 FIXTURES = Path(__file__).parent / "fixtures" / "fingerprints"
 BRACKETS = re.compile(r"(?<!\\)[\[\]`<>]")  # an unescaped character a renderer could act on
+HEX = re.compile(r"#[0-9a-f]{6}")
 
 
 def load(name):
@@ -64,6 +65,37 @@ class BriefTests(unittest.TestCase):
         self.assertIn("not measured", text)
         self.assertNotIn("score", text.lower())
 
+    def test_palette_merges_near_duplicates_and_keeps_five(self):
+        colours = [
+            "rgb(10, 10, 10)",
+            "rgb(12, 11, 10)",
+            "rgb(200, 0, 0)",
+            "rgb(0, 200, 0)",
+            "rgb(0, 0, 200)",
+            "rgb(200, 200, 0)",
+            "rgb(0, 200, 200)",
+            "rgb(200, 0, 200)",
+        ]
+        ref = {"palette": {"background": [{"value": c, "share": 0.1} for c in colours]}}
+        line = next(x for x in brief_mod.brief([ref]).splitlines() if x.startswith("- Palette"))
+        self.assertEqual(len(HEX.findall(line)), 5)
+        self.assertIn("background #0a0a0a (20%)", line)  # 10,10,10 and 12,11,10 read as one
+
+    def test_colours_under_half_a_percent_are_dropped(self):
+        ref = {"palette": {"background": [{"value": "rgb(9, 9, 9)", "share": 0}]}}
+        line = next(x for x in brief_mod.brief([ref]).splitlines() if x.startswith("- Palette"))
+        self.assertIn("not measured", line)
+
+    def test_translucent_colour_is_shown_as_hex_with_opacity(self):
+        ref = {"palette": {"background": [{"value": "rgba(255, 255, 255, 0.04)", "share": 0.5}]}}
+        line = next(x for x in brief_mod.brief([ref]).splitlines() if x.startswith("- Palette"))
+        self.assertIn("#ffffff at 4% opacity (50%)", line)
+        self.assertNotIn("rgba", line)
+
+    def test_type_sizes_round_to_one_decimal(self):
+        ref = {"type": {"font_size": [{"value": "13.3333px", "share": 1}]}}
+        self.assertIn("13.3px", brief_mod.brief([ref]))
+
 
 class GapTests(unittest.TestCase):
     def setUp(self):
@@ -76,7 +108,7 @@ class GapTests(unittest.TestCase):
         self.assertEqual(pins[0].detail, "Heading 36/44 → 56/58, -0.02em")
         self.assertEqual(pins[1].detail, "accent on 19% of the page → 2%")
         self.assertEqual(pins[2].detail, "1280px → 1200px")
-        self.assertEqual(pins[3].detail, "Navigation: not found on the build")
+        self.assertEqual(pins[3].detail, "Navigation: not found on the build — can't compare")
 
     def test_boxes_travel_with_the_pin(self):
         heading = gap_mod.gap(self.ref, self.build)[0]
@@ -86,14 +118,14 @@ class GapTests(unittest.TestCase):
     def test_missing_anchor_is_never_guessed(self):
         build = {**self.build, "anchors": {**self.build["anchors"], "cta": None, "heading": None}}
         details = [pin.detail for pin in gap_mod.gap(self.ref, build) if pin.number is None]
-        self.assertIn("Primary button: not found on the build", details)
-        self.assertIn("Heading: not found on the build", details)
+        self.assertIn("Primary button: not found on the build — can't compare", details)
+        self.assertIn("Heading: not found on the build — can't compare", details)
 
     def test_anchor_missing_on_both_sides_names_both(self):
         ref = {**self.ref, "anchors": {**self.ref["anchors"], "heading": None}}
         build = {**self.build, "anchors": {**self.build["anchors"], "heading": None}}
         details = [pin.detail for pin in gap_mod.gap(ref, build) if pin.number is None]
-        self.assertIn("Heading: not found on the reference and the build", details)
+        self.assertIn("Heading: not found on the reference and the build — can't compare", details)
 
     def heading_gap(self, size):
         heading = {"font_size": f"{size}px", "line_height": "58px", "letter_spacing": "-1.12px"}
@@ -122,9 +154,19 @@ class GapTests(unittest.TestCase):
     def test_render_numbers_and_explains_each_pin(self):
         text = gap_mod.render(gap_mod.gap(self.ref, self.build))
         self.assertIn("## Differences (build → reference)", text)
-        self.assertIn("- ① Type scale (the set", text)
+        self.assertIn("- ① Heading type (", text)
         self.assertIn("- ② Accent (the saturated", text)
-        self.assertEqual(text.count("  - Why it matters:"), 4)
+        self.assertIn("- Navigation: not found on the build — can't compare", text)
+        self.assertEqual(
+            text.count("  - Why it matters:"), 3
+        )  # once per concept, not-found has none
+
+    def test_why_line_is_said_once_per_concept(self):
+        pins = [
+            gap_mod.Pin(1, "accent", "a", None, None),
+            gap_mod.Pin(2, "accent", "b", None, None),
+        ]
+        self.assertEqual(gap_mod.render(pins).count("Why it matters"), 1)
 
     def test_garbage_fingerprints_give_not_found_not_a_crash(self):
         pins = gap_mod.gap({}, {})

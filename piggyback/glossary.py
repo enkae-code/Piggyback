@@ -33,6 +33,26 @@ TERMS = {
         "Fonts (the typefaces named on the page)",
         "The typeface sets the page's voice, so matching it matters as much as matching sizes.",
     ),
+    "heading_type": (
+        "Heading type (size and line spacing of the main heading)",
+        "A heading's size sets the top step of the hierarchy.",
+    ),
+    "body_type": (
+        "Body text type (size and line spacing of running text)",
+        "Comfortable line spacing keeps longer text easy to follow.",
+    ),
+    "button_type": (
+        "Button label (the text on the main action)",
+        "A clear label on the main action makes the next step obvious.",
+    ),
+    "nav_type": (
+        "Navigation type (the menu labels)",
+        "Menu labels at a consistent size keep the navigation calm.",
+    ),
+    "card_type": (
+        "Repeated card type (the text in repeated boxes)",
+        "Repeated boxes with matching type read as one system.",
+    ),
     "gradient_text": (
         "Gradient text (words filled with a colour blend)",
         "A common default; the colour blend pulls attention away from the words.",
@@ -58,10 +78,11 @@ TERMS = {
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
 
 
-def note(concept, detail, number=None):
-    """Two markdown lines: the concept with its detail, then why it matters."""
-    plain, why = TERMS[concept]
+def note(concept, detail, number=None, why=True):
+    """Markdown: the concept with its detail, then (when asked) why it matters."""
+    plain, reason = TERMS[concept]
     mark = ""
     if number is not None:
         mark = (CIRCLED[number - 1] if number <= len(CIRCLED) else f"({number})") + " "
-    return f"- {mark}{plain}: {detail}\n  - Why it matters: {why}"
+    line = f"- {mark}{plain}: {detail}"
+    return f"{line}\n  - Why it matters: {reason}" if why else line
