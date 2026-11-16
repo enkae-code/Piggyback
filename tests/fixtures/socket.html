@@ -8,8 +8,10 @@
 <h1>WebSocket fixture</h1>
 <script>
   // A private address must be refused by the proxy; the page only sees a socket error.
-  const ws = new WebSocket("ws://10.0.0.1:1/");
-  ws.onerror = () => {};
+  // Port 1 is on Chromium's blocked-port list, so use a port Chromium lets through to the proxy.
+  // The error hook reports back to the test server, so the test knows the refusal happened.
+  const ws = new WebSocket("ws://10.0.0.1:8080/");
+  ws.onerror = () => fetch("/ws-refused");
 </script>
 </body>
 </html>

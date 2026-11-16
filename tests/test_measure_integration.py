@@ -44,7 +44,8 @@ class MeasureIntegration(unittest.TestCase):
     def setUpClass(cls):
         cls.other_hits = []
         cls.other = serve(cls.other_hits)
-        cls.site = serve()
+        cls.site_hits = []
+        cls.site = serve(cls.site_hits)
         cls.base = f"http://127.0.0.1:{cls.site.server_address[1]}"
         cls.other_port = cls.other.server_address[1]
 
@@ -88,8 +89,11 @@ class MeasureIntegration(unittest.TestCase):
 
     def test_websocket_to_private_range_is_refused(self):
         result = measure(f"{self.base}/socket.html", allow_loopback=True)
-        # Chromium may send ws:// as an absolute URI or as CONNECT; both name the target.
-        self.assertTrue(any("10.0.0.1:1" in target for target in result["blocked_requests"]))
+        # Only the proxy records WebSocket traffic (the route guard never sees it), so this proves
+        # the socket went through the proxy. Chromium sends it as an absolute URI or as CONNECT.
+        self.assertTrue(any("10.0.0.1:8080" in target for target in result["blocked_requests"]))
+        # The proxy answers 403 after recording, so the page's error handler runs after the record.
+        self.assertIn("/ws-refused", self.site_hits)
 
     def test_cli_measure_writes_files(self):
         with tempfile.TemporaryDirectory() as tmp:
