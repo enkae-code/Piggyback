@@ -13,7 +13,7 @@ if importlib.util.find_spec("playwright") is None:
     raise unittest.SkipTest("playwright not installed; run with the measure extra")
 
 from piggyback.cli import main  # noqa: E402
-from piggyback.measure import measure  # noqa: E402
+from piggyback.measure import MeasureError, measure  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -26,6 +26,11 @@ def serve(hits=None):
         def do_GET(self):
             if hits is not None:
                 hits.append(self.path)
+            if self.path == "/bounce":
+                self.send_response(302)
+                self.send_header("Location", "http://10.0.0.1/")
+                self.end_headers()
+                return
             super().do_GET()
 
     handler = functools.partial(Handler, directory=str(FIXTURES))
@@ -72,6 +77,19 @@ class MeasureIntegration(unittest.TestCase):
         self.assertIsNone(result["anchors"]["cta"])
         self.assertIsNone(result["anchors"]["card"])
         self.assertEqual(result["anchors"]["heading"]["font_size"], "32px")
+
+    def test_private_address_refused_without_flag(self):
+        with self.assertRaises(MeasureError):
+            measure(f"http://127.0.0.1:{self.site.server_address[1]}/")
+
+    def test_redirect_into_private_range_is_aborted(self):
+        result = measure(f"{self.base}/redirect.html", allow_loopback=True)
+        self.assertIn("http://10.0.0.1/", result["blocked_requests"])
+
+    def test_websocket_to_private_range_is_refused(self):
+        result = measure(f"{self.base}/socket.html", allow_loopback=True)
+        # Chromium may send ws:// as an absolute URI or as CONNECT; both name the target.
+        self.assertTrue(any("10.0.0.1:1" in target for target in result["blocked_requests"]))
 
     def test_cli_measure_writes_files(self):
         with tempfile.TemporaryDirectory() as tmp:

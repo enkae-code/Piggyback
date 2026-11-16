@@ -4,58 +4,43 @@ import ipaddress
 import socket
 from urllib.parse import urlsplit
 
-CGNAT = ipaddress.ip_network("100.64.0.0/10")
 SCHEMES = ("http", "https")
 BLOCKED_NAMES = ("localhost", ".localhost", ".local")
 
 
-def _embedded(ip):
-    # IPv4 addresses hidden inside IPv6 forms that a plain is_global check would miss.
-    if ip.version == 4:
-        return [ip]
-    if ip.ipv4_mapped:
-        return [ip.ipv4_mapped]
-    if ip.sixtofour:
-        return [ip.sixtofour]
-    if ip.teredo:
-        return list(ip.teredo)
-    return [ip]
-
-
 def ip_allowed(ip, allow_loopback=False):
-    for candidate in _embedded(ip):
-        if candidate.is_loopback:
-            if not allow_loopback:
-                return False
-        elif (
-            candidate in CGNAT
-            or candidate.is_multicast
-            or candidate.is_reserved
-            or candidate.is_unspecified
-            or not candidate.is_global
-        ):
-            return False
-    return True
+    if ip.is_loopback:  # IPv4-mapped loopback (::ffff:127.0.0.1) counts too
+        return allow_loopback
+    # is_global already rejects CGNAT, private, unspecified, 6to4, Teredo and IPv4-mapped
+    # private space (same answers as IPv4 on 3.11-3.14). It does not reject multicast or
+    # reserved space such as 4000::/3, so those stay explicit.
+    return ip.is_global and not (ip.is_multicast or ip.is_reserved)
+
+
+def resolve_allowed(host, allow_loopback=False):
+    """Return one address to connect to, or None. Every address the name resolves to must pass.
+
+    Callers connect to the returned literal and never resolve the name again: that closes DNS
+    rebinding for the connection.
+    """
+    name = host.lower().rstrip(".")
+    if not name or name.endswith(BLOCKED_NAMES):  # BLOCKED_NAMES includes bare "localhost"
+        return None
+    try:
+        try:
+            addresses = [ipaddress.ip_address(name)]
+        except ValueError:
+            infos = socket.getaddrinfo(name, None)
+            addresses = [ipaddress.ip_address(str(info[4][0]).split("%")[0]) for info in infos]
+    except (OSError, ValueError):
+        return None
+    if not addresses or not all(ip_allowed(ip, allow_loopback) for ip in addresses):
+        return None
+    return str(addresses[0])
 
 
 def host_allowed(host, allow_loopback=False):
-    name = host.lower().rstrip(".")
-    if not name or name.endswith(BLOCKED_NAMES) or name == "localhost":
-        return False
-    try:
-        return ip_allowed(ipaddress.ip_address(name), allow_loopback)
-    except ValueError:
-        pass
-    # ponytail: DNS is resolved here, then again by the browser, so DNS rebinding
-    # between the two lookups is a known residual gap; the route check must hold per request.
-    try:
-        infos = socket.getaddrinfo(name, None)
-    except OSError:
-        return False
-    return bool(infos) and all(
-        ip_allowed(ipaddress.ip_address(str(info[4][0]).split("%")[0]), allow_loopback)
-        for info in infos
-    )
+    return resolve_allowed(host, allow_loopback) is not None
 
 
 def url_allowed(url, allow_loopback=False):

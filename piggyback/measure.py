@@ -9,27 +9,35 @@ import contextlib
 import json
 import subprocess
 import sys
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__, netpolicy
 from .browser import launch
+from .proxy import EgressProxy
 
 SCRIPT = (Path(__file__).parent / "measure.js").read_text(encoding="utf-8").strip().rstrip(";")
 TOTAL_S = 90  # whole run, browser start included
 NAV_MS = 30_000
 SETTLE_MS = 5_000  # a page that never goes idle is still measured
-MAX_BLOCKED = 50
 
 
 class MeasureError(RuntimeError):
     pass
 
 
+def check_url(url, allow_loopback=False):
+    if netpolicy.url_allowed(url, allow_loopback):
+        return
+    hint = ""
+    if not allow_loopback and netpolicy.url_allowed(url, allow_loopback=True):
+        hint = " (use --allow-loopback for your own local build)"
+    raise MeasureError(f"url is not a public http(s) address{hint}")
+
+
 def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None):
-    if not netpolicy.url_allowed(url, allow_loopback):
-        hint = " (use --allow-loopback for your own local build)" if not allow_loopback else ""
-        raise MeasureError(f"url is not a public http(s) address{hint}")
+    check_url(url, allow_loopback)
     request = {
         "url": url,
         "viewport": list(viewport),
@@ -65,22 +73,22 @@ def _capture(req):
 
     width, height = req["viewport"]
     allow_loopback = req["allow_loopback"]
-    blocked = []
+    # The proxy is the enforcement point: every connection Chromium makes goes through it.
+    with closing(EgressProxy(allow_loopback)) as egress, sync_playwright() as p:
 
-    def guard(route):
-        # Runs for every request the page makes, including subresources, iframes and redirect hops.
-        # ponytail: DNS is looked up here and again by Chromium, so rebinding between the two is
-        # the known residual gap; WebSocket traffic is not routed by page.route at all.
-        url = route.request.url
-        if netpolicy.url_allowed(url, allow_loopback):
-            route.continue_()
-        else:
-            if len(blocked) < MAX_BLOCKED:
-                blocked.append(url[:500])
-            route.abort("blockedbyclient")
+        def guard(route):
+            # Second layer for page requests, redirect hops included; the proxy is authoritative.
+            url = route.request.url
+            if netpolicy.url_allowed(url, allow_loopback):
+                route.continue_()
+            else:
+                egress.record(url)
+                route.abort("blockedbyclient")
 
-    with sync_playwright() as p:
-        browser, label = launch(p)  # fresh temporary profile per launch, removed on close
+        proxy = {"server": f"http://127.0.0.1:{egress.port}"}  # loopback is proxied by Playwright
+        browser, label = launch(
+            p, proxy=proxy
+        )  # fresh temporary profile per launch, removed on close
         try:
             ctx = browser.new_context(
                 viewport={"width": width, "height": height},
@@ -104,7 +112,7 @@ def _capture(req):
         "captured_with": f"piggyback {__version__}",
         "browser": label,
         "captured_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "blocked_requests": blocked,
+        "blocked_requests": egress.blocked,
         "screenshot": req["screenshot"],
     }
 
