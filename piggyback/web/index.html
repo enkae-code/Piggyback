@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Piggyback</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to measure</a>
+  <header class="top">
+    <img class="logo" src="/logo.svg" alt="Piggyback" width="90" height="28">
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </header>
+  <main id="main">
+    <form class="slots" id="slots" novalidate>
+      <fieldset class="slot">
+        <legend>Reference <span class="hint">1 to 3, a page you admire</span></legend>
+        <ul class="chips" id="ref-list"></ul>
+        <div class="row">
+          <label class="vh" for="ref-input">Reference URL</label>
+          <input id="ref-input" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+                 placeholder="https://example.com" aria-describedby="ref-error">
+          <button type="button" class="btn" id="ref-add">Add reference</button>
+        </div>
+        <p class="error" id="ref-error" hidden></p>
+      </fieldset>
+      <fieldset class="slot">
+        <legend>Your build <span class="hint">optional: localhost or a preview link</span></legend>
+        <div class="row">
+          <label class="vh" for="build-input">Build URL</label>
+          <input id="build-input" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+                 placeholder="http://localhost:3000">
+        </div>
+      </fieldset>
+      <div class="actions">
+        <button type="submit" class="btn primary" id="measure">Measure</button>
+        <button type="button" class="btn" id="rerun" hidden>Re-run</button>
+        <button type="button" class="btn" id="copy" hidden>Copy for agent</button>
+      </div>
+    </form>
+    <p class="error" id="error" role="alert" hidden></p>
+    <textarea class="fallback" id="fallback" readonly hidden aria-label="BRIEF.md text"></textarea>
+    <section class="result" id="result" aria-live="polite"></section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

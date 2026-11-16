@@ -11,6 +11,7 @@ from . import defaults as defaults_mod
 from . import fingerprint as fingerprints
 from . import format as ref_format
 from . import gap as gap_mod
+from . import server
 from .browser import BrowserUnavailable, launch
 from .measure import MeasureError, check_url, measure
 
@@ -110,6 +111,15 @@ def run_defaults(path):
     return 0
 
 
+def run_open(port, out):
+    try:
+        server.serve(port, out)
+    except OSError as exc:
+        print(f"piggyback: could not start the local screen: {exc.strerror}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def doctor():
     print(
         f"python: {sys.version.split()[0]}",
@@ -144,7 +154,10 @@ def doctor():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="piggyback")
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command")
+    o = sub.add_parser("open", help="open the local screen (also the default with no command)")
+    o.add_argument("--port", type=int, default=0, help="port on 127.0.0.1 (default: any free port)")
+    o.add_argument("--out", default=".", help="where BRIEF.md is written (default: current dir)")
     m = sub.add_parser("measure", help="fingerprint a page into fingerprint.json + screenshot.png")
     m.add_argument("url")
     m.add_argument("--out", default=".", help="output directory (default: current directory)")
@@ -160,6 +173,8 @@ def main(argv=None):
     d.add_argument("build", metavar="BUILD.json")
     sub.add_parser("doctor", help="check Python, Playwright and the sandboxed browser")
     args = parser.parse_args(argv)
+    if args.command in (None, "open"):
+        return run_open(getattr(args, "port", 0), getattr(args, "out", "."))
     if args.command == "measure":
         return run_measure(args.url, args.out, args.viewport, args.allow_loopback)
     if args.command == "check-refs":
