@@ -1,0 +1,321 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "type": {
+    "font_size": [
+      {
+        "value": "16px",
+        "share": 0.99
+      },
+      {
+        "value": "64px",
+        "share": 0.01
+      },
+      {
+        "value": "14px",
+        "share": 0
+      },
+      {
+        "value": "24px",
+        "share": 0
+      }
+    ],
+    "line_height": [
+      {
+        "value": "24px",
+        "share": 0.99
+      },
+      {
+        "value": "64px",
+        "share": 0.01
+      },
+      {
+        "value": "20px",
+        "share": 0
+      },
+      {
+        "value": "21px",
+        "share": 0
+      },
+      {
+        "value": "32px",
+        "share": 0
+      }
+    ],
+    "letter_spacing": [
+      {
+        "value": "normal",
+        "share": 0.99
+      },
+      {
+        "value": "-3.84px",
+        "share": 0.01
+      },
+      {
+        "value": "-0.32px",
+        "share": 0
+      },
+      {
+        "value": "-0.96px",
+        "share": 0
+      }
+    ],
+    "font_weight": [
+      {
+        "value": "400",
+        "share": 1
+      },
+      {
+        "value": "500",
+        "share": 0
+      },
+      {
+        "value": "450",
+        "share": 0
+      }
+    ],
+    "families": [
+      {
+        "value": "GeistSans, \"GeistSans Fallback\"",
+        "share": 1
+      }
+    ]
+  },
+  "palette": {
+    "text": [
+      {
+        "value": "rgb(23, 23, 23)",
+        "share": 1
+      },
+      {
+        "value": "rgb(77, 77, 77)",
+        "share": 0
+      },
+      {
+        "value": "rgb(255, 255, 255)",
+        "share": 0
+      }
+    ],
+    "background": [
+      {
+        "value": "rgb(255, 255, 255)",
+        "share": 0.59
+      },
+      {
+        "value": "rgb(23, 23, 23)",
+        "share": 0.41
+      }
+    ],
+    "accent_share": 0
+  },
+  "radius": [
+    {
+      "value": "3.35544e+07px",
+      "share": 0.57
+    },
+    {
+      "value": "6px",
+      "share": 0.43
+    }
+  ],
+  "shadow": [
+    {
+      "value": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(235, 235, 235) 0px 0px 0px 1px",
+      "share": 1
+    }
+  ],
+  "spacing": {
+    "gaps": [
+      {
+        "value": 0,
+        "share": 0.61
+      },
+      {
+        "value": 6,
+        "share": 0.13
+      },
+      {
+        "value": 12,
+        "share": 0.11
+      },
+      {
+        "value": 40,
+        "share": 0.03
+      },
+      {
+        "value": 44,
+        "share": 0.02
+      },
+      {
+        "value": 32,
+        "share": 0.02
+      },
+      {
+        "value": 8,
+        "share": 0.02
+      },
+      {
+        "value": 256,
+        "share": 0.02
+      }
+    ],
+    "padding": [
+      {
+        "value": "2px",
+        "share": 0.81
+      },
+      {
+        "value": "6px",
+        "share": 0.05
+      },
+      {
+        "value": "8px",
+        "share": 0.03
+      },
+      {
+        "value": "16px",
+        "share": 0.03
+      },
+      {
+        "value": "12px",
+        "share": 0.02
+      },
+      {
+        "value": "20px",
+        "share": 0.02
+      },
+      {
+        "value": "24px",
+        "share": 0.01
+      },
+      {
+        "value": "1px",
+        "share": 0.01
+      }
+    ]
+  },
+  "container_width": 444,
+  "motion": [
+    {
+      "kind": "transition",
+      "duration": 1200,
+      "delay": 0,
+      "easing": "linear",
+      "props": [
+        "opacity"
+      ],
+      "count": 1
+    }
+  ],
+  "effects": {
+    "gradient_text": 0,
+    "tinted_icon_squares": 0
+  },
+  "anchors": {
+    "heading": {
+      "tag": "h1",
+      "text": "Agentic Infrastructure",
+      "font_size": "64px",
+      "line_height": "64px",
+      "letter_spacing": "-3.84px",
+      "font_weight": "400",
+      "font_family": "GeistSans, \"GeistSans Fallback\"",
+      "color": "rgb(23, 23, 23)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 24,
+        "y": 328,
+        "width": 444,
+        "height": 128
+      }
+    },
+    "body": null,
+    "cta": {
+      "tag": "button",
+      "text": "Resources",
+      "font_size": "14px",
+      "line_height": "20px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "GeistSans, \"GeistSans Fallback\"",
+      "color": "rgb(77, 77, 77)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 159,
+        "y": 16,
+        "width": 104,
+        "height": 32
+      }
+    },
+    "nav": {
+      "tag": "nav",
+      "text": "",
+      "font_size": "16px",
+      "line_height": "24px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "GeistSans, \"GeistSans Fallback\"",
+      "color": "rgb(23, 23, 23)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 65,
+        "y": 0,
+        "width": 353,
+        "height": 64
+      }
+    },
+    "card": {
+      "count": 3,
+      "tag": "div",
+      "text": "For coding agents to deploy in their native language, with Vercel's API, CLI, MC",
+      "font_size": "16px",
+      "line_height": "24px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "GeistSans, \"GeistSans Fallback\"",
+      "color": "rgb(23, 23, 23)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 1060,
+        "y": 384,
+        "width": 348,
+        "height": 24
+      }
+    }
+  },
+  "url": "https://vercel.com",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "bundled chromium",
+  "captured_at": "2026-11-16T08:47:15+00:00",
+  "blocked_requests": []
+}

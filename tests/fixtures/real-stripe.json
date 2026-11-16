@@ -1,0 +1,390 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "type": {
+    "font_size": [
+      {
+        "value": "16px",
+        "share": 0.87
+      },
+      {
+        "value": "48px",
+        "share": 0.12
+      },
+      {
+        "value": "14px",
+        "share": 0.01
+      },
+      {
+        "value": "32px",
+        "share": 0
+      }
+    ],
+    "line_height": [
+      {
+        "value": "normal",
+        "share": 0.87
+      },
+      {
+        "value": "55.2px",
+        "share": 0.12
+      },
+      {
+        "value": "14px",
+        "share": 0
+      },
+      {
+        "value": "19.6px",
+        "share": 0
+      },
+      {
+        "value": "16px",
+        "share": 0
+      },
+      {
+        "value": "35.2px",
+        "share": 0
+      },
+      {
+        "value": "0px",
+        "share": 0
+      }
+    ],
+    "letter_spacing": [
+      {
+        "value": "normal",
+        "share": 0.88
+      },
+      {
+        "value": "-0.96px",
+        "share": 0.12
+      },
+      {
+        "value": "-0.64px",
+        "share": 0
+      },
+      {
+        "value": "-0.42px",
+        "share": 0
+      }
+    ],
+    "font_weight": [
+      {
+        "value": "400",
+        "share": 0.88
+      },
+      {
+        "value": "300",
+        "share": 0.12
+      }
+    ],
+    "families": [
+      {
+        "value": "sohne-var, \"SF Pro Display\", sans-serif",
+        "share": 1
+      }
+    ]
+  },
+  "palette": {
+    "text": [
+      {
+        "value": "rgb(0, 0, 0)",
+        "share": 0.87
+      },
+      {
+        "value": "rgb(129, 184, 26)",
+        "share": 0.05
+      },
+      {
+        "value": "rgba(0, 14, 255, 0.5)",
+        "share": 0.05
+      },
+      {
+        "value": "rgb(6, 27, 49)",
+        "share": 0.01
+      },
+      {
+        "value": "rgb(45, 37, 100)",
+        "share": 0.01
+      },
+      {
+        "value": "rgb(255, 255, 255)",
+        "share": 0
+      },
+      {
+        "value": "rgb(100, 116, 141)",
+        "share": 0
+      },
+      {
+        "value": "rgb(83, 58, 253)",
+        "share": 0
+      }
+    ],
+    "background": [
+      {
+        "value": "rgb(255, 255, 255)",
+        "share": 0.94
+      },
+      {
+        "value": "rgb(13, 23, 56)",
+        "share": 0.04
+      },
+      {
+        "value": "rgb(83, 58, 253)",
+        "share": 0.01
+      },
+      {
+        "value": "rgba(255, 255, 255, 0.65)",
+        "share": 0.01
+      }
+    ],
+    "accent_share": 0.01
+  },
+  "radius": [
+    {
+      "value": "6px",
+      "share": 0.64
+    },
+    {
+      "value": "4px",
+      "share": 0.36
+    }
+  ],
+  "shadow": [],
+  "spacing": {
+    "gaps": [
+      {
+        "value": 0,
+        "share": 0.29
+      },
+      {
+        "value": 4,
+        "share": 0.27
+      },
+      {
+        "value": 16,
+        "share": 0.14
+      },
+      {
+        "value": 32,
+        "share": 0.05
+      },
+      {
+        "value": 8,
+        "share": 0.04
+      },
+      {
+        "value": 64,
+        "share": 0.03
+      },
+      {
+        "value": 2,
+        "share": 0.02
+      },
+      {
+        "value": 1,
+        "share": 0.02
+      }
+    ],
+    "padding": [
+      {
+        "value": "16px",
+        "share": 0.2
+      },
+      {
+        "value": "24px",
+        "share": 0.11
+      },
+      {
+        "value": "32px",
+        "share": 0.08
+      },
+      {
+        "value": "12px",
+        "share": 0.07
+      },
+      {
+        "value": "8px",
+        "share": 0.06
+      },
+      {
+        "value": "4px",
+        "share": 0.06
+      },
+      {
+        "value": "6px",
+        "share": 0.06
+      },
+      {
+        "value": "15.5px",
+        "share": 0.04
+      }
+    ]
+  },
+  "container_width": null,
+  "motion": [
+    {
+      "kind": "waapi",
+      "duration": 325,
+      "delay": 450,
+      "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+      "props": [
+        "transform"
+      ],
+      "count": 2
+    },
+    {
+      "kind": "animation",
+      "duration": {},
+      "delay": 0,
+      "easing": "linear",
+      "props": [],
+      "count": 1
+    },
+    {
+      "kind": "waapi",
+      "duration": 0,
+      "delay": 0,
+      "easing": "linear",
+      "props": [
+        "fill",
+        "width"
+      ],
+      "count": 1
+    }
+  ],
+  "effects": {
+    "gradient_text": 0,
+    "tinted_icon_squares": 0
+  },
+  "anchors": {
+    "heading": {
+      "tag": "h1",
+      "text": "Financial infrastructure to grow your revenue. Accept payments, handle business ",
+      "font_size": "48px",
+      "line_height": "55.2px",
+      "letter_spacing": "-0.96px",
+      "font_weight": "300",
+      "font_family": "sohne-var, \"SF Pro Display\", sans-serif",
+      "color": "rgb(129, 184, 26)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 208,
+        "y": 294,
+        "width": 1020,
+        "height": 221
+      }
+    },
+    "body": {
+      "tag": "p",
+      "text": "OpenRouter is now part of Stripe. Access, secure, and govern your AI workloads a",
+      "font_size": "14px",
+      "line_height": "19.6px",
+      "letter_spacing": "normal",
+      "font_weight": "300",
+      "font_family": "sohne-var, \"SF Pro Display\", sans-serif",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 295,
+        "y": 8,
+        "width": 851,
+        "height": 20
+      }
+    },
+    "cta": {
+      "tag": "a",
+      "text": "Sign up with Google",
+      "font_size": "16px",
+      "line_height": "16px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "sohne-var, \"SF Pro Display\", sans-serif",
+      "color": "rgb(83, 58, 253)",
+      "background": "rgba(255, 255, 255, 0.65)",
+      "radius": "4px",
+      "padding": [
+        "14.5px",
+        "24px",
+        "15.5px",
+        "24px"
+      ],
+      "box": {
+        "x": 364,
+        "y": 555,
+        "width": 218,
+        "height": 48
+      }
+    },
+    "nav": {
+      "tag": "nav",
+      "text": "Products Solutions Developers Resources Pricing Sign in Contact sales",
+      "font_size": "16px",
+      "line_height": "normal",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "sohne-var, \"SF Pro Display\", sans-serif",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "6px",
+      "padding": [
+        "10px",
+        "16px",
+        "10px",
+        "16px"
+      ],
+      "box": {
+        "x": 89,
+        "y": 42,
+        "width": 1262,
+        "height": 64
+      }
+    },
+    "card": {
+      "count": 9,
+      "tag": "li",
+      "text": "",
+      "font_size": "16px",
+      "line_height": "normal",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "sohne-var, \"SF Pro Display\", sans-serif",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": -69,
+        "y": 725,
+        "width": 172,
+        "height": 72
+      }
+    }
+  },
+  "url": "https://stripe.com",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "bundled chromium",
+  "captured_at": "2026-11-16T08:47:08+00:00",
+  "blocked_requests": []
+}

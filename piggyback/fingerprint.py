@@ -104,6 +104,12 @@ def font_names(value):
     return names
 
 
+def primary_font(value):
+    """The first family of one computed font stack; fallbacks are not read. None if it fails."""
+    names = font_names(str(value).split(",", 1)[0])
+    return names[0] if names else None
+
+
 def pairs(rows):
     """[(value, share)] from a histogram list. Values are strings or numbers; bad rows dropped."""
     found = []

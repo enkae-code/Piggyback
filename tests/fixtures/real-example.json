@@ -63,7 +63,7 @@
     "gaps": [],
     "padding": []
   },
-  "container_width": 44,
+  "container_width": 480,
   "motion": [],
   "effects": {
     "gradient_text": 0,
@@ -102,7 +102,6 @@
   "url": "https://example.com",
   "captured_with": "piggyback 0.1.0.dev0",
   "browser": "bundled chromium",
-  "captured_at": "2026-11-16T08:39:33+00:00",
-  "blocked_requests": [],
-  "screenshot": "/home/brodey/.hermes/cache/scratch/pb2/build/screenshot.png"
+  "captured_at": "2026-11-16T08:46:59+00:00",
+  "blocked_requests": []
 }

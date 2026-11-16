@@ -8,6 +8,7 @@ from .glossary import note
 MAX_REFS = 3
 MAX_NOTES = 20
 TOP = 6
+FONT_CAP = 3  # primary families only, most visible first
 PALETTE_CAP = 5  # the dominant colours only; a long tail reads as noise
 NEAR_RGB = 16  # colours this close in RGB distance read as one colour
 NOT_MEASURED = "not measured"
@@ -61,10 +62,14 @@ def _palette(ref):
 
 
 def _fonts(rows):
-    names = []
-    for value, _ in fp.pairs(rows):
-        names += [name for name in fp.font_names(value) if name not in names]
-    return ", ".join(fp.clean(name, 40) for name in names[:TOP])
+    """Primary family of each stack, most visible first, capped. Fallback names are not listed."""
+    shares = {}
+    for value, weight in fp.pairs(rows):
+        name = fp.primary_font(value)
+        if name is not None:
+            shares[name] = shares.get(name, 0) + weight
+    ranked = sorted(shares, key=lambda name: -shares[name])
+    return ", ".join(fp.clean(name, 40) for name in ranked[:FONT_CAP])
 
 
 def _accent(ref):

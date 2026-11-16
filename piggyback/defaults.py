@@ -30,9 +30,9 @@ def _gradient_text(build):
 def _one_font_flat_scale(build):
     # The first name in each family list is the primary font; generic fallbacks are not counted.
     primary = {
-        names[0]
+        name
         for value, _ in fp.pairs(fp.get(build, "type", "families"))
-        if (names := fp.font_names(value))
+        if (name := fp.primary_font(value))
     }
     heading, body = fp.anchor(build, "heading"), fp.anchor(build, "body")
     if heading is None or body is None or len(primary) != 1:
