@@ -211,7 +211,8 @@
     siblings.get(sig).push(b);
   }
   // A card: a box with text or child elements, at least 120x80, fully inside the viewport (an
-  // off-screen carousel slide is not on the page), and never a control on its own.
+  // off-screen carousel slide is not on the page), never a control on its own and never part of
+  // an SVG drawing (repeated <g> groups are artwork, not cards).
   const CONTROL = "button, input, [role=button]";
   const isCard = (b) =>
     b.r.width >= 120 &&
@@ -219,7 +220,8 @@
     b.r.left >= 0 &&
     b.r.right <= VW &&
     (textOf(b.el) !== "" || b.el.children.length > 0) &&
-    !b.el.matches(CONTROL);
+    !b.el.matches(CONTROL) &&
+    !(b.el instanceof SVGElement);
   let repeated = null;
   for (const siblings of groups.values()) {
     for (const list of siblings.values()) {
@@ -237,7 +239,14 @@
   const COLUMN_MIN_HEIGHT = 100;
   const CENTRE_TOLERANCE = 2;
   const columns = new Map();
-  for (const b of boxes) {
+  // body itself is a common page column (example.com) but sits outside `boxes`.
+  const bodyBox = document.body && {
+    el: document.body,
+    cs: getComputedStyle(document.body),
+    r: document.body.getBoundingClientRect(),
+  };
+  for (const b of bodyBox ? [bodyBox, ...boxes] : boxes) {
+    b.area ??= clipArea(b.r);
     const narrow = /^[\d.]+px$/.test(b.cs.maxWidth) || b.r.width < VW;
     const left = b.r.left;
     const right = VW - b.r.right;

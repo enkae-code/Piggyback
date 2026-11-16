@@ -28,6 +28,18 @@ class RealSampleGolden(unittest.TestCase):
         self.assertNotIn("13.3333", text)
         self.assertEqual(text.count("  - Why it matters:"), 7)
 
+    def test_real_page_columns(self):
+        # Measured on the host 2026-11-16; example.com's column is body max-width 26em = 416px.
+        expected = {
+            "real-example": 416,
+            "real-linear": 1344,
+            "real-stripe": 1266,
+            "real-vercel": 1080,
+        }
+        for name, width in expected.items():
+            with self.subTest(name):
+                self.assertEqual(fp.load(FIXTURES / f"{name}.json")["container_width"], width)
+
     def test_gap_on_real_pair_never_mislabels_a_missing_anchor(self):
         text = gap_mod.render(gap_mod.gap(self.ref, self.build))
         self.assertIn("Heading: not found on the build — can't compare", text)
