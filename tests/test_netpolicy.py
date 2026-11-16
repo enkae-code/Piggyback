@@ -16,6 +16,7 @@ BLOCKED = [
     "100.64.0.1",  # CGNAT: is_global blocks it
     "fc00::1",
     "fe80::1",
+    "fec0::1",
     "0.0.0.0",
     "224.0.0.1",  # multicast: is_global is True, so the explicit check must catch it
     "ff02::1",

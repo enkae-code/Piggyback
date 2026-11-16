@@ -18,9 +18,10 @@ def ip_allowed(ip, allow_loopback=False):
             return False
     if ip.is_loopback:
         return allow_loopback
-    # is_global rejects CGNAT, private and unspecified space; not multicast or reserved space
-    # such as 4000::/3, so those stay explicit.
-    return ip.is_global and not (ip.is_multicast or ip.is_reserved)
+    # is_global rejects CGNAT, private and unspecified space; not multicast, reserved space such
+    # as 4000::/3 or deprecated IPv6 site-local fec0::/10, so those stay explicit.
+    site_local = ip.version == 6 and ip.is_site_local
+    return ip.is_global and not (ip.is_multicast or ip.is_reserved or site_local)
 
 
 def resolve_allowed(host, allow_loopback=False):
