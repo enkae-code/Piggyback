@@ -7,6 +7,7 @@ page is ever put on a command line or evaluated as code: the page script is a fi
 
 import contextlib
 import json
+import os
 import subprocess
 import sys
 from contextlib import closing
@@ -18,6 +19,7 @@ from .browser import launch
 from .proxy import EgressProxy
 
 SCRIPT = (Path(__file__).parent / "measure.js").read_text(encoding="utf-8").strip().rstrip(";")
+BYPASS_ENV = "PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK"
 TOTAL_S = 90  # whole run, browser start included
 NAV_MS = 30_000
 SETTLE_MS = 5_000  # a page that never goes idle is still measured
@@ -44,6 +46,8 @@ def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None)
         "allow_loopback": allow_loopback,
         "screenshot": str(screenshot) if screenshot else None,
     }
+    # Playwright's bypass switch would let Chromium skip the proxy for loopback.
+    env = {k: v for k, v in os.environ.items() if k != BYPASS_ENV}
     proc = subprocess.Popen(
         [sys.executable, "-m", "piggyback.measure"],
         stdin=subprocess.PIPE,
@@ -51,6 +55,7 @@ def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None)
         stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
+        env=env,
     )
     try:
         out, err = proc.communicate(json.dumps(request), timeout=TOTAL_S)

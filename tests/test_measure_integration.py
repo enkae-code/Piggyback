@@ -4,16 +4,21 @@ import http.server
 import importlib.util
 import io
 import json
+import os
+import socket
 import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 if importlib.util.find_spec("playwright") is None:
     raise unittest.SkipTest("playwright not installed; run with the measure extra")
 
+from piggyback.browser import launch  # noqa: E402
 from piggyback.cli import main  # noqa: E402
-from piggyback.measure import MeasureError, measure  # noqa: E402
+from piggyback.measure import BYPASS_ENV, MeasureError, measure  # noqa: E402
+from piggyback.proxy import EgressProxy  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -37,6 +42,46 @@ def serve(hits=None):
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
+
+
+def lan_address():
+    # A UDP connect sends nothing; it only asks the OS which address routes out.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("192.0.2.1", 9))
+            ip = s.getsockname()[0]
+    except OSError:
+        return None
+    return None if ip.startswith("127.") else ip
+
+
+RTC_PROBE = """async (target) => {
+  const pc = new RTCPeerConnection({iceServers: [
+    {urls: `stun:${target}`},
+    {urls: `turn:${target}?transport=udp`, username: "u", credential: "p"},
+  ]});
+  pc.createDataChannel("probe");
+  await pc.setLocalDescription(await pc.createOffer());
+  await new Promise((done) => setTimeout(done, 3000));
+  pc.close();
+}"""
+
+
+def page_udp(browser, target):
+    page = browser.new_page()
+    page.set_content("<!doctype html><title>rtc</title>")
+    page.evaluate(RTC_PROBE, target)
+
+
+def drain(sock):
+    count = 0
+    sock.setblocking(False)
+    with contextlib.suppress(BlockingIOError):
+        while True:
+            sock.recv(2048)
+            count += 1
+    sock.setblocking(True)
+    return count
 
 
 class MeasureIntegration(unittest.TestCase):
@@ -94,6 +139,40 @@ class MeasureIntegration(unittest.TestCase):
         self.assertTrue(any("10.0.0.1:8080" in target for target in result["blocked_requests"]))
         # The proxy answers 403 after recording, so the page's error handler runs after the record.
         self.assertIn("/ws-refused", self.site_hits)
+
+    def test_webrtc_sends_no_udp_to_lan(self):
+        # Control first: without the policy the same page must reach the LAN listener, so a
+        # silent probe cannot pass the real check.
+        lan = lan_address()
+        if lan is None:
+            self.skipTest("no LAN address on this host")
+        from playwright.sync_api import sync_playwright
+
+        listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.addCleanup(listener.close)
+        listener.bind(("0.0.0.0", 0))
+        target = f"{lan}:{listener.getsockname()[1]}"
+        with sync_playwright() as p:
+            control = p.chromium.launch(chromium_sandbox=True)
+            try:
+                page_udp(control, target)
+            finally:
+                control.close()
+            control_count = drain(listener)
+            egress = EgressProxy(allow_loopback=True)
+            self.addCleanup(egress.close)
+            with mock.patch.dict(os.environ):
+                os.environ.pop(
+                    BYPASS_ENV, None
+                )  # the worker strips it too: loopback must be proxied
+                browser, _ = launch(p, proxy={"server": f"http://127.0.0.1:{egress.port}"})
+            try:
+                page_udp(browser, target)
+            finally:
+                browser.close()
+            flagged_count = drain(listener)
+        self.assertGreater(control_count, 0, "control saw no UDP: the probe measures nothing")
+        self.assertEqual(flagged_count, 0, "WebRTC sent UDP to a LAN host")
 
     def test_cli_measure_writes_files(self):
         with tempfile.TemporaryDirectory() as tmp:

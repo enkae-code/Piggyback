@@ -31,7 +31,7 @@ def resolve_allowed(host, allow_loopback=False):
             addresses = [ipaddress.ip_address(name)]
         except ValueError:
             infos = socket.getaddrinfo(name, None)
-            addresses = [ipaddress.ip_address(str(info[4][0]).split("%")[0]) for info in infos]
+            addresses = [ipaddress.ip_address(str(info[4][0])) for info in infos]
     except (OSError, ValueError):
         return None
     if not addresses or not all(ip_allowed(ip, allow_loopback) for ip in addresses):

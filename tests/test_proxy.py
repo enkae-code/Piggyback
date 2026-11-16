@@ -1,3 +1,4 @@
+import contextlib
 import http.server
 import socket
 import threading
@@ -16,6 +17,21 @@ class Hello(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", "5")
         self.end_headers()
         self.wfile.write(b"hello")
+
+    def log_message(self, *args):
+        pass
+
+
+class KeepAlive(http.server.BaseHTTPRequestHandler):
+    # HTTP/1.1 keeps the connection open unless the request asks for close: the case to guard.
+    protocol_version = "HTTP/1.1"
+
+    def do_GET(self):
+        self.server.seen.append((self.path, self.headers.as_string()))
+        self.send_response(200)
+        self.send_header("Content-Length", "2")
+        self.end_headers()
+        self.wfile.write(b"ok")
 
     def log_message(self, *args):
         pass
@@ -82,6 +98,100 @@ class EgressProxyTests(unittest.TestCase):
         raw = b"GET file:///etc/passwd HTTP/1.1\r\nHost: x\r\n\r\n"
         self.assertTrue(send(self.proxy.port, raw).startswith(b"HTTP/1.1 403"))
         self.assertEqual(self.proxy.blocked, ["file:///etc/passwd"])
+
+    def test_non_http_scheme_refused_without_dialing(self):
+        # ftp://<public IP> passes the address check, so only the scheme check stops the dial.
+        with mock.patch.object(proxy_module.socket, "create_connection") as dial:
+            reply = send(self.proxy.port, b"GET ftp://8.8.8.8/ HTTP/1.1\r\nHost: x\r\n\r\n")
+        dial.assert_not_called()
+        self.assertTrue(reply.startswith(b"HTTP/1.1 403"), reply)
+        self.assertEqual(self.proxy.blocked, ["ftp://8.8.8.8/"])
+
+    def test_oversized_head_dropped(self):
+        raw = b"GET http://x/ HTTP/1.1\r\nX: " + b"a" * (proxy_module.MAX_HEAD + 1000)
+        try:
+            reply = send(self.proxy.port, raw)
+        except ConnectionError:  # the proxy hangs up mid-send
+            reply = b""
+        self.assertEqual(reply, b"")
+
+    def test_connections_over_the_cap_are_closed(self):
+        self.proxy.close()
+        with mock.patch.object(proxy_module, "MAX_CONNECTIONS", 1):
+            self.proxy = EgressProxy(allow_loopback=False)
+        # The accept loop is serial, so the first connection holds the only slot before the
+        # second is accepted.
+        holder = socket.create_connection(("127.0.0.1", self.proxy.port), timeout=10)
+        self.addCleanup(holder.close)
+        try:
+            reply = send(self.proxy.port, b"GET http://10.0.0.1/ HTTP/1.1\r\nHost: x\r\n\r\n")
+        except ConnectionError:  # closed before the request was read
+            reply = b""
+        self.assertEqual(reply, b"")
+        self.assertEqual(self.proxy.blocked, [])
+
+    def test_upstream_gets_close_and_no_proxy_headers(self):
+        self.proxy.close()
+        self.proxy = EgressProxy(allow_loopback=True)
+        origin = http.server.ThreadingHTTPServer(("127.0.0.1", 0), KeepAlive)
+        origin.seen = []
+        threading.Thread(target=origin.serve_forever, daemon=True).start()
+        self.addCleanup(origin.server_close)
+        self.addCleanup(origin.shutdown)
+        raw = (
+            f"GET http://127.0.0.1:{origin.server_address[1]}/ HTTP/1.1\r\nHost: x\r\n"
+            "Connection: keep-alive\r\nProxy-Authorization: secret\r\n"
+            "Proxy-Connection: keep-alive\r\n\r\n"
+        ).encode()
+        self.assertIn(b" 200 OK", send(self.proxy.port, raw))
+        path, headers = origin.seen[0]
+        self.assertIn("Connection: close", headers)
+        self.assertNotIn("keep-alive", headers.lower())
+        self.assertNotIn("proxy-", headers.lower())
+
+    def test_second_request_on_same_connection_never_reaches_upstream(self):
+        self.proxy.close()
+        self.proxy = EgressProxy(allow_loopback=True)
+        origin = http.server.ThreadingHTTPServer(("127.0.0.1", 0), KeepAlive)
+        origin.seen = []
+        threading.Thread(target=origin.serve_forever, daemon=True).start()
+        self.addCleanup(origin.server_close)
+        self.addCleanup(origin.shutdown)
+        base = f"http://127.0.0.1:{origin.server_address[1]}"
+        raw = (
+            f"GET {base}/ HTTP/1.1\r\nHost: x\r\n\r\n"
+            "GET http://10.0.0.1/secret HTTP/1.1\r\nHost: x\r\n\r\n"
+        ).encode()
+        reply = send(self.proxy.port, raw)
+        self.assertIn(b" 200 OK", reply)
+        self.assertEqual([path for path, _ in origin.seen], ["/"])
+
+    def test_origin_ignoring_close_still_gets_only_one_request(self):
+        # An origin that keeps serving after Connection: close: only the proxy stops the reuse.
+        self.proxy.close()
+        self.proxy = EgressProxy(allow_loopback=True)
+        origin = socket.create_server(("127.0.0.1", 0))
+        self.addCleanup(origin.close)
+        seen = []
+
+        def serve():
+            conn, _ = origin.accept()
+            with conn:
+                conn.settimeout(1)
+                with contextlib.suppress(OSError):
+                    while data := conn.recv(4096):
+                        seen.extend(
+                            line for line in data.split(b"\r\n") if line.startswith(b"GET ")
+                        )
+                        conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
+
+        threading.Thread(target=serve, daemon=True).start()
+        raw = (
+            f"GET http://127.0.0.1:{origin.getsockname()[1]}/ HTTP/1.1\r\nHost: x\r\n\r\n"
+            "GET http://10.0.0.1/secret HTTP/1.1\r\nHost: x\r\n\r\n"
+        ).encode()
+        send(self.proxy.port, raw)
+        self.assertEqual(seen, [b"GET / HTTP/1.1"])
 
     def test_loopback_forwarded_with_flag(self):
         self.proxy.close()

@@ -34,6 +34,12 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(chromium.calls[0]["proxy"], {"server": "http://127.0.0.1:9"})
         self.assertTrue(chromium.calls[0]["chromium_sandbox"])
 
+    def test_webrtc_udp_is_limited_to_the_proxy(self):
+        chromium = FakeChromium(failing=("chrome",))
+        launch(FakePlaywright(chromium))
+        for call in chromium.calls:
+            self.assertIn("--webrtc-ip-handling-policy=disable_non_proxied_udp", call["args"])
+
     def test_all_channels_failing_names_each(self):
         chromium = FakeChromium(failing=("chrome", None))
         with self.assertRaisesRegex(BrowserUnavailable, "chrome: chrome not found"):
