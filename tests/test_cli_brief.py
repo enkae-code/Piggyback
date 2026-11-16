@@ -90,8 +90,17 @@ class DesignMdCliTests(unittest.TestCase):
             link.symlink_to(victim)
             code, _, err = run(["brief", REF, "--design-md", str(link)])
             self.assertEqual(code, 1)
-            self.assertIn("symlink", err)
+            self.assertIn("already exists", err)
             self.assertEqual(victim.read_text(encoding="utf-8"), "keep")
+
+    def test_design_md_never_replaces_an_existing_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "DESIGN.md"
+            target.write_text("hand-written\n", encoding="utf-8")
+            code, _, err = run(["brief", REF, "--design-md", str(target)])
+            self.assertEqual(code, 1)
+            self.assertIn("already exists", err)
+            self.assertEqual(target.read_text(encoding="utf-8"), "hand-written\n")
 
 
 def brief_design(path):

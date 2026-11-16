@@ -79,12 +79,12 @@ def run_measure(url, out, viewport, allow_loopback):
 
 
 def _write_design(path, text):
-    target = Path(path)
-    if target.is_symlink():
-        raise OSError(f"refusing to write through a symlink: {target}")
-    # O_NOFOLLOW closes the check-then-open gap where the OS has it (not on Windows).
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
-    with os.fdopen(os.open(target, flags, 0o644), "w", encoding="utf-8") as out:
+    # A DESIGN.md may be hand-written: never replace one. O_EXCL also refuses any symlink.
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except FileExistsError:
+        raise OSError(f"{path} already exists; Piggyback never overwrites it") from None
+    with os.fdopen(fd, "w", encoding="utf-8") as out:
         out.write(text)
 
 
