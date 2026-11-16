@@ -59,6 +59,33 @@ uvx "piggyback-design[measure]"
 
 This does not work yet. It will need Python 3.11 or newer.
 
+## Use with your agent
+
+Piggyback can run as a read-only MCP server, so your agent can read the brief and re-check your build without you pasting numbers. You set the URLs in the MCP config. The agent cannot pass a URL, a path or any text that reaches the network or disk.
+
+Add this to your MCP client config (Claude Desktop, or `.mcp.json` for Claude Code):
+
+```json
+{
+  "mcpServers": {
+    "piggyback": {
+      "command": "uvx",
+      "args": [
+        "piggyback-design[measure]",
+        "mcp",
+        "--ref", "https://example.com/",
+        "--build", "http://localhost:3000/"
+      ]
+    }
+  }
+}
+```
+
+- `--ref` takes up to three public reference pages. `--build` takes your localhost or a public preview. Give at least one.
+- `get_brief` returns the brief. Its `refresh` flag measures again. `check` measures the build and returns numbered differences, marking the ones now within tolerance as fixed.
+- The Claude Code skill in `skills/piggyback/SKILL.md` tells the agent when to call these tools.
+- This is a config you edit. Your agent does not install or run it. Like the install command above, it works once v0.1 is installable.
+
 ## Principles
 
 - **No taste score.** Piggyback reports measurements and differences. You decide what is good.

@@ -11,7 +11,7 @@ from . import defaults as defaults_mod
 from . import fingerprint as fingerprints
 from . import format as ref_format
 from . import gap as gap_mod
-from . import server
+from . import mcp, server
 from .browser import BrowserUnavailable, launch
 from .measure import MeasureError, check_url, measure
 
@@ -120,6 +120,15 @@ def run_open(port, out):
     return 0
 
 
+def run_mcp(refs, build):
+    try:
+        refs, build = server._slots({"references": refs, "build": build})
+    except (ValueError, MeasureError) as exc:
+        print(f"mcp failed: {exc}", file=sys.stderr)
+        return 1
+    return mcp.serve(sys.stdin.buffer, sys.stdout.buffer, mcp.Session(refs, build))
+
+
 def doctor():
     print(
         f"python: {sys.version.split()[0]}",
@@ -172,6 +181,9 @@ def main(argv=None):
     d = sub.add_parser("defaults", help="list generic defaults on one build fingerprint")
     d.add_argument("build", metavar="BUILD.json")
     sub.add_parser("doctor", help="check Python, Playwright and the sandboxed browser")
+    mc = sub.add_parser("mcp", help="read-only MCP server on stdio: get_brief and check")
+    mc.add_argument("--ref", action="append", metavar="URL", help="public reference (1 to 3)")
+    mc.add_argument("--build", metavar="URL", help="your build: localhost, or a public preview")
     args = parser.parse_args(argv)
     if args.command in (None, "open"):
         return run_open(getattr(args, "port", 0), getattr(args, "out", "."))
@@ -183,4 +195,6 @@ def main(argv=None):
         return run_brief(args.fingerprints, args.build, args.out)
     if args.command == "defaults":
         return run_defaults(args.build)
+    if args.command == "mcp":
+        return run_mcp(args.ref or [], args.build)
     return doctor()

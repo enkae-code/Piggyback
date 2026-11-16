@@ -1,0 +1,169 @@
+"""`piggyback mcp`: read-only MCP server on stdio, for the agent's own self-check.
+
+Implements MCP protocol version 2025-06-18 (https://modelcontextprotocol.io/specification/2025-06-18:
+lifecycle, tools) as newline-delimited JSON-RPC 2.0. stdout carries protocol messages only; logs go
+to stderr. The URLs are fixed at startup by the human, and no tool takes a URL, a path or free text.
+"""
+
+import json
+import traceback
+
+from . import __version__, server
+from . import brief as brief_mod
+from . import defaults as defaults_mod
+from . import fingerprint as fp
+from . import gap as gap_mod
+from .glossary import TERMS
+from .measure import MeasureError, measure
+
+PROTOCOL = "2025-06-18"  # the only version implemented, so initialize always answers with it
+MAX_LINE = 64 * 1024
+PARSE, INVALID, NOT_FOUND, BAD_PARAMS = -32700, -32600, -32601, -32602
+FRAMING = brief_mod.FRAMING
+TOOLS = [
+    {
+        "name": "get_brief",
+        "description": "The measured design brief for the configured reference pages.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"refresh": {"type": "boolean", "description": "Measure again."}},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "check",
+        "description": "Measure the configured build and list how it differs from the references.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+]
+ARGUMENTS = {"get_brief": {"refresh"}, "check": set()}
+
+
+class RpcError(Exception):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code, self.message = code, message
+
+
+class Session:
+    """The references are measured once per process; the build is measured on every check."""
+
+    def __init__(self, refs, build, measure_page=measure):
+        self.refs, self.build = refs, build
+        self.measure_page = measure_page
+        self.ref_pages = None
+        self.differing = set()  # concepts that differed at the previous check
+
+    def _refs(self, refresh=False):
+        if self.ref_pages is None or refresh:
+            self.ref_pages = [self.measure_page(url) for url in self.refs]
+        return self.ref_pages
+
+    def get_brief(self, refresh):
+        return brief_mod.brief(self._refs(refresh))
+
+    def check(self):
+        if self.build is None:
+            raise ValueError("no build configured: start the server with --build")
+        build = self.measure_page(self.build, allow_loopback=server._on_this_machine(self.build))
+        if not self.refs:
+            return defaults_mod.render(defaults_mod.find(build))
+        ref = self._refs()[0]
+        pins = gap_mod.gap(ref, build)
+        differing = {pin.concept for pin in pins if pin.concept is not None}
+        fixed = (self.differing - differing) & gap_mod.compared(ref, build)
+        self.differing = differing
+        text = gap_mod.render(pins)
+        if len(self.refs) > 1:
+            text += "\nDifferences are against the first reference only.\n"
+        if fixed:
+            names = "\n".join(f"- {TERMS[concept][0]}" for concept in sorted(fixed))
+            text += f"\n## Fixed since the last check\n\n{names}\n"
+        return text
+
+
+def _text(text, error=False):
+    return {"content": [{"type": "text", "text": f"{FRAMING}\n\n{text}"}], "isError": error}
+
+
+def _call(session, params):
+    name, args = params.get("name"), params.get("arguments", {})
+    if not isinstance(name, str) or name not in ARGUMENTS:
+        raise RpcError(BAD_PARAMS, "unknown tool")
+    if not isinstance(args, dict) or set(args) - ARGUMENTS[name]:
+        raise RpcError(
+            BAD_PARAMS, "arguments must be an object with the tool's own parameters only"
+        )
+    refresh = args.get("refresh", False)
+    if not isinstance(refresh, bool):
+        raise RpcError(BAD_PARAMS, "refresh must be true or false")
+    try:
+        if name == "check":
+            return _text(session.check())
+        return _text(session.get_brief(refresh))
+    except (ValueError, MeasureError) as exc:
+        return _text(fp.clean(exc, 200), error=True)
+    except Exception:  # noqa: BLE001 - answer the agent instead of dropping the connection
+        traceback.print_exc()
+        return _text("measure failed unexpectedly; see the terminal", error=True)
+
+
+def _dispatch(method, params, session):
+    if method == "initialize":
+        return {
+            "protocolVersion": PROTOCOL,
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "piggyback", "version": __version__},
+        }
+    if method == "ping":
+        return {}
+    if method == "tools/list":
+        return {"tools": TOOLS}
+    if method == "tools/call":
+        return _call(session, params)
+    raise RpcError(NOT_FOUND, "method not found")
+
+
+def _reply(line, session):
+    """The reply to one raw line, or None for a notification (which gets no reply)."""
+    try:
+        msg = json.loads(line.decode("utf-8"))
+    except (ValueError, RecursionError):
+        return _error(None, PARSE, "parse error")
+    if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0" or "method" not in msg:
+        return _error(None, INVALID, "invalid request")
+    if "id" not in msg:
+        return None
+    rid = msg["id"]
+    params = msg.get("params", {})
+    if not isinstance(params, dict):
+        return _error(rid, BAD_PARAMS, "params must be an object")
+    try:
+        if not isinstance(msg["method"], str):
+            raise RpcError(INVALID, "invalid request")
+        return {"jsonrpc": "2.0", "id": rid, "result": _dispatch(msg["method"], params, session)}
+    except RpcError as exc:
+        return _error(rid, exc.code, exc.message)
+
+
+def _error(rid, code, message):
+    return {"jsonrpc": "2.0", "id": rid, "error": {"code": code, "message": message}}
+
+
+def serve(stdin, stdout, session):
+    """Answer requests until stdin closes. Both streams are binary; one message per line."""
+    # ponytail: synchronous loop, so one measure at a time and no rate limit. Each measure is
+    # capped at measure's TOTAL_S (90s); add a per-minute cap if a client loops on check.
+    while True:
+        raw = stdin.readline(MAX_LINE + 1)
+        if not raw:
+            return 0
+        if len(raw) > MAX_LINE:  # read the rest of the oversized line, then refuse it
+            while not raw.endswith(b"\n") and (raw := stdin.readline(MAX_LINE)):
+                pass
+            reply = _error(None, INVALID, "message too large")
+        else:
+            reply = _reply(raw, session)
+        if reply is not None:
+            stdout.write(json.dumps(reply).encode("ascii") + b"\n")
+            stdout.flush()

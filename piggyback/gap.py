@@ -109,6 +109,28 @@ def gap(ref, build):
     return pins + [Pin(None, None, text, None, None) for _, text in not_found]
 
 
+def _sized(page, name):
+    anchor = fp.anchor(page, name)
+    size = fp.px(anchor.get("font_size")) if anchor else None
+    return size is not None and size > 0
+
+
+def compared(ref, build):
+    """Concepts both pages can be compared on, whether or not they differ."""
+    found = {
+        concept
+        for name, (_, concept) in ANCHORS.items()
+        if _sized(ref, name) and _sized(build, name)
+    }
+    if fp.share(fp.get(ref, "palette", "accent_share")) is not None:
+        if fp.share(fp.get(build, "palette", "accent_share")) is not None:
+            found.add("accent")
+    if fp.number(fp.get(ref, "container_width")) is not None:
+        if fp.number(fp.get(build, "container_width")) is not None:
+            found.add("container")
+    return found
+
+
 def render(pins):
     """The differences as markdown, numbered to match the pins. Each concept explains once."""
     lines, explained = [], set()
