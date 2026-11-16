@@ -15,7 +15,9 @@ TERMS = {
     ),
     "accent": (
         "Accent (the saturated colour that draws the eye)",
-        "A small share keeps it for emphasis; a large share competes with the content.",
+        "A small share keeps it for emphasis; a large share competes with the content. "
+        "Hallmark's line (not Piggyback's verdict): past about 5% of a viewport it warns, "
+        "past 8% it fails.",
     ),
     "radius": (
         "Radius (how rounded the corners of a box are)",

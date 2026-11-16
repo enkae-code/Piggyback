@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -77,7 +78,17 @@ def run_measure(url, out, viewport, allow_loopback):
     return 0
 
 
-def run_brief(paths, build_path, out):
+def _write_design(path, text):
+    target = Path(path)
+    if target.is_symlink():
+        raise OSError(f"refusing to write through a symlink: {target}")
+    # O_NOFOLLOW closes the check-then-open gap where the OS has it (not on Windows).
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    with os.fdopen(os.open(target, flags, 0o644), "w", encoding="utf-8") as out:
+        out.write(text)
+
+
+def run_brief(paths, build_path, out, design_path=None):
     try:
         refs = [fingerprints.load(path) for path in paths]
         text = brief_mod.brief(refs)
@@ -90,6 +101,8 @@ def run_brief(paths, build_path, out):
                 return 1
             build = fingerprints.load(build_path)
             text += "\n" + gap_mod.render(gap_mod.gap(refs[0], build))
+        if design_path:
+            _write_design(design_path, brief_mod.design_md(refs[0]))
     except (OSError, ValueError) as exc:
         print(f"brief failed: {exc}", file=sys.stderr)
         return 1
@@ -98,6 +111,8 @@ def run_brief(paths, build_path, out):
         print(f"wrote {out}")
     else:
         print(text, end="")
+    if design_path:
+        print(f"wrote {design_path} (DESIGN.md for the first reference)", file=sys.stderr)
     return 0
 
 
@@ -178,6 +193,11 @@ def main(argv=None):
     b.add_argument("fingerprints", nargs="+", metavar="FINGERPRINT.json")
     b.add_argument("--build", metavar="BUILD.json", help="add differences vs one reference")
     b.add_argument("--out", metavar="BRIEF.md", help="write to a file instead of stdout")
+    b.add_argument(
+        "--design-md",
+        metavar="PATH",
+        help="also write DESIGN.md for the first reference (Impeccable reads it)",
+    )
     d = sub.add_parser("defaults", help="list generic defaults on one build fingerprint")
     d.add_argument("build", metavar="BUILD.json")
     sub.add_parser("doctor", help="check Python, Playwright and the sandboxed browser")
@@ -192,7 +212,7 @@ def main(argv=None):
     if args.command == "check-refs":
         return check_refs(args.directory)
     if args.command == "brief":
-        return run_brief(args.fingerprints, args.build, args.out)
+        return run_brief(args.fingerprints, args.build, args.out, args.design_md)
     if args.command == "defaults":
         return run_defaults(args.build)
     if args.command == "mcp":

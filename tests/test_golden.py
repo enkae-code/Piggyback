@@ -12,6 +12,11 @@ FIXTURES = Path(__file__).parent / "fixtures"
 HEX = re.compile(r"#[0-9a-f]{6}")
 
 
+def front_block(text):
+    lines = text.split("\n")
+    return "\n".join(lines[1 : lines.index("---", 1)])
+
+
 class RealSampleGolden(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -59,6 +64,18 @@ class RealSampleGolden(unittest.TestCase):
             self.assertTrue(line.endswith(f": {fonts}"), line)
             self.assertNotIn("SF Pro", line)
             self.assertNotIn("Segoe", line)
+
+    def test_design_md_on_linear_carries_measured_values_only(self):
+        front = front_block(brief_mod.design_md(self.ref))
+        self.assertIn('  background-1: "#08090a"', front)
+        self.assertIn('  text-1: "#f7f8f8"', front)
+        self.assertIn('    fontFamily: "Inter Variable, Berkeley Mono"', front)
+        self.assertIn('    "16": "16px"', front)
+        self.assertIn('  radius-1: "9999px"', front)
+        self.assertIn('  radius-2: "400px"', front)
+        self.assertNotIn("rgba(", front)
+        body = brief_mod.design_md(self.ref).split("---\n", 2)[2]
+        self.assertIn("- Container width: 1344px", body)
 
     def test_linear_accent_is_zero_because_no_background_is_saturated(self):
         self.assertEqual(self.ref["palette"]["accent_share"], 0)

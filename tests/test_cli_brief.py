@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from piggyback import brief as brief_mod
 from piggyback import fingerprint as fp
 from piggyback.cli import main
 
@@ -70,6 +71,31 @@ class BriefCliTests(unittest.TestCase):
             path.write_text(json.dumps({"x": "a" * (fp.MAX_BYTES + 1)}), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "larger than 5 MB"):
                 fp.load(path)
+
+
+class DesignMdCliTests(unittest.TestCase):
+    def test_design_md_is_written_for_the_first_reference_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "DESIGN.md"
+            code, _, _ = run(["brief", REF, BUILD, "--design-md", str(target)])
+            self.assertEqual(code, 0)
+            self.assertTrue(target.read_text(encoding="utf-8").startswith("---\nname: "))
+            self.assertEqual(target.read_text(encoding="utf-8"), brief_design(REF))
+
+    def test_design_md_refuses_to_write_through_a_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            victim = Path(tmp) / "victim.txt"
+            victim.write_text("keep", encoding="utf-8")
+            link = Path(tmp) / "DESIGN.md"
+            link.symlink_to(victim)
+            code, _, err = run(["brief", REF, "--design-md", str(link)])
+            self.assertEqual(code, 1)
+            self.assertIn("symlink", err)
+            self.assertEqual(victim.read_text(encoding="utf-8"), "keep")
+
+
+def brief_design(path):
+    return brief_mod.design_md(fp.load(path))
 
 
 class DefaultsCliTests(unittest.TestCase):

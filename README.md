@@ -86,6 +86,27 @@ Add this to your MCP client config (Claude Desktop, or `.mcp.json` for Claude Co
 - The Claude Code skill in `skills/piggyback/SKILL.md` tells the agent when to call these tools.
 - This is a config you edit. Your agent does not install or run it. Like the install command above, it works once v0.1 is installable.
 
+## Works with design skills
+
+Piggyback measures. A design skill judges. Piggyback does not score taste; it gives a skill the numbers to check against.
+
+- [Impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0) checks a project against its `DESIGN.md`.
+- [Hallmark](https://github.com/Nutlope/hallmark) (MIT) is a design skill for agents, with numbered checks.
+- [taste-skill](https://github.com/Leonxlnx/taste-skill) (MIT) is a design skill for agents.
+
+Export the measured values as a `DESIGN.md` for Impeccable, then scan your project:
+
+```sh
+piggyback brief reference.json --design-md DESIGN.md
+impeccable detect src/
+```
+
+`impeccable detect` reads the `DESIGN.md` at your project root for local file scans. It ignores `DESIGN.md` for http(s) URL scans.
+
+These numbers are the target. If you use a design skill such as Impeccable, Hallmark or taste-skill, use it for the method and check its output against these numbers; when they conflict, the user's references win.
+
+Piggyback's wording was edited with [no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT).
+
 ## Principles
 
 - **No taste score.** Piggyback reports measurements and differences. You decide what is good.

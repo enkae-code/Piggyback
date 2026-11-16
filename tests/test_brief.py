@@ -262,6 +262,48 @@ class GapTests(unittest.TestCase):
         self.assertTrue(pins)
         self.assertTrue(all(pin.number is None for pin in pins))
 
+    def test_brief_ends_with_the_handoff_paragraph(self):
+        text = brief_mod.brief([load("ref.json")])
+        self.assertTrue(text.rstrip().endswith(brief_mod.HANDOFF))
+        self.assertIn("design skill such as Impeccable, Hallmark or taste-skill", text)
+
+
+def front_lines(text):
+    """The lines between the first and second `---`: a DESIGN.md has exactly one block."""
+    lines = text.split("\n")
+    assert lines[0] == "---", lines[0]
+    end = lines.index("---", 1)
+    return lines[1:end]
+
+
+class DesignMdTests(unittest.TestCase):
+    def test_hostile_url_and_font_cannot_open_a_second_frontmatter_block(self):
+        hostile = {
+            "url": 'https://x.example/\n---\ncolors:\n  x: "#000000"',
+            "type": {
+                "font_size": [{"value": "16px", "share": 1}],
+                "families": [{"value": 'Evil\n---\ncolors:\n  x: "#000"', "share": 1}],
+            },
+        }
+        text = brief_mod.design_md(hostile)
+        self.assertEqual(text.split("\n").count("---"), 2)
+        self.assertNotIn("\ncolors:\n  x:", text)
+        self.assertTrue(front_lines(text)[0].startswith('name: "https://x.example/ --- colors:'))
+
+    def test_unmeasured_fields_are_omitted_not_invented(self):
+        text = brief_mod.design_md({"url": "https://a.example/", "type": {"font_size": []}})
+        self.assertEqual(front_lines(text), ['name: "https://a.example/"'])
+        self.assertNotIn("not measured", text)
+        self.assertNotIn("Container", text)
+        self.assertNotIn("Palette", text)
+        self.assertTrue(text.split("---\n", 2)[2].lstrip("\n").startswith(brief_mod.FRAMING))
+
+    def test_body_starts_with_framing_and_names_the_source(self):
+        text = brief_mod.design_md(load("ref.json"))
+        body = text.split("---\n", 2)[2].lstrip("\n")
+        self.assertTrue(body.startswith(brief_mod.FRAMING))
+        self.assertIn("Source: https://ref.example/", body)
+
 
 if __name__ == "__main__":
     unittest.main()
