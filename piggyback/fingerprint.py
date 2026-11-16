@@ -35,11 +35,18 @@ def load(path):
     return data
 
 
+# Invisible but not category C: variation selectors (can smuggle encoded text), combining
+# grapheme joiner, Khmer inherent vowels, Hangul fillers and the braille blank.
+INVISIBLE = re.compile(
+    "[\ufe00-\ufe0f\U000e0100-\U000e01ef\u034f\u17b4\u17b5\u115f\u1160\u3164\uffa0\u2800]"
+)
+
+
 def hidden(char):
     """Control, format (bidi, zero-width, tags, BOM), unassigned, private-use and surrogate
-    characters: none show a reader anything, so none reach BRIEF.md. Line and paragraph
-    separators (Zl, Zp) are whitespace, so the split in clean() already removes them."""
-    return unicodedata.category(char)[0] == "C"
+    characters, plus the INVISIBLE set: none show a reader anything, so none reach BRIEF.md.
+    Line and paragraph separators (Zl, Zp) are whitespace, so the split in clean() removes them."""
+    return unicodedata.category(char)[0] == "C" or INVISIBLE.match(char) is not None
 
 
 def clean(text, limit=MAX_TEXT):

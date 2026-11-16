@@ -13,6 +13,10 @@ class CleanTests(unittest.TestCase):
     def test_zero_width_and_bom_are_removed(self):
         self.assertEqual(fp.clean("a\u200bb\u200fc\ufeffd"), "a b c d")
 
+    def test_invisible_non_control_characters_are_removed(self):
+        hostile = "A" + "\ufe0f" * 50 + "\U000e0100" + "\u034f\u115f\u3164\uffa0\u2800" + "B"
+        self.assertEqual(fp.clean(hostile), "A B")
+
     def test_bidi_controls_are_removed(self):
         self.assertEqual(fp.clean("x\u202eevil\u2066y\u061cz"), "x evil y z")
 

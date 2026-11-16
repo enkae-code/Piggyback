@@ -62,6 +62,8 @@ class DefaultsTests(unittest.TestCase):
             {"props": ["opacity", 3], "count": 5, "duration": 300},
             {"props": None, "count": 5, "duration": 300},
             {"props": "opacity transform", "count": 5, "duration": 300},
+            {"props": [[1]], "count": 5, "duration": 300},
+            {"props": [{"a": 1}], "count": 5, "duration": 300},
             {"props": ["opacity", "transform"], "count": 5, "duration": 300},
         ]
         self.assertEqual(concepts({"motion": motion}), ["repeated_motion"])

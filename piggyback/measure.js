@@ -172,6 +172,11 @@
       sat(c) >= 0.1 &&
       Math.hypot(...c.slice(0, 3).map((v, i) => v - pageBg[i])) > 16);
   const CONTROL = "button, input, [role=button]";
+  // A percentage radius is relative to the box, so compare it in pixels.
+  const radiusPx = (b) => {
+    const r = b.cs.borderTopLeftRadius;
+    return r.endsWith("%") ? (parseFloat(r) / 100) * b.r.width : parseFloat(r);
+  };
   const tintedIconSquares = boxes.filter(
     (b) =>
       hasBg(b) &&
@@ -179,7 +184,7 @@
       Math.abs(b.r.width - b.r.height) <= 1 &&
       b.r.width >= 24 &&
       b.r.width <= 80 &&
-      parseFloat(b.cs.borderTopLeftRadius) < b.r.width / 2 &&
+      radiusPx(b) < b.r.width / 2 &&
       !b.el.matches(CONTROL) &&
       b.el.querySelector("svg") !== null,
   ).length;

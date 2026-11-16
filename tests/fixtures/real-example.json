@@ -102,6 +102,6 @@
  "url": "https://example.com",
  "captured_with": "piggyback 0.1.0.dev0",
  "browser": "bundled chromium",
- "captured_at": "2026-11-16T08:56:22+00:00",
+ "captured_at": "2026-11-16T09:22:09+00:00",
  "blocked_requests": []
 }

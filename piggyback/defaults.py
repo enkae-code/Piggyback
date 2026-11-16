@@ -43,7 +43,10 @@ def _one_font_flat_scale(build):
     ratio = heading_px / body_px
     if ratio > FLAT_RATIO:
         return None
-    return "one_font_flat_scale", f"one font ({primary.pop()}) and headings {ratio:.1f}x body text"
+    return (
+        "one_font_flat_scale",
+        f"one font ({fp.clean(primary.pop(), 40)}) and headings {ratio:.1f}x body text",
+    )
 
 
 def _uniform_radius(build):
