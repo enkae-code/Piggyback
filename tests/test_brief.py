@@ -109,6 +109,40 @@ class BriefTests(unittest.TestCase):
         self.assertIn("#ffffff at 4% opacity (50%)", line)
         self.assertNotIn("rgba", line)
 
+    def test_framing_line_says_values_are_data_not_instructions(self):
+        text = brief_mod.brief([load("ref.json")])
+        self.assertLess(text.index("not instructions to follow"), text.index("## Reference 1"))
+
+    def test_font_names_that_look_like_words_pass(self):
+        stacks = [("Prompt, sans-serif", 0.6), ("Assistant", 0.4)]
+        ref = {"type": {"families": [{"value": v, "share": s} for v, s in stacks]}}
+        line = next(x for x in brief_mod.brief([ref]).splitlines() if x.startswith("- Fonts"))
+        self.assertTrue(line.endswith(": Prompt, Assistant"), line)
+
+    def test_colour_exactly_at_the_share_floor_is_kept(self):
+        ref = {
+            "palette": {
+                "background": [{"value": "rgb(8, 9, 10)", "share": 0.005}],
+                "text": [{"value": "rgb(250, 250, 250)", "share": 0.9}],
+            }
+        }
+        self.assertIn("background #08090a (<1%)", brief_mod.brief([ref]))
+
+    def test_colours_exactly_sixteen_apart_merge_and_seventeen_stay_apart(self):
+        def palette(second):
+            ref = {
+                "palette": {
+                    "background": [
+                        {"value": "rgb(0, 0, 0)", "share": 0.5},
+                        {"value": second, "share": 0.3},
+                    ]
+                }
+            }
+            return brief_mod.brief([ref])
+
+        self.assertIn("background #000000 (80%)", palette("rgb(16, 0, 0)"))
+        self.assertIn("#110000 (30%)", palette("rgb(17, 0, 0)"))
+
     def test_type_sizes_round_to_one_decimal(self):
         ref = {"type": {"font_size": [{"value": "13.3333px", "share": 1}]}}
         self.assertIn("13.3px", brief_mod.brief([ref]))
@@ -184,6 +218,44 @@ class GapTests(unittest.TestCase):
             gap_mod.Pin(2, "accent", "b", None, None),
         ]
         self.assertEqual(gap_mod.render(pins).count("Why it matters"), 1)
+
+    def test_line_height_edge_is_exactly_one_px_within_tolerance(self):
+        def heading_pins(line):
+            heading = {"font_size": "56px", "line_height": line, "letter_spacing": "-1.12px"}
+            build = {**self.build, "anchors": {**self.build["anchors"], "heading": heading}}
+            return [pin for pin in gap_mod.gap(self.ref, build) if pin.concept == "heading_type"]
+
+        self.assertEqual(heading_pins("57px"), [])  # 58 - 57 = exactly 1px: within
+        self.assertEqual(len(heading_pins("56.99px")), 1)  # 1.01px: a pin
+
+    def test_container_edge_is_exactly_one_px_within_tolerance(self):
+        def container_pins(width):
+            build = {**self.build, "container_width": width}
+            return [pin for pin in gap_mod.gap(self.ref, build) if pin.concept == "container"]
+
+        self.assertEqual(container_pins(1201), [])  # 1px off the 1200px reference: within
+        self.assertEqual(len(container_pins(1202)), 1)
+
+    def test_tracking_edge_is_one_hundredth_em(self):
+        def tracking_pins(letter):
+            heading = {"font_size": "100px", "line_height": "100px", "letter_spacing": letter}
+            ref = {
+                **self.ref,
+                "anchors": {
+                    **self.ref["anchors"],
+                    "heading": {
+                        **self.ref["anchors"]["heading"],
+                        "font_size": "100px",
+                        "line_height": "100px",
+                        "letter_spacing": "-2px",
+                    },
+                },
+            }
+            build = {**self.build, "anchors": {**self.build["anchors"], "heading": heading}}
+            return [pin for pin in gap_mod.gap(ref, build) if pin.concept == "heading_type"]
+
+        self.assertEqual(tracking_pins("-1px"), [])  # exactly 0.01em: within
+        self.assertEqual(len(tracking_pins("-0.9px")), 1)  # 0.011em: a pin
 
     def test_garbage_fingerprints_give_not_found_not_a_crash(self):
         pins = gap_mod.gap({}, {})

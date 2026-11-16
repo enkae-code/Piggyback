@@ -1,7 +1,8 @@
 // Page-level design fingerprint, evaluated in the page by measure.py. Returns plain JSON.
 // Captured strings (heading text, class names) are returned as data and never evaluated.
 () => {
-  const VW = window.innerWidth;
+  // clientWidth leaves out a visible scrollbar, so centring matches where the layout puts content.
+  const VW = document.documentElement.clientWidth;
   const VH = window.innerHeight;
   const round = (n) => Math.round(n * 100) / 100;
   const rgba = (c) => {
@@ -154,13 +155,31 @@
       (b.cs.backgroundClip || b.cs.webkitBackgroundClip) === "text" &&
       b.cs.backgroundImage.includes("gradient"),
   ).length;
+  // Tinted: translucent, or an opaque pastel that differs from the page background. Squares
+  // only: circles (avatars) and buttons are not icon tiles.
+  const paint = (cs) => {
+    const c = rgba(cs.backgroundColor);
+    return c && c[3] > 0 ? c : null;
+  };
+  const pageBg =
+    paint(getComputedStyle(document.body)) ||
+    paint(getComputedStyle(document.documentElement)) ||
+    [255, 255, 255, 1];
+  const tinted = (c) =>
+    c[3] < 1 ||
+    (Math.max(...c.slice(0, 3)) >= 200 &&
+      sat(c) >= 0.1 &&
+      Math.hypot(...c.slice(0, 3).map((v, i) => v - pageBg[i])) > 16);
+  const CONTROL = "button, input, [role=button]";
   const tintedIconSquares = boxes.filter(
     (b) =>
       hasBg(b) &&
-      rgba(b.cs.backgroundColor)[3] < 1 &&
+      tinted(rgba(b.cs.backgroundColor)) &&
       Math.abs(b.r.width - b.r.height) <= 1 &&
       b.r.width >= 24 &&
       b.r.width <= 80 &&
+      parseFloat(b.cs.borderTopLeftRadius) < b.r.width / 2 &&
+      !b.el.matches(CONTROL) &&
       b.el.querySelector("svg") !== null,
   ).length;
 
@@ -213,7 +232,6 @@
   // A card: a box with text or child elements, at least 120x80, fully inside the viewport (an
   // off-screen carousel slide is not on the page), never a control on its own and never part of
   // an SVG drawing (repeated <g> groups are artwork, not cards).
-  const CONTROL = "button, input, [role=button]";
   const isCard = (b) =>
     b.r.width >= 120 &&
     b.r.height >= 80 &&
@@ -238,7 +256,7 @@
   // is not used: a narrow text block would otherwise stand in for the page column.
   const COLUMN_MIN_HEIGHT = 100;
   const CENTRE_TOLERANCE = 2;
-  const columns = new Map();
+  const candidates = [];
   // body itself is a common page column (example.com) but sits outside `boxes`.
   const bodyBox = document.body && {
     el: document.body,
@@ -247,15 +265,21 @@
   };
   for (const b of bodyBox ? [bodyBox, ...boxes] : boxes) {
     b.area ??= clipArea(b.r);
-    const narrow = /^[\d.]+px$/.test(b.cs.maxWidth) || b.r.width < VW;
     const left = b.r.left;
     const right = VW - b.r.right;
-    if (!narrow || b.area <= 0 || b.r.height < COLUMN_MIN_HEIGHT) continue;
+    if (b.area <= 0 || b.r.height < COLUMN_MIN_HEIGHT) continue;
     if (left <= 0 || right <= 0 || Math.abs(left - right) > CENTRE_TOLERANCE) continue;
     const padding = parseFloat(b.cs.paddingLeft) + parseFloat(b.cs.paddingRight);
-    const content = Math.round(b.r.width - padding);
-    columns.set(content, (columns.get(content) || 0) + b.area);
+    candidates.push({
+      width: Math.round(b.r.width - padding),
+      area: b.area,
+      px: /^[\d.]+px$/.test(b.cs.maxWidth),
+    });
   }
+  // A column with its own px max-width beats a full-width section with gutters, which can out-area it.
+  const pool = candidates.some((c) => c.px) ? candidates.filter((c) => c.px) : candidates;
+  const columns = new Map();
+  for (const c of pool) columns.set(c.width, (columns.get(c.width) || 0) + c.area);
   let container = null;
   for (const [width, area] of columns) {
     if (

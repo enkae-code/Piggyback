@@ -51,6 +51,7 @@ class RealSampleGolden(unittest.TestCase):
             "real-linear": "Inter Variable, Berkeley Mono",
             "real-vercel": "GeistSans",
             "real-stripe": "sohne-var",
+            "real-example": "system-ui",
         }
         for name, fonts in expected.items():
             text = brief_mod.brief([fp.load(FIXTURES / f"{name}.json")])

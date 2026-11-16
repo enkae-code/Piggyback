@@ -38,6 +38,15 @@ class DefaultsTests(unittest.TestCase):
         build = {**self.build, "anchors": {**self.build["anchors"], "heading": heading}}
         self.assertIn("one_font_flat_scale", concepts(build))
 
+    def test_flat_scale_fires_at_exactly_one_and_a_half_times(self):
+        heading = {**self.build["anchors"]["heading"], "font_size": "24px"}
+        body = {**self.build["anchors"]["body"], "font_size": "16px"}
+        build = {
+            **self.build,
+            "anchors": {**self.build["anchors"], "heading": heading, "body": body},
+        }
+        self.assertIn("one_font_flat_scale", concepts(build))
+
     def test_flat_scale_ignores_generic_fallback_fonts(self):
         heading = {**self.build["anchors"]["heading"], "font_size": "18px"}
         families = [{"value": "Inter, sans-serif", "share": 1}]
@@ -47,6 +56,15 @@ class DefaultsTests(unittest.TestCase):
             "type": {**self.build["type"], "families": families},
         }
         self.assertIn("one_font_flat_scale", concepts(build))
+
+    def test_malformed_motion_props_do_not_crash(self):
+        motion = [
+            {"props": ["opacity", 3], "count": 5, "duration": 300},
+            {"props": None, "count": 5, "duration": 300},
+            {"props": "opacity transform", "count": 5, "duration": 300},
+            {"props": ["opacity", "transform"], "count": 5, "duration": 300},
+        ]
+        self.assertEqual(concepts({"motion": motion}), ["repeated_motion"])
 
     def test_no_evidence_no_defaults(self):
         self.assertEqual(defaults.find({}), [])

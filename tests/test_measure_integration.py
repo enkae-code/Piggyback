@@ -129,6 +129,19 @@ class MeasureIntegration(unittest.TestCase):
         result = measure(f"{self.base}/container-body.html", allow_loopback=True)
         self.assertEqual(result["container_width"], 416)  # body max-width: 26em at 16px
 
+    def test_visible_scrollbar_does_not_hide_the_centred_column(self):
+        # Without clientWidth the right gap is 15px wider than the left: the column is not centred.
+        result = measure(f"{self.base}/scrollbar-column.html", allow_loopback=True)
+        self.assertEqual(result["container_width"], 960)
+
+    def test_full_width_section_with_gutters_does_not_stand_in_for_the_column(self):
+        result = measure(f"{self.base}/gutter-section.html", allow_loopback=True)
+        self.assertEqual(result["container_width"], 960)  # the 1232px band out-areas it
+
+    def test_only_pastel_square_icon_tiles_count(self):
+        result = measure(f"{self.base}/icon-tiles.html", allow_loopback=True)
+        self.assertEqual(result["effects"]["tinted_icon_squares"], 1)  # not the circle or button
+
     def test_container_is_the_inner_wrapper_and_hidden_text_is_dropped(self):
         result = measure(f"{self.base}/container-sections.html", allow_loopback=True)
         self.assertEqual(result["container_width"], 1100)
