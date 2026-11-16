@@ -307,16 +307,17 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(400, str(exc))
         if not self.server.busy.acquire(blocking=False):
             return self._error(429, "a measure is already running")
+        # The lock is released before any reply, so a client that has its answer can measure again.
         try:
-            result = self.server.run(refs, build, body.get("build") or None)
+            reply = (200, self.server.run(refs, build, body.get("build") or None))
         except MeasureError as exc:
-            return self._error(422, str(exc))
+            reply = (422, {"error": str(exc)})
         except Exception:  # noqa: BLE001 - answer the page instead of dropping the connection
             traceback.print_exc()
-            return self._error(500, "measure failed unexpectedly; see the terminal")
+            reply = (500, {"error": "measure failed unexpectedly; see the terminal"})
         finally:
             self.server.busy.release()
-        return self._json(200, result)
+        return self._json(*reply)
 
     def _brief(self):
         text = self.server.last_text
