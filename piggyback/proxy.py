@@ -31,8 +31,9 @@ class EgressProxy:
         threading.Thread(target=self._accept, daemon=True).start()
 
     def record(self, target):
+        # The record is written into fingerprint.json; query strings can carry capability tokens.
         if len(self.blocked) < MAX_BLOCKED:
-            self.blocked.append(target[:500])
+            self.blocked.append(target.split("?", 1)[0][:500])
 
     def close(self):
         # Open connections end on their own timeouts; the worker process exits right after.

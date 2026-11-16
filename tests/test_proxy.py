@@ -56,6 +56,13 @@ class EgressProxyTests(unittest.TestCase):
         self.assertTrue(reply.startswith(b"HTTP/1.1 403"), reply)
         self.assertEqual(self.proxy.blocked, [self.origin_url])
 
+    def test_query_string_not_recorded(self):
+        reply = send(
+            self.proxy.port, b"GET http://10.0.0.1/p?token=secret HTTP/1.1\r\nHost: x\r\n\r\n"
+        )
+        self.assertTrue(reply.startswith(b"HTTP/1.1 403"), reply)
+        self.assertEqual(self.proxy.blocked, ["http://10.0.0.1/p"])
+
     def test_connect_to_private_refused_and_recorded(self):
         reply = send(
             self.proxy.port, b"CONNECT 10.0.0.1:443 HTTP/1.1\r\nHost: 10.0.0.1:443\r\n\r\n"
