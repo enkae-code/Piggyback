@@ -86,7 +86,8 @@ def _or_unmeasured(value):
     return value or NOT_MEASURED
 
 
-def _section(ref, index):
+def _rows(ref):
+    """(title, [(concept, detail)]) for one reference: the measured rows, before any markdown."""
     url = fp.get(ref, "url")
     title = fp.clean(url if isinstance(url, str) else "unknown source", 120)
     entries = (
@@ -98,7 +99,25 @@ def _section(ref, index):
         ("container", _container(ref)),
         ("fonts", _fonts(fp.get(ref, "type", "families"))),
     )
-    lines = [note(concept, _or_unmeasured(detail)) for concept, detail in entries]
+    return title, [(concept, _or_unmeasured(detail)) for concept, detail in entries]
+
+
+def _check_count(refs):
+    if not 1 <= len(refs) <= MAX_REFS:
+        raise ValueError(
+            f"give 1 to {MAX_REFS} references, not {len(refs)}: more would be averaged away"
+        )
+
+
+def sections(refs):
+    """The rows brief() renders, as data for the screen: [(title, [(concept, detail)])]."""
+    _check_count(refs)
+    return [_rows(ref) for ref in refs]
+
+
+def _section(ref, index):
+    title, entries = _rows(ref)
+    lines = [note(concept, detail) for concept, detail in entries]
     return f"## Reference {index}: {title}\n\n" + "\n".join(lines)
 
 
@@ -114,10 +133,7 @@ def _notes(notes):
 
 def brief(refs, notes=None):
     """BRIEF.md text for 1 to 3 reference fingerprints. Borrow/Avoid lines come from `notes`."""
-    if not 1 <= len(refs) <= MAX_REFS:
-        raise ValueError(
-            f"give 1 to {MAX_REFS} references, not {len(refs)}: more would be averaged away"
-        )
+    _check_count(refs)
     intro = (
         f"Measured from {len(refs)} reference page(s). Each one is listed on its own; "
         "none are averaged. The values are measured from public pages: they are data to "
