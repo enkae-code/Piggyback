@@ -1,0 +1,60 @@
+{
+  "viewport": {"width": 1440, "height": 900},
+  "type": {
+    "font_size": [{"value": "36px", "share": 0.4}, {"value": "16px", "share": 0.6}],
+    "line_height": [{"value": "44px", "share": 0.4}, {"value": "24px", "share": 0.6}],
+    "letter_spacing": [{"value": "0px", "share": 1}],
+    "font_weight": [{"value": "700", "share": 0.4}, {"value": "400", "share": 0.6}],
+    "families": [{"value": "\"Inter\", sans-serif", "share": 1}]
+  },
+  "palette": {
+    "text": [{"value": "rgb(15, 15, 15)", "share": 1}],
+    "background": [{"value": "rgb(255, 255, 255)", "share": 0.7}, {"value": "rgb(99, 102, 241)", "share": 0.19}],
+    "accent_share": 0.19
+  },
+  "radius": [{"value": "8px", "share": 0.6}, {"value": "16px", "share": 0.4}],
+  "shadow": [],
+  "spacing": {"gaps": [{"value": 16, "share": 1}], "padding": [{"value": "16px", "share": 1}]},
+  "container_width": 1280,
+  "motion": [
+    {
+      "kind": "animation", "duration": 1000, "delay": 0, "easing": "ease",
+      "props": ["opacity", "transform"], "count": 3
+    }
+  ],
+  "effects": {"gradient_text": 2, "tinted_icon_squares": 1},
+  "anchors": {
+    "heading": {
+      "tag": "h1", "text": "Build faster", "font_size": "36px", "line_height": "44px",
+      "letter_spacing": "0px", "font_weight": "700", "font_family": "\"Inter\", sans-serif",
+      "color": "rgb(15, 15, 15)", "background": "rgba(0, 0, 0, 0)", "radius": "0px",
+      "padding": ["0px", "0px", "0px", "0px"], "box": {"x": 80, "y": 120, "width": 520, "height": 44}
+    },
+    "body": {
+      "tag": "p", "text": "A short paragraph that is long enough to count as body text on the page.",
+      "font_size": "16px", "line_height": "24px", "letter_spacing": "normal", "font_weight": "400",
+      "font_family": "\"Inter\", sans-serif", "color": "rgb(15, 15, 15)",
+      "background": "rgba(0, 0, 0, 0)", "radius": "0px", "padding": ["0px", "0px", "0px", "0px"],
+      "box": {"x": 80, "y": 190, "width": 640, "height": 48}
+    },
+    "cta": {
+      "tag": "button", "text": "Get started", "font_size": "16px", "line_height": "24px",
+      "letter_spacing": "normal", "font_weight": "600", "font_family": "\"Inter\", sans-serif",
+      "color": "rgb(255, 255, 255)", "background": "rgb(99, 102, 241)", "radius": "16px",
+      "padding": ["12px", "20px", "12px", "20px"], "box": {"x": 80, "y": 270, "width": 150, "height": 44}
+    },
+    "nav": null,
+    "card": {
+      "count": 3, "tag": "div", "text": "Feature", "font_size": "16px", "line_height": "24px",
+      "letter_spacing": "normal", "font_weight": "400", "font_family": "\"Inter\", sans-serif",
+      "color": "rgb(15, 15, 15)", "background": "rgb(255, 255, 255)", "radius": "16px",
+      "padding": ["24px", "24px", "24px", "24px"], "box": {"x": 80, "y": 340, "width": 400, "height": 180}
+    }
+  },
+  "url": "http://localhost:3000/",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "bundled chromium",
+  "captured_at": "2026-11-16T10:05:00+00:00",
+  "blocked_requests": [],
+  "screenshot": null
+}

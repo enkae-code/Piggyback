@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>effects</title>
+<style>
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  body { font-family: sans-serif; margin: 24px; }
+  h1 {
+    font-size: 40px;
+    background: linear-gradient(90deg, #f0f, #0ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .icon { width: 48px; height: 48px; background: rgba(79, 70, 229, 0.12); display: grid; place-items: center; }
+  .card { animation: rise 1000ms ease 0s 1 both; padding: 16px; }
+</style>
+</head>
+<body>
+<h1>Gradient headline</h1>
+<div class="icon"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle></svg></div>
+<div class="card">One</div>
+<div class="card">Two</div>
+<div class="card">Three</div>
+</body>
+</html>

@@ -123,16 +123,36 @@
   for (const a of document.getAnimations()) {
     const t = a.effect ? a.effect.getComputedTiming() : {};
     const kind = { CSSTransition: "transition", CSSAnimation: "animation" }[a.constructor.name];
-    const key = JSON.stringify([kind || "waapi", t.duration, t.delay, t.easing]);
+    const frames = a.effect ? a.effect.getKeyframes() : [];
+    const props = [...new Set(frames.flatMap((f) => Object.keys(f)))]
+      .filter((p) => !["offset", "computedOffset", "easing", "composite"].includes(p))
+      .sort();
+    const key = JSON.stringify([kind || "waapi", t.duration, t.delay, t.easing, props]);
     motionCounts.set(key, (motionCounts.get(key) || 0) + 1);
   }
   const motion = [...motionCounts]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 20)
     .map(([key, count]) => {
-      const [kind, duration, delay, easing] = JSON.parse(key);
-      return { kind, duration, delay, easing, count };
+      const [kind, duration, delay, easing, props] = JSON.parse(key);
+      return { kind, duration, delay, easing, props, count };
     });
+
+  // Effects: counts behind the defaults-detected rules.
+  const gradientText = texts.filter(
+    (b) =>
+      (b.cs.backgroundClip || b.cs.webkitBackgroundClip) === "text" &&
+      b.cs.backgroundImage.includes("gradient"),
+  ).length;
+  const tintedIconSquares = boxes.filter(
+    (b) =>
+      hasBg(b) &&
+      rgba(b.cs.backgroundColor)[3] < 1 &&
+      Math.abs(b.r.width - b.r.height) <= 1 &&
+      b.r.width >= 24 &&
+      b.r.width <= 80 &&
+      b.el.querySelector("svg") !== null,
+  ).length;
 
   // Anchors. Each is null when the page has no such element; never guessed.
   const describe = (b) =>
@@ -198,6 +218,7 @@
     spacing,
     container_width: container === null ? null : round(container),
     motion,
+    effects: { gradient_text: gradientText, tinted_icon_squares: tintedIconSquares },
     anchors: {
       heading: describe(heading),
       body: describe(body),

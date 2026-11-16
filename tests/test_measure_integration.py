@@ -118,6 +118,13 @@ class MeasureIntegration(unittest.TestCase):
             self.assertIn("http://10.0.0.1/", result["blocked_requests"])
             self.assertFalse(any(f":{self.other_port}" in u for u in result["blocked_requests"]))
 
+    def test_effects_and_motion_props_for_defaults(self):
+        result = measure(f"{self.base}/effects.html", allow_loopback=True)
+        self.assertEqual(result["effects"]["gradient_text"], 1)
+        self.assertEqual(result["effects"]["tinted_icon_squares"], 1)
+        rise = [m for m in result["motion"] if {"opacity", "transform"} <= set(m["props"])]
+        self.assertEqual(rise[0]["count"], 3)
+
     def test_missing_anchor_is_null(self):
         result = measure(f"{self.base}/plain.html", allow_loopback=True)
         self.assertIsNone(result["anchors"]["cta"])

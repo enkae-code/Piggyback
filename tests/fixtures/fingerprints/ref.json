@@ -1,0 +1,71 @@
+{
+  "viewport": {"width": 1440, "height": 900},
+  "type": {
+    "font_size": [{"value": "56px", "share": 0.3}, {"value": "16px", "share": 0.6}, {"value": "14px", "share": 0.1}],
+    "line_height": [{"value": "58px", "share": 0.3}, {"value": "24px", "share": 0.7}],
+    "letter_spacing": [{"value": "-1.12px", "share": 0.3}, {"value": "normal", "share": 0.7}],
+    "font_weight": [{"value": "700", "share": 0.3}, {"value": "400", "share": 0.7}],
+    "families": [
+      {"value": "\"Inter\", system-ui, sans-serif", "share": 0.95},
+      {"value": "\"Fira Code\", monospace", "share": 0.05}
+    ]
+  },
+  "palette": {
+    "text": [{"value": "rgb(17, 24, 39)", "share": 0.9}, {"value": "rgb(107, 114, 128)", "share": 0.1}],
+    "background": [
+      {"value": "rgb(255, 255, 255)", "share": 0.8},
+      {"value": "rgb(79, 70, 229)", "share": 0.02}
+    ],
+    "accent_share": 0.02
+  },
+  "radius": [{"value": "8px", "share": 0.7}, {"value": "4px", "share": 0.3}],
+  "shadow": [],
+  "spacing": {
+    "gaps": [{"value": 16, "share": 0.5}, {"value": 24, "share": 0.3}, {"value": 64, "share": 0.2}],
+    "padding": [{"value": "16px", "share": 0.6}]
+  },
+  "container_width": 1200,
+  "motion": [
+    {"kind": "transition", "duration": 200, "delay": 0, "easing": "ease", "props": ["background-color"], "count": 4}
+  ],
+  "effects": {"gradient_text": 0, "tinted_icon_squares": 0},
+  "anchors": {
+    "heading": {
+      "tag": "h1", "text": "Ship faster", "font_size": "56px", "line_height": "58px",
+      "letter_spacing": "-1.12px", "font_weight": "700", "font_family": "\"Inter\", system-ui, sans-serif",
+      "color": "rgb(17, 24, 39)", "background": "rgba(0, 0, 0, 0)", "radius": "0px",
+      "padding": ["0px", "0px", "0px", "0px"], "box": {"x": 80, "y": 120, "width": 640, "height": 58}
+    },
+    "body": {
+      "tag": "p", "text": "A short paragraph that is long enough to count as body text on the page.",
+      "font_size": "16px", "line_height": "24px", "letter_spacing": "normal", "font_weight": "400",
+      "font_family": "\"Inter\", system-ui, sans-serif", "color": "rgb(107, 114, 128)",
+      "background": "rgba(0, 0, 0, 0)", "radius": "0px", "padding": ["0px", "0px", "0px", "0px"],
+      "box": {"x": 80, "y": 200, "width": 640, "height": 48}
+    },
+    "cta": {
+      "tag": "button", "text": "Start", "font_size": "16px", "line_height": "24px",
+      "letter_spacing": "normal", "font_weight": "600", "font_family": "\"Inter\", system-ui, sans-serif",
+      "color": "rgb(255, 255, 255)", "background": "rgb(79, 70, 229)", "radius": "8px",
+      "padding": ["12px", "20px", "12px", "20px"], "box": {"x": 80, "y": 280, "width": 120, "height": 44}
+    },
+    "nav": {
+      "tag": "nav", "text": "Docs Pricing", "font_size": "14px", "line_height": "20px",
+      "letter_spacing": "normal", "font_weight": "500", "font_family": "\"Inter\", system-ui, sans-serif",
+      "color": "rgb(17, 24, 39)", "background": "rgba(0, 0, 0, 0)", "radius": "0px",
+      "padding": ["0px", "0px", "0px", "0px"], "box": {"x": 0, "y": 0, "width": 1440, "height": 64}
+    },
+    "card": {
+      "count": 3, "tag": "div", "text": "Feature", "font_size": "16px", "line_height": "24px",
+      "letter_spacing": "normal", "font_weight": "400", "font_family": "\"Inter\", system-ui, sans-serif",
+      "color": "rgb(17, 24, 39)", "background": "rgb(255, 255, 255)", "radius": "8px",
+      "padding": ["16px", "16px", "16px", "16px"], "box": {"x": 80, "y": 360, "width": 360, "height": 160}
+    }
+  },
+  "url": "https://ref.example/",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "installed chrome",
+  "captured_at": "2026-11-16T10:00:00+00:00",
+  "blocked_requests": [],
+  "screenshot": null
+}

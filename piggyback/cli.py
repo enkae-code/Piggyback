@@ -6,7 +6,11 @@ import re
 import sys
 from pathlib import Path
 
+from . import brief as brief_mod
+from . import defaults as defaults_mod
+from . import fingerprint as fingerprints
 from . import format as ref_format
+from . import gap as gap_mod
 from .browser import BrowserUnavailable, launch
 from .measure import MeasureError, check_url, measure
 
@@ -72,6 +76,40 @@ def run_measure(url, out, viewport, allow_loopback):
     return 0
 
 
+def run_brief(paths, build_path, out):
+    try:
+        refs = [fingerprints.load(path) for path in paths]
+        text = brief_mod.brief(refs)
+        if build_path:
+            if len(refs) != 1:
+                print(
+                    "brief failed: --build compares one reference; pass exactly one",
+                    file=sys.stderr,
+                )
+                return 1
+            build = fingerprints.load(build_path)
+            text += "\n" + gap_mod.render(gap_mod.gap(refs[0], build))
+    except (OSError, ValueError) as exc:
+        print(f"brief failed: {exc}", file=sys.stderr)
+        return 1
+    if out:
+        Path(out).write_text(text, encoding="utf-8")
+        print(f"wrote {out}")
+    else:
+        print(text, end="")
+    return 0
+
+
+def run_defaults(path):
+    try:
+        hits = defaults_mod.find(fingerprints.load(path))
+    except (OSError, ValueError) as exc:
+        print(f"defaults failed: {exc}", file=sys.stderr)
+        return 1
+    print(defaults_mod.render(hits), end="")
+    return 0
+
+
 def doctor():
     print(
         f"python: {sys.version.split()[0]}",
@@ -114,10 +152,20 @@ def main(argv=None):
     m.add_argument("--allow-loopback", action="store_true", help="allow 127.0.0.0/8 and ::1 only")
     refs = sub.add_parser("check-refs", help="validate spec v1 reference files")
     refs.add_argument("directory")
+    b = sub.add_parser("brief", help="write BRIEF.md from 1 to 3 reference fingerprints")
+    b.add_argument("fingerprints", nargs="+", metavar="FINGERPRINT.json")
+    b.add_argument("--build", metavar="BUILD.json", help="add differences vs one reference")
+    b.add_argument("--out", metavar="BRIEF.md", help="write to a file instead of stdout")
+    d = sub.add_parser("defaults", help="list generic defaults on one build fingerprint")
+    d.add_argument("build", metavar="BUILD.json")
     sub.add_parser("doctor", help="check Python, Playwright and the sandboxed browser")
     args = parser.parse_args(argv)
     if args.command == "measure":
         return run_measure(args.url, args.out, args.viewport, args.allow_loopback)
     if args.command == "check-refs":
         return check_refs(args.directory)
+    if args.command == "brief":
+        return run_brief(args.fingerprints, args.build, args.out)
+    if args.command == "defaults":
+        return run_defaults(args.build)
     return doctor()
