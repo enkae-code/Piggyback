@@ -1,8 +1,8 @@
 name: ci
 
+# Tests run on Prism before every push; this cross-OS matrix runs only when started by hand.
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
