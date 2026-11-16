@@ -57,6 +57,7 @@ class Session:
     def _refs(self, refresh=False):
         if self.ref_pages is None or refresh:
             self.ref_pages = [self.measure_page(url) for url in self.refs]
+            self.differing = set()  # a moved reference is not a fix
         return self.ref_pages
 
     def get_brief(self, refresh):
@@ -124,26 +125,44 @@ def _dispatch(method, params, session):
     raise RpcError(NOT_FOUND, "method not found")
 
 
+def _valid_id(rid):
+    # Strings and ints only: a float (NaN too) cannot round-trip as valid JSON.
+    return isinstance(rid, str) or (isinstance(rid, int) and not isinstance(rid, bool))
+
+
+def _invalid(msg):
+    rid = msg.get("id") if isinstance(msg, dict) else None  # echo a readable id, if any
+    return _error(rid if _valid_id(rid) else None, INVALID, "invalid request")
+
+
+def _request(msg, session):
+    rid = msg["id"]
+    params = msg.get("params", {})
+    if not isinstance(params, dict):
+        return _error(rid, BAD_PARAMS, "params must be an object")
+    try:
+        return {"jsonrpc": "2.0", "id": rid, "result": _dispatch(msg["method"], params, session)}
+    except RpcError as exc:
+        return _error(rid, exc.code, exc.message)
+
+
 def _reply(line, session):
     """The reply to one raw line, or None for a notification (which gets no reply)."""
     try:
         msg = json.loads(line.decode("utf-8"))
     except (ValueError, RecursionError):
         return _error(None, PARSE, "parse error")
-    if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0" or "method" not in msg:
-        return _error(None, INVALID, "invalid request")
+    if (
+        not isinstance(msg, dict)
+        or msg.get("jsonrpc") != "2.0"
+        or not isinstance(msg.get("method"), str)
+    ):
+        return _invalid(msg)
     if "id" not in msg:
         return None
-    rid = msg["id"]
-    params = msg.get("params", {})
-    if not isinstance(params, dict):
-        return _error(rid, BAD_PARAMS, "params must be an object")
-    try:
-        if not isinstance(msg["method"], str):
-            raise RpcError(INVALID, "invalid request")
-        return {"jsonrpc": "2.0", "id": rid, "result": _dispatch(msg["method"], params, session)}
-    except RpcError as exc:
-        return _error(rid, exc.code, exc.message)
+    if not _valid_id(msg["id"]):
+        return _error(None, INVALID, "invalid request")
+    return _request(msg, session)
 
 
 def _error(rid, code, message):
@@ -153,7 +172,8 @@ def _error(rid, code, message):
 def serve(stdin, stdout, session):
     """Answer requests until stdin closes. Both streams are binary; one message per line."""
     # ponytail: synchronous loop, so one measure at a time and no rate limit. Each measure is
-    # capped at measure's TOTAL_S (90s); add a per-minute cap if a client loops on check.
+    # capped at measure's TOTAL_S (90s): a first check with 3 refs runs 4 measures (up to ~360s),
+    # get_brief refresh runs 3 (up to ~270s). Add a per-minute cap if a client loops on check.
     while True:
         raw = stdin.readline(MAX_LINE + 1)
         if not raw:
