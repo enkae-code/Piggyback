@@ -149,6 +149,20 @@ class EgressProxyTests(unittest.TestCase):
         self.assertNotIn("keep-alive", headers.lower())
         self.assertNotIn("proxy-", headers.lower())
 
+    def test_unframeable_bodies_refused(self):
+        self.proxy.close()
+        self.proxy = EgressProxy(allow_loopback=True)
+        bad = {
+            "chunked": "Transfer-Encoding: chunked\r\n",
+            "duplicate": "Content-Length: 1\r\nContent-Length: 1\r\n",
+            "signed": "Content-Length: +1\r\n",
+            "underscore": "Content-Length: 1_0\r\n",
+        }
+        for name, header in bad.items():
+            with self.subTest(name):
+                raw = f"POST {self.origin_url} HTTP/1.1\r\nHost: x\r\n{header}\r\nx".encode()
+                self.assertIn(b" 400 ", send(self.proxy.port, raw))
+
     def test_second_request_on_same_connection_never_reaches_upstream(self):
         self.proxy.close()
         self.proxy = EgressProxy(allow_loopback=True)

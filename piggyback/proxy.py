@@ -5,7 +5,8 @@ arrive as CONNECT. netpolicy resolves the host once and checks every address; th
 connects to that literal address, so a second DNS answer (rebinding) or a redirect cannot reach
 a private address. Refused targets get 403 and are recorded in `blocked`.
 
-Not covered: WebRTC UDP bypasses this proxy. browser.py blocks it (launch switch + NO_WEBRTC init script).
+Not covered: WebRTC UDP bypasses this proxy; browser.py blocks it
+(launch switch + NO_WEBRTC init script).
 """
 
 import contextlib
@@ -140,10 +141,9 @@ def _body_length(headers, upgrade):
     ]
     if len(values) > 1:
         raise ValueError("duplicate Content-Length")
-    length = int(values[0]) if values else 0
-    if length < 0:
-        raise ValueError("negative Content-Length")
-    return length
+    if values and not values[0].isdigit():  # int() alone would accept "+5" and "1_0"
+        raise ValueError("bad Content-Length")
+    return int(values[0]) if values else 0
 
 
 def _one_request(client, upstream, head, rest, length):

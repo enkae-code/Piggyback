@@ -15,7 +15,7 @@ from unittest import mock
 if importlib.util.find_spec("playwright") is None:
     raise unittest.SkipTest("playwright not installed; run with the measure extra")
 
-from piggyback.browser import launch  # noqa: E402
+from piggyback.browser import ARGS  # noqa: E402
 from piggyback.cli import main  # noqa: E402
 from piggyback.measure import BYPASS_ENV, MeasureError, measure  # noqa: E402
 from piggyback.proxy import EgressProxy  # noqa: E402
@@ -146,8 +146,9 @@ class MeasureIntegration(unittest.TestCase):
         self.assertIn("/rtc-undefined-undefined", self.site_hits)
 
     def test_webrtc_sends_no_udp_to_lan(self):
-        # Control first: without the policy the same page must reach the LAN listener, so a
-        # silent probe cannot pass the real check.
+        # The launch-switch layer, on the bundled browser that honours it (installed Chrome does
+        # not; NO_WEBRTC covers that, see above). Control first: without the switch the same page
+        # must reach the LAN listener, so a silent probe cannot pass the real check.
         lan = lan_address()
         if lan is None:
             self.skipTest("no LAN address on this host")
@@ -170,7 +171,11 @@ class MeasureIntegration(unittest.TestCase):
                 os.environ.pop(
                     BYPASS_ENV, None
                 )  # the worker strips it too: loopback must be proxied
-                browser, _ = launch(p, proxy={"server": f"http://127.0.0.1:{egress.port}"})
+                browser = p.chromium.launch(
+                    chromium_sandbox=True,
+                    args=ARGS,
+                    proxy={"server": f"http://127.0.0.1:{egress.port}"},
+                )
             try:
                 page_udp(browser, target)
             finally:
