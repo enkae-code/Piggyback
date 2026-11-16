@@ -4,11 +4,30 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import piggyback.measure as measure_mod
 from piggyback.cli import main
 from piggyback.measure import MeasureError, measure
 
 
 class MeasureRefusalTests(unittest.TestCase):
+    def test_motion_capture_orders_fingerprint_screenshot_then_reduced_motion(self):
+        calls = []
+
+        class FakePage:
+            def evaluate(self, script):
+                calls.append("count" if "playState" in script else "fingerprint")
+                return 2 if "playState" in script else {"motion": []}
+
+            def screenshot(self, **kwargs):
+                calls.append("screenshot")
+
+            def emulate_media(self, **kwargs):
+                calls.append("emulate")
+
+        result = measure_mod._capture_motion(FakePage(), "capture.png")
+        self.assertEqual(calls, ["fingerprint", "screenshot", "emulate", "count"])
+        self.assertEqual(result["reduced_motion"], {"still_running": 2})
+
     def test_hint_only_when_loopback_would_be_allowed(self):
         with self.assertRaises(MeasureError) as ctx:
             measure("http://10.0.0.1/")

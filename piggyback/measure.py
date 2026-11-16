@@ -73,6 +73,20 @@ def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None)
     return result
 
 
+def _capture_motion(page, screenshot):
+    fingerprint = page.evaluate(f"({SCRIPT})()")
+    if screenshot:
+        page.screenshot(path=screenshot, type="png")
+    page.emulate_media(reduced_motion="reduce")
+    fingerprint["reduced_motion"] = {
+        "still_running": page.evaluate(
+            "() => document.getAnimations()"
+            ".filter((animation) => animation.playState === 'running').length"
+        )
+    }
+    return fingerprint
+
+
 def _capture(req):
     from playwright.sync_api import sync_playwright
 
@@ -107,16 +121,7 @@ def _capture(req):
             page.evaluate("() => document.fonts.ready")
             with contextlib.suppress(Exception):
                 page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
-            fingerprint = page.evaluate(f"({SCRIPT})()")
-            page.emulate_media(reduced_motion="reduce")
-            fingerprint["reduced_motion"] = {
-                "still_running": page.evaluate(
-                    "() => document.getAnimations()"
-                    ".filter((animation) => animation.playState === 'running').length"
-                )
-            }
-            if req["screenshot"]:
-                page.screenshot(path=req["screenshot"], type="png")
+            fingerprint = _capture_motion(page, req["screenshot"])
         finally:
             browser.close()
     return {

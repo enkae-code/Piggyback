@@ -140,14 +140,15 @@
       .filter((p) => !["offset", "computedOffset", "easing", "composite"].includes(p))
       .sort();
     const key = JSON.stringify([kind || "waapi", t.duration, t.delay, t.easing, props]);
-    motionCounts.set(key, (motionCounts.get(key) || 0) + 1);
+    if (!motionCounts.has(key)) motionCounts.set(key, new Set());
+    motionCounts.get(key).add(a.effect?.target);
   }
   const motion = [...motionCounts]
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => b[1].size - a[1].size)
     .slice(0, 20)
-    .map(([key, count]) => {
+    .map(([key, targets]) => {
       const [kind, duration, delay, easing, props] = JSON.parse(key);
-      return { kind, duration, delay, easing, props, count };
+      return { kind, duration, delay, easing, props, count: targets.size };
     });
 
   // Effects: counts behind the defaults-detected rules.

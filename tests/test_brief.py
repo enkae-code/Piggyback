@@ -212,6 +212,21 @@ class GapTests(unittest.TestCase):
         self.ref = load("ref.json")
         self.build = load("build.json")
 
+    def test_motion_signature_comparison_keeps_full_easing_and_guards_malformed_props(self):
+        prefix = "cubic-bezier(" + "1" * 40
+        ref = {"motion": [{"kind": "animation", "props": ["opacity"], "easing": prefix + "a"}]}
+        build = {"motion": [{"kind": "animation", "props": ["opacity"], "easing": prefix + "b"}]}
+        details = [pin.detail for pin in gap_mod.gap(ref, build) if pin.concept == "motion"]
+        self.assertEqual(sum("motion signature at page" in d for d in details), 2)
+        for props in (None, 5):
+            with self.subTest(props=props):
+                details = [
+                    pin.detail
+                    for pin in gap_mod.gap({}, {"motion": [{"kind": "animation", "props": props}]})
+                    if pin.concept == "motion"
+                ]
+                self.assertTrue(any("properties not measured" in d for d in details))
+
     def test_pins_only_on_anchors_both_pages_have(self):
         pins = gap_mod.gap(self.ref, self.build)
         self.assertEqual([pin.number for pin in pins], [1, 2, 3, 4, 5, None])

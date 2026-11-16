@@ -110,6 +110,9 @@ def _page_rows(ref, build):
 
 def _signature_text(kind, props, duration, delay, easing, count):
     """One motion signature as plain text: what animates, its timing, and how many elements."""
+    kind = fp.clean(kind, 30)
+    props = [fp.clean(prop, 40) for prop in props]
+    easing = fp.clean(easing, 40)
     if duration is None or delay is None or count is None:
         return (
             f"{kind}, {', '.join(props) or 'properties not measured'}, timing or count not measured"
@@ -135,17 +138,31 @@ def _motion_rows(ref, build):
         rows.append(("motion", f"motion signatures at page: {len(build_rows)} → {len(ref_rows)}"))
 
     def signatures(values):
-        return {
-            (
-                fp.clean(row.get("kind", "unknown"), 30),
-                tuple(sorted(fp.clean(p, 40) for p in row.get("props", []) if isinstance(p, str))),
-                fp.number(row.get("duration")),
-                fp.number(row.get("delay")),
-                fp.clean(row.get("easing", ""), 40),
-                fp.number(row.get("count")),
+        def full_text(value, default):
+            return value if isinstance(value, str) and len(value) <= 4096 else default
+
+        signatures = set()
+        for row in values:
+            raw_props = row.get("props")
+            if not isinstance(raw_props, list):
+                raw_props = []
+            signatures.add(
+                (
+                    full_text(row.get("kind", "unknown"), "unknown"),
+                    tuple(
+                        sorted(
+                            full_text(prop, "")
+                            for prop in raw_props
+                            if isinstance(prop, str) and len(prop) <= 4096
+                        )
+                    ),
+                    fp.number(row.get("duration")),
+                    fp.number(row.get("delay")),
+                    full_text(row.get("easing", ""), ""),
+                    fp.number(row.get("count")),
+                )
             )
-            for row in values
-        }
+        return signatures
 
     ref_signatures, build_signatures = signatures(ref_rows), signatures(build_rows)
     sides = (
