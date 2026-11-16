@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__, netpolicy
-from .browser import launch
+from .browser import NO_WEBRTC, launch
 from .proxy import EgressProxy
 
 SCRIPT = (Path(__file__).parent / "measure.js").read_text(encoding="utf-8").strip().rstrip(";")
@@ -101,6 +101,7 @@ def _capture(req):
                 accept_downloads=False,
             )
             ctx.route("**/*", guard)
+            ctx.add_init_script(NO_WEBRTC)
             page = ctx.new_page()
             page.goto(req["url"], wait_until="load", timeout=NAV_MS)
             page.evaluate("() => document.fonts.ready")

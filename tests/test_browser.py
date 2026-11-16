@@ -38,7 +38,7 @@ class LaunchTests(unittest.TestCase):
         chromium = FakeChromium(failing=("chrome",))
         launch(FakePlaywright(chromium))
         for call in chromium.calls:
-            self.assertIn("--webrtc-ip-handling-policy=disable_non_proxied_udp", call["args"])
+            self.assertIn("--force-webrtc-ip-handling-policy=disable_non_proxied_udp", call["args"])
 
     def test_all_channels_failing_names_each(self):
         chromium = FakeChromium(failing=("chrome", None))

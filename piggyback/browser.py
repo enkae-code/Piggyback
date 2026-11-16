@@ -5,10 +5,14 @@ Playwright adds --no-sandbox unless chromium_sandbox=True, so it is passed on ev
 
 # Installed Chrome first, then Playwright's bundled Chromium (None = default channel).
 CHANNELS = ("chrome", None)
-# WebRTC sends UDP straight from the browser, around the proxy. This policy allows UDP only
-# through a proxy, so measured pages cannot reach LAN hosts over STUN/TURN. The spelling is
-# --webrtc-ip-handling-policy: --force-webrtc-ip-handling-policy is ignored by current Chromium.
-ARGS = ["--webrtc-ip-handling-policy=disable_non_proxied_udp"]
+# WebRTC sends UDP straight from the browser, around the proxy. Two layers stop it: this switch
+# (honoured by Playwright's bundled headless shell, measured: 12 datagrams to a LAN host without
+# it, 0 with it; the non-"force" spelling is ignored) and NO_WEBRTC, because full Chrome and the
+# "chromium" channel ignore the switch.
+ARGS = ["--force-webrtc-ip-handling-policy=disable_non_proxied_udp"]
+# Context init script: runs in every frame and popup before page code, so pages cannot reach the
+# constructors through a fresh iframe either.
+NO_WEBRTC = "delete window.RTCPeerConnection; delete window.webkitRTCPeerConnection;"
 
 
 class BrowserUnavailable(RuntimeError):

@@ -140,6 +140,11 @@ class MeasureIntegration(unittest.TestCase):
         # The proxy answers 403 after recording, so the page's error handler runs after the record.
         self.assertIn("/ws-refused", self.site_hits)
 
+    def test_measured_pages_have_no_webrtc(self):
+        # Second WebRTC layer, for channels that ignore the launch switch; checked from a frame too.
+        measure(f"{self.base}/rtc.html", allow_loopback=True)
+        self.assertIn("/rtc-undefined-undefined", self.site_hits)
+
     def test_webrtc_sends_no_udp_to_lan(self):
         # Control first: without the policy the same page must reach the LAN listener, so a
         # silent probe cannot pass the real check.

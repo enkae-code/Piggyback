@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Fixture rtc</title>
+</head>
+<body>
+<h1>WebRTC fixture</h1>
+<script>
+  // Reports whether WebRTC is reachable from the page and from a fresh iframe.
+  const frame = document.createElement("iframe");
+  document.body.appendChild(frame);
+  fetch(`/rtc-${typeof RTCPeerConnection}-${typeof frame.contentWindow.RTCPeerConnection}`);
+</script>
+</body>
+</html>
