@@ -114,6 +114,34 @@ def _title(ref):
     return fp.clean(url if isinstance(url, str) else "unknown source", 120)
 
 
+def _motion(ref):
+    """Measured motion signatures and reduced-motion result, as factual plain text."""
+    lines = []
+    rows = fp.get(ref, "motion")
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        kind = fp.clean(row.get("kind", ""), 30)
+        duration, delay, count = (fp.number(row.get(key)) for key in ("duration", "delay", "count"))
+        props = row.get("props")
+        properties = (
+            ", ".join(fp.clean(prop, 40) for prop in props if isinstance(prop, str))
+            if isinstance(props, list)
+            else ""
+        )
+        easing = fp.clean(row.get("easing", ""), 40)
+        if kind and duration is not None and delay is not None and count is not None:
+            lines.append(
+                f"- {kind}: {fp.fmt(duration)}ms duration, {fp.fmt(delay)}ms delay, "
+                f"{easing or NOT_MEASURED}; {properties or NOT_MEASURED}; {fp.fmt(count)} elements"
+            )
+    still = fp.number(fp.get(ref, "reduced_motion", "still_running"))
+    if still is not None and still >= 0:
+        noun = "animation" if still == 1 else "animations"
+        lines.append(f"- {fp.fmt(still)} {noun} still run with reduced motion requested")
+    return lines
+
+
 def _rows(ref):
     """(title, [(concept, detail)]) for one reference: the measured rows, before any markdown."""
     title = _title(ref)
@@ -145,6 +173,9 @@ def sections(refs):
 def _section(ref, index):
     title, entries = _rows(ref)
     lines = [note(concept, detail) for concept, detail in entries]
+    motion = _motion(ref)
+    if motion:
+        lines.append("## Motion\n\n" + "\n".join(motion))
     return f"## Reference {index}: {title}\n\n" + "\n".join(lines)
 
 

@@ -27,6 +27,42 @@ class BriefTests(unittest.TestCase):
         self.assertIn("- Container width (how wide the main content column is): 1200px", text)
         self.assertEqual(text.count("  - Why it matters:"), 7)
 
+    def test_motion_rows_and_reduced_motion_are_factual(self):
+        ref = {
+            "motion": [
+                {
+                    "kind": "animation",
+                    "duration": 1200,
+                    "delay": 50,
+                    "easing": "ease-in",
+                    "props": ["opacity", "transform"],
+                    "count": 3,
+                }
+            ],
+            "reduced_motion": {"still_running": 1},
+        }
+        text = brief_mod.brief([ref])
+        self.assertIn("## Motion", text)
+        self.assertIn(
+            "animation: 1200ms duration, 50ms delay, ease-in; opacity, transform; 3 elements", text
+        )
+        self.assertIn("1 animation still run with reduced motion requested", text)
+
+    def test_motion_signatures_and_still_running_differ(self):
+        ref = {"motion": [{"kind": "transition", "props": ["opacity"], "count": 2}]}
+        build = {
+            "motion": [
+                {"kind": "animation", "props": ["transform"], "count": 3},
+                {"kind": "transition", "props": ["height"], "count": 1},
+            ]
+        }
+        details = [pin.detail for pin in gap_mod.gap(ref, build) if pin.number is not None]
+        self.assertIn("motion signatures at page: 2 → 1", details)
+        self.assertTrue(any("transform" in line and "present in build" in line for line in details))
+
+    def test_reduced_motion_fact_is_not_inferred_when_absent(self):
+        self.assertNotIn("reduced motion requested", brief_mod.brief([{}]))
+
     def test_three_references_are_listed_separately(self):
         refs = [load("ref.json"), load("build.json"), load("hostile.json")]
         text = brief_mod.brief(refs)
@@ -157,7 +193,15 @@ class BriefTests(unittest.TestCase):
 
 class GapTests(unittest.TestCase):
     def test_glossary_includes_six_plain_language_concepts(self):
-        for concept in ("proximity", "sibling_gap", "rhythm", "density", "section_fill", "leading"):
+        for concept in (
+            "proximity",
+            "sibling_gap",
+            "rhythm",
+            "density",
+            "section_fill",
+            "leading",
+            "motion",
+        ):
             with self.subTest(concept=concept):
                 title, definition = glossary.TERMS[concept]
                 self.assertTrue(title and definition)
@@ -170,7 +214,7 @@ class GapTests(unittest.TestCase):
 
     def test_pins_only_on_anchors_both_pages_have(self):
         pins = gap_mod.gap(self.ref, self.build)
-        self.assertEqual([pin.number for pin in pins], [1, 2, 3, None])
+        self.assertEqual([pin.number for pin in pins], [1, 2, 3, 4, 5, None])
         self.assertEqual(pins[0].detail, "Heading at heading anchor: 36/44 → 56/58, -0.02em")
         self.assertEqual(pins[1].detail, "accent share at page: 19% → 2%")
         self.assertEqual(pins[2].detail, "Container width at main content column: 1280px → 1200px")

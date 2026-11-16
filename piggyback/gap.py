@@ -108,11 +108,75 @@ def _page_rows(ref, build):
     return rows, absent
 
 
+def _motion_rows(ref, build):
+    """Evidence-shaped motion differences; signatures are compared by kind and properties."""
+    ref_rows = fp.get(ref, "motion") if isinstance(fp.get(ref, "motion"), list) else []
+    build_rows = fp.get(build, "motion") if isinstance(fp.get(build, "motion"), list) else []
+    valid = lambda rows: [row for row in rows if isinstance(row, dict)]
+    ref_rows, build_rows = valid(ref_rows), valid(build_rows)
+    rows = []
+    if len(ref_rows) != len(build_rows):
+        rows.append(("motion", f"motion signatures at page: {len(build_rows)} → {len(ref_rows)}"))
+    signatures = lambda values: {
+        (
+            fp.clean(row.get("kind", "unknown"), 30),
+            tuple(sorted(fp.clean(p, 40) for p in row.get("props", []) if isinstance(p, str))),
+            fp.number(row.get("duration")),
+            fp.number(row.get("delay")),
+            fp.clean(row.get("easing", ""), 40),
+            fp.number(row.get("count")),
+        )
+        for row in values
+    }
+    ref_signatures, build_signatures = signatures(ref_rows), signatures(build_rows)
+    for kind, props, duration, delay, easing, count in sorted(
+        build_signatures - ref_signatures, key=str
+    ):
+        facts = (
+            f"{fp.fmt(duration)}ms duration, {fp.fmt(delay)}ms delay, {easing or 'easing not measured'}, {fp.fmt(count)} elements"
+            if duration is not None and delay is not None and count is not None
+            else "timing or count not measured"
+        )
+        rows.append(
+            (
+                "motion",
+                f"motion signature at page: {kind} {', '.join(props) or 'properties not measured'}, {facts} present in build, absent in reference",
+            )
+        )
+    for kind, props, duration, delay, easing, count in sorted(
+        ref_signatures - build_signatures, key=str
+    ):
+        facts = (
+            f"{fp.fmt(duration)}ms duration, {fp.fmt(delay)}ms delay, {easing or 'easing not measured'}, {fp.fmt(count)} elements"
+            if duration is not None and delay is not None and count is not None
+            else "timing or count not measured"
+        )
+        rows.append(
+            (
+                "motion",
+                f"motion signature at page: {kind} {', '.join(props) or 'properties not measured'}, {facts} present in reference, absent in build",
+            )
+        )
+    ref_still = fp.number(fp.get(ref, "reduced_motion", "still_running"))
+    build_still = fp.number(fp.get(build, "reduced_motion", "still_running"))
+    if ref_still is not None and build_still is not None and ref_still != build_still:
+        rows.append(
+            (
+                "motion",
+                f"animations still running with reduced motion requested: {fp.fmt(build_still)} → {fp.fmt(ref_still)}",
+            )
+        )
+    return rows
+
+
 def gap(ref, build):
     """Pins for the differences between a reference and a build fingerprint."""
     anchor_rows, anchor_absent = _anchor_rows(ref, build)
     page_rows, page_absent = _page_rows(ref, build)
-    pins = [Pin(number, *row) for number, row in enumerate(anchor_rows + page_rows, 1)]
+    motion_rows = [(None, detail, None, None) for _, detail in _motion_rows(ref, build)]
+    pins = [
+        Pin(number, *row) for number, row in enumerate(anchor_rows + page_rows + motion_rows, 1)
+    ]
     not_found = anchor_absent + page_absent
     return pins + [Pin(None, None, text, None, None) for _, text in not_found]
 
@@ -145,6 +209,11 @@ def render(pins):
     for pin in pins:
         if pin.number is None:
             lines.append(f"- {pin.detail}")
+            continue
+        if pin.concept is None:
+            mark = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
+            label = mark[pin.number - 1] if pin.number <= len(mark) else f"({pin.number})"
+            lines.append(f"- {label} {pin.detail}")
             continue
         lines.append(note(pin.concept, pin.detail, pin.number, why=pin.concept not in explained))
         explained.add(pin.concept)

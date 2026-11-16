@@ -93,6 +93,10 @@ TERMS = {
         "Uniform radius (every rounded box has the same corners)",
         "Only one corner shape across cards, buttons and inputs reads as default.",
     ),
+    "motion": (
+        "Motion (the animations and transitions measured on a page)",
+        "Each signature records its kind, timing, easing, animated properties, and element count.",
+    ),
     "repeated_motion": (
         "Repeated motion (the same fade-and-move on many blocks)",
         "Motion on every block competes with the content; a few deliberate moments read as chosen.",

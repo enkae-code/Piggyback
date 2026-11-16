@@ -108,6 +108,12 @@ def _capture(req):
             with contextlib.suppress(Exception):
                 page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
             fingerprint = page.evaluate(f"({SCRIPT})()")
+            page.emulate_media(reduced_motion="reduce")
+            fingerprint["reduced_motion"] = {
+                "still_running": page.evaluate(
+                    "() => document.getAnimations().filter((animation) => animation.playState === 'running').length"
+                )
+            }
             if req["screenshot"]:
                 page.screenshot(path=req["screenshot"], type="png")
         finally:
