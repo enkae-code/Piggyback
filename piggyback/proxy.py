@@ -5,7 +5,7 @@ arrive as CONNECT. netpolicy resolves the host once and checks every address; th
 connects to that literal address, so a second DNS answer (rebinding) or a redirect cannot reach
 a private address. Refused targets get 403 and are recorded in `blocked`.
 
-Not covered: WebRTC UDP bypasses this proxy. browser.py disables it with a Chromium flag.
+Not covered: WebRTC UDP bypasses this proxy. browser.py blocks it (launch switch + NO_WEBRTC init script).
 """
 
 import contextlib
