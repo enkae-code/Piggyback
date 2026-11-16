@@ -1,4 +1,5 @@
-/* Piggyback local screen. Dark restyle tokens from the approved brand direction (2026-11-15). */
+/* Piggyback local screen. Dark restyle tokens from the approved brand direction (2026-11-15).
+   Colour means one thing each: amber marks a pin, red marks the action and a measured distance. */
 @font-face {
   font-family: "Instrument Sans"; src: url("/fonts/InstrumentSans-latin-var.woff2") format("woff2");
   font-weight: 400 700; font-stretch: 75% 100%; font-style: normal; font-display: swap;
@@ -9,10 +10,14 @@
   --bg-1: #151b21;
   --bg-2: #1c252e;
   --bg-3: #27343f;
+  --bg-4: #344654;
   --brand: #E74C3C;
   --brand-strong: #c83f33;
+  --measure: #d5483a;
+  --mat: #3d4c59; /* the mid-grey a colour chip or a drawn corner sits on */
   --line: rgba(255, 255, 255, .09);
   --line-2: rgba(255, 255, 255, .16);
+  --line-3: rgba(255, 255, 255, .34);
   --fg: #ECF0F1;
   --fg-2: #bdc8cf;
   --fg-3: #98a8b3;
@@ -23,8 +28,12 @@
   --r-s: 6px;
   --r-m: 10px;
   --top: 60px;
+  --label: 300px; /* the concept column; the measured column starts at one shared edge after it */
+  --gutter: 40px;
+  --rail: 32px; /* the strip beside a screenshot that holds the pin badges */
+  --pin: 20px;
   --font: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
 }
 *, *::before, *::after { box-sizing: border-box; }
 html { background: var(--bg); }
@@ -32,7 +41,8 @@ body {
   margin: 0; min-height: 100dvh; font: 14px/1.45 var(--font); color: var(--fg); background: var(--bg);
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
 }
-h1, h2, p, ul, ol, figure { margin: 0; padding: 0; }
+h1, h2, h3, p, ul, ol, dl, dd, figure { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
 button, input, textarea { font: inherit; color: inherit; }
 img { display: block; max-width: 100%; }
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: var(--r-s); }
@@ -42,13 +52,18 @@ img { display: block; max-width: 100%; }
   background: var(--fg); color: var(--ink); font-weight: 600;
 }
 .skip:focus { top: 10px; }
-.error { color: var(--avoid); }
+.error { color: var(--avoid); font-size: 13px; }
+.error.banner {
+  padding: 12px 16px; border: 1px solid rgba(255, 138, 122, .4); border-radius: var(--r-s);
+  background: rgba(255, 138, 122, .08); font-size: 14px;
+}
 
-/* One content column: header and page share the same edges. */
-.wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+/* One content column: logo, inputs, headings and every result row start on the same left edge. */
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
 .top { background: var(--bg-1); border-bottom: 1px solid var(--line); }
 .top-row { height: var(--top); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.logo { height: 28px; width: auto; }
+.brand { display: flex; }
+.logo { height: 32px; width: auto; }
 .status {
   display: inline-flex; align-items: center; gap: 8px; max-width: 70%; min-width: 0; padding: 4px 12px;
   border: 1px solid var(--line-2); border-radius: 999px; color: var(--fg-2); font-size: 13px;
@@ -56,120 +71,257 @@ img { display: block; max-width: 100%; }
 }
 .status:empty { display: none; }
 .status::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--fg-3); }
+.status.busy::before { background: var(--brand); animation: pulse .9s ease-in-out infinite alternate; }
+@keyframes pulse { to { opacity: .25; } }
 
-main.wrap { padding-top: 24px; padding-bottom: 48px; display: grid; gap: 24px; }
-.slots { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.slot {
-  padding: 20px; border: 1px solid var(--line); border-radius: var(--r-m); background: var(--bg-1);
-  display: grid; gap: 14px; align-content: start; min-width: 0;
+main.wrap { padding-top: 32px; padding-bottom: 64px; display: grid; gap: 40px; }
+/* Single-column grids get a shrinkable track, so one wide specimen cannot widen the page. */
+main.wrap, .result, .result-body, .report, .comparison, .sheet, .spec-body, .spec-text, .shot {
+  grid-template-columns: minmax(0, 1fr);
 }
-.slot-head { display: grid; gap: 4px; }
-.slot-title { font-size: 16px; font-weight: 600; letter-spacing: 0; }
+
+/* The bench: two inputs on the same two columns the screenshots use. No card, so nothing stretches. */
+.bench { display: grid; gap: 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.slot { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.slot-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.slot-title { font-size: 14px; font-weight: 600; }
 .hint { color: var(--fg-3); font-size: 13px; }
 .row { display: flex; gap: 8px; min-width: 0; }
 input[type="url"] {
   flex: 1; min-width: 0; height: 40px; padding: 0 12px; border-radius: var(--r-s);
-  border: 1px solid var(--line-2); background: var(--bg); color: var(--fg);
+  border: 1px solid var(--line-2); background: var(--bg-1); color: var(--fg);
 }
+input[type="url"]:hover { border-color: var(--line-3); }
 input::placeholder { color: var(--fg-3); opacity: 1; }
-.chips { list-style: none; display: grid; gap: 6px; }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 40px; }
+.chips:empty, .chips:not(:empty) + .chips-empty { display: none; }
+.chips-empty { display: flex; align-items: center; min-height: 40px; }
 .chips li {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 6px 6px 10px;
-  border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--bg-2); overflow-wrap: anywhere;
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%; height: 32px; padding: 0 4px 0 12px;
+  border: 1px solid var(--line-2); border-radius: 999px; background: var(--bg-2); font-size: 13px;
 }
+.chips li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-x {
+  flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: transparent;
+  color: var(--fg-2); font-size: 16px; line-height: 1; cursor: pointer;
+}
+.chip-x:hover { background: var(--bg-4); color: var(--fg-max); }
 .btn {
   height: 40px; padding: 0 16px; border-radius: var(--r-s); border: 1px solid var(--line-2);
   background: var(--bg-2); color: var(--fg); font-weight: 600; cursor: pointer; white-space: nowrap;
 }
 .btn:hover:not(:disabled) { background: var(--bg-3); }
-.btn.primary { background: var(--brand-strong); border-color: transparent; color: var(--fg-max); }
+.btn.primary { min-width: 112px; background: var(--brand-strong); border-color: transparent; color: var(--fg-max); }
 .btn.primary:hover:not(:disabled) { background: var(--brand); }
 .btn.small { height: 28px; padding: 0 10px; font-size: 13px; }
-.chips .btn { height: 28px; padding: 0 8px; }
 .btn:disabled { opacity: .5; cursor: progress; }
-.actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn, .chip-x, input[type="url"], .spec, .pin, .box { transition: background-color .12s, border-color .12s, box-shadow .12s; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .fallback {
   width: 100%; min-height: 200px; padding: 12px; border-radius: var(--r-m); border: 1px solid var(--line-2);
   background: var(--bg-1); color: var(--fg); font: 13px/1.5 var(--mono);
 }
 
-.result { display: grid; gap: 32px; }
+/* Results. Every row is the same sheet: the concept on the left, what was measured on the right. */
+.result, .result-body { display: grid; gap: 56px; min-width: 0; }
 .result[aria-busy="true"] { opacity: .6; }
-.panel { display: grid; gap: 16px; min-width: 0; }
-.panel h2 { font-size: 20px; font-weight: 600; letter-spacing: -.01em; overflow-wrap: anywhere; }
-.section-title { font-size: 16px; font-weight: 600; letter-spacing: 0; overflow-wrap: anywhere; }
-.compare { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); align-items: start; }
-.shot { display: grid; gap: 8px; min-width: 0; }
-.shot-cap { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--fg-2); font-size: 13px; }
-.shot-cap span { min-width: 0; overflow-wrap: anywhere; }
-.frame { position: relative; border: 1px solid var(--line-2); border-radius: var(--r-m); overflow: hidden; background: var(--bg-1); min-height: 120px; }
+.report { display: grid; gap: 32px; min-width: 0; }
+.report-head { display: grid; grid-template-columns: var(--label) minmax(0, 1fr); column-gap: var(--gutter); row-gap: 20px; align-items: start; }
+/* The title block is as tall as the thumbnail (2:1 in the label column), so the two centre on each other. */
+.report-head .result-head { min-height: calc(var(--label) / 2); align-content: center; }
+.result-head { display: grid; gap: 6px; min-width: 0; }
+.kicker { color: var(--fg-3); font-size: 13px; font-weight: 500; }
+.title {
+  color: var(--fg-max); font-size: 32px; line-height: 1.1; font-weight: 600; font-stretch: 84%;
+  letter-spacing: -.028em; overflow-wrap: anywhere;
+}
+.sub { color: var(--fg-2); overflow-wrap: anywhere; }
+.note { color: var(--fg-3); font-size: 13px; max-width: 80ch; text-wrap: pretty; }
+.section-title { font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+
+.sheet { display: grid; }
+.spec, .modes > div {
+  display: grid; grid-template-columns: var(--label) minmax(0, 1fr); column-gap: var(--gutter); row-gap: 16px;
+  padding: 28px 0; border-top: 1px solid var(--line);
+}
+.sheet > :last-child { padding-bottom: 0; }
+.spec-label { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.spec-label .pin { margin-top: 1px; }
+.spec-text { display: grid; gap: 6px; min-width: 0; }
+.spec h3, .modes dt { font-size: 16px; font-weight: 600; line-height: 1.35; }
+.gloss { color: var(--fg-2); font-size: 14px; text-wrap: pretty; }
+/* The reason is set apart from the definition: a rule, its own label, a quieter voice. */
+.why { display: grid; gap: 2px; margin-top: 8px; padding-left: 12px; border-left: 2px solid var(--line-2); color: var(--fg-3); font-size: 13px; text-wrap: pretty; }
+.why-label { color: var(--fg); font-size: 12px; font-weight: 600; letter-spacing: .01em; }
+.spec-body { display: grid; gap: 14px; align-content: start; justify-items: start; min-width: 0; }
+.spec-body > * { max-width: 100%; }
+/* A lit row is tinted past both edges so its text stays on the column edge. */
+.spec.lit, .spec[data-pin]:focus-visible { background: var(--bg-1); box-shadow: -12px 0 var(--bg-1), 12px 0 var(--bg-1); }
+.spec.done h3, .spec.done .side-value { color: var(--fg-3); font-weight: 500; }
+.value { font-size: 16px; overflow-wrap: anywhere; }
+.modes dt { font-size: 14px; }
+.modes dd { color: var(--fg-2); max-width: 64ch; }
+.modes > div { padding: 16px 0; }
+
+/* Specimens, drawn from the measured values. Sizes and colours come in through CSSOM. */
+.specimen { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px 28px; }
+.specimen li { display: grid; justify-items: start; gap: 2px; min-width: 0; }
+.specimen li > :first-child { margin-bottom: 8px; }
+.unit { display: block; font: 13px/1.4 var(--mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+.unit.quiet { font-family: var(--font); color: var(--fg-3); }
+/* A scale is read down a column: the value on the left, its sample on one shared left edge. */
+.specimen.rows { display: grid; gap: 0; width: 100%; }
+.specimen.rows li { grid-template-columns: 7ch minmax(0, 1fr); column-gap: 20px; justify-items: stretch; }
+.specimen.rows li > :first-child { grid-area: 1 / 2; margin: 0; }
+.specimen.rows .unit { grid-area: 1 / 1; color: var(--fg-2); }
+.specimen.type li { align-items: baseline; padding: 7px 0; border-top: 1px solid var(--line); }
+.specimen.type li:first-child { padding-top: 0; border-top: 0; }
+/* One line only. The second part is a single unbreakable piece: where it does not fit it wraps out of sight, so nothing is cut mid-word. */
+.aa { display: block; max-height: 1.2em; overflow: hidden; color: var(--fg-max); font-weight: 500; line-height: 1.2; }
+.aa span + span { display: inline-block; }
+.specimen.gaps { gap: 8px; }
+.specimen.gaps li { align-items: center; }
+.bar { display: block; width: calc(min(100%, 400px) * var(--share, 1)); height: 14px; border-radius: 1px; background: var(--measure); }
+.specimen.swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 20px 16px; width: 100%; align-items: start; }
+.specimen.swatches li { justify-items: stretch; }
+.swatch { display: block; height: 88px; padding: 8px; border-radius: var(--r-s); background: var(--mat); }
+.swatch.clear { background: repeating-conic-gradient(var(--mat) 0 25%, var(--bg-2) 0 50%) 0 0 / 16px 16px; }
+.chip { display: block; height: 100%; border-radius: 3px; }
+.share { display: block; height: 6px; margin: 8px 0 2px; border-radius: 3px; background: var(--bg-4); }
+.share-fill { display: block; min-width: 3px; height: 100%; border-radius: 3px; background: var(--fg-max); }
+.meter { display: block; width: min(320px, 100%); height: 12px; border: 1px solid var(--line-3); border-radius: 2px; }
+.meter-fill { display: block; height: 100%; background: var(--fg); }
+.specimen.meter li { width: 100%; }
+/* Whole boxes, enlarged together so close radii still differ; a hard edge reads better than a fade. */
+.specimen.radii { gap: 20px 32px; }
+.corner { display: block; width: 96px; height: 96px; border: 2px solid var(--fg-2); background: var(--mat); }
+.corner.pill { width: 156px; height: 56px; border-radius: 28px; }
+.ruler { display: grid; gap: 2px; width: 100%; }
+.ruler-track {
+  display: block; position: relative; height: 28px; margin-bottom: 2px;
+  border: solid var(--line-3); border-width: 0 1px 1px;
+  background: linear-gradient(90deg, var(--line-3) 1px, transparent 1px) 0 100% / calc(100% * var(--tick, .1)) 7px repeat-x;
+}
+.ruler-span { position: absolute; bottom: 9px; left: 50%; width: calc(100% * var(--share, 1)); height: 14px; border-radius: 1px; background: var(--measure); transform: translateX(-50%); }
+.ruler-ends { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.specimen.fonts { gap: 16px 56px; }
+.specimen.fonts li > :first-child { margin-bottom: 4px; }
+.face { color: var(--fg-max); font-size: 28px; font-weight: 500; line-height: 1.2; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.face.mono { font-family: var(--mono); font-weight: 400; letter-spacing: 0; }
+
+/* Defaults: a small drawing of each tell, what was found, and what to do instead. */
+/* One five-column grid: a drawing takes a column, each text field two, so the clear checks line up under the rows above. */
+.tell { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 20px 24px; align-items: start; width: 100%; }
+.tell .field { grid-column: span 2; }
+.field { display: grid; gap: 4px; color: var(--fg); font-size: 15px; text-wrap: pretty; }
+.field-label { color: var(--fg-2); font-size: 13px; font-weight: 600; }
+.field.strong > :last-child { color: var(--fg-max); font-size: 16px; font-weight: 500; }
+.art {
+  display: flex; align-items: center; justify-content: center; gap: 8px; height: 96px; padding: 12px; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--r-s); background: var(--bg-1); color: var(--fg);
+}
+.art span { display: block; flex: none; }
+.art.gradient_text span { background: linear-gradient(90deg, #8b7bff, #ff6fb1 55%, #ffb45c); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
+.art.one_font_flat_scale { flex-direction: column; align-items: flex-start; gap: 4px; padding-left: 28px; }
+.art.one_font_flat_scale span { font-size: 15px; }
+.art.one_font_flat_scale span:first-child { font-size: 18px; font-weight: 600; }
+.art.uniform_radius span { width: 30px; height: 30px; border: 2px solid var(--fg-2); border-radius: 7px; }
+.art.uniform_radius span:first-child { width: 48px; height: 56px; }
+.art.uniform_radius span:last-child { width: 44px; }
+/* Three blocks making the same move: each trails the fade it rose through. */
+.art.repeated_motion { gap: 14px; padding-bottom: 36px; }
+.art.repeated_motion span { position: relative; width: 34px; height: 30px; border-radius: 4px 4px 0 0; background: var(--fg-2); }
+.art.repeated_motion span::after { content: ""; position: absolute; inset: 100% 0 auto; height: 28px; background: linear-gradient(rgba(189, 200, 207, .55), transparent); }
+.art.icon_tile span { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; background: rgba(139, 123, 255, .22); color: #b3a8ff; font-size: 26px; line-height: 1; }
+.tell.clear .art { height: 72px; opacity: .8; }
+.tell.clear .field { color: var(--fg-2); font-size: 14px; }
+.tell.clear .art + .field .field-label { color: var(--fg); font-size: 15px; } /* the check's name; "Result" stays a quiet label */
+
+/* Differences: what the build has (muted), then what the reference has (bright).
+   The build column is fixed, so every reference value starts on one edge (the second screenshot's edge at full width). */
+.delta { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 8px 16px; align-items: end; width: 100%; }
+.side { display: grid; gap: 4px; min-width: 0; }
+.side-label { color: var(--fg-3); font-size: 12px; }
+.side-value { font: 500 16px/1.35 var(--mono); color: var(--fg-max); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.before .side-value { color: var(--fg-3); font-weight: 400; }
+.to { display: flex; align-items: flex-end; gap: 16px; min-width: 0; }
+.arrow { flex: none; width: 16px; color: var(--fg-3); font: 16px/1.35 var(--mono); }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag { padding: 2px 10px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--fg-2); font-size: 12px; font-weight: 500; }
+.notfound ul { display: grid; gap: 6px; }
+.notfound ul li { font-size: 15px; overflow-wrap: anywhere; }
+
+/* Screenshots */
+.compare { display: grid; gap: 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.comparison { display: grid; gap: 32px; min-width: 0; }
+.shot { display: grid; gap: 10px; min-width: 0; }
+.shot-cap { display: flex; align-items: center; gap: 10px; min-height: 28px; font-size: 13px; }
+.shot-label { font-weight: 600; }
+.shot-url { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-3); }
+.frame { position: relative; overflow: hidden; border: 1px solid var(--line-3); border-radius: var(--r-s); background: var(--bg-1); }
 .frame img { width: 100%; height: auto; }
-.frame .muted { padding: 16px; }
+.frame .muted { padding: 16px; color: var(--fg-3); }
+.frame.railed { padding-left: var(--rail); background: var(--bg); }
+.frame.railed::before { content: ""; position: absolute; top: 0; bottom: 0; left: calc(var(--rail) - 1px); width: 1px; background: var(--line-2); }
+/* In a report the screenshot is a thumbnail beside the title; the specimens are the result. */
+.report-head .shot-cap { order: 2; }
+.report-head .shot-url { visibility: hidden; }
+.report-head .frame { aspect-ratio: 2 / 1; }
+.report-head .frame img { height: 100%; object-fit: cover; object-position: top; }
 
-/* Pins: the outline marks the box; the numbered badge sits beside it, never on the content. */
-.box { position: absolute; border: 1.5px solid var(--love); border-radius: 2px; pointer-events: none; }
-.box.lit { border-width: 3px; }
+/* Pins: the outline marks the box on the page; its numbered badge sits in the rail, off the page, joined by a leader. */
 .pin {
-  display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px;
-  background: var(--love); color: var(--ink); font-size: 12px; font-weight: 700; line-height: 1;
-  font-variant-numeric: tabular-nums; box-shadow: 0 0 0 1px var(--ink), 0 1px 4px rgba(0, 0, 0, .45);
+  display: inline-grid; place-items: center; flex: none; min-width: var(--pin); height: var(--pin); padding: 0 5px;
+  border-radius: 999px; background: var(--love); color: var(--ink); font-size: 12px; font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
+.pin.hollow { background: transparent; color: var(--fg-2); box-shadow: inset 0 0 0 1px var(--line-3); }
 .frame .pin { position: absolute; left: 0; top: 0; }
-.pin.lit { box-shadow: 0 0 0 2px var(--fg-max), 0 1px 4px rgba(0, 0, 0, .45); }
-
-.lines, .pins { list-style: none; display: grid; gap: 4px; }
-.lines li, .pins li { padding: 12px 14px; border-radius: var(--r-s); border-bottom: 1px solid var(--line); }
-.pins li { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
-.pins li.lit, .pins li:focus-visible { background: var(--bg-2); }
-.pins li .pin { margin-top: 1px; }
-.pins li.done { color: var(--fg-3); display: grid; grid-template-columns: auto 1fr; gap: 12px; }
-.pins li.done .tick { color: var(--fg-2); font-weight: 700; }
-.item-body { display: grid; gap: 6px; min-width: 0; }
-.concept { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--fg-2); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
-.tag { padding: 0 8px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--fg-2); font-size: 12px; font-weight: 600; }
-.value {
-  font-family: var(--mono); font-size: 18px; font-weight: 600; line-height: 1.35; color: var(--fg-max);
-  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+.pin.lit { box-shadow: 0 0 0 2px var(--fg-max); }
+.box {
+  position: absolute; border: 2px solid var(--love); border-radius: 2px; pointer-events: none;
+  background: rgba(243, 156, 18, .1); /* the tint keeps a box findable on a dark page, the dark ring on a light one */
+  box-shadow: 0 0 0 1px rgba(14, 18, 22, .5), 0 0 0 4px rgba(243, 156, 18, .22);
 }
-.value .before { color: var(--fg-3); font-weight: 500; }
-.value .arrow { color: var(--fg-3); padding: 0 6px; }
-.why { color: var(--fg-3); font-size: 14px; }
-.note { color: var(--fg-2); font-size: 13px; }
-
-/* Brief visuals, drawn from the measured values. Colours and sizes come in through CSSOM. */
-.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
-.swatch { width: 28px; height: 28px; border-radius: var(--r-s); border: 1px solid var(--line-2); }
-.scale { display: grid; gap: 4px; }
-.scale-row { display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: center; }
-.scale-label { font-family: var(--mono); font-size: 12px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
-.track { height: 6px; border-radius: 3px; background: var(--bg-3); overflow: hidden; }
-.bar { display: block; height: 100%; border-radius: 3px; background: var(--fg-2); }
-.radii { display: flex; flex-wrap: wrap; gap: 14px; }
-.radius-cell { display: grid; gap: 4px; justify-items: start; }
-.radius-sample { display: block; width: 40px; height: 40px; border: 1.5px solid var(--fg-2); background: var(--bg-2); }
-
-.notfound-block {
-  display: grid; gap: 8px; padding: 14px 16px; border: 1px solid var(--line-2); border-left: 3px solid var(--fg-3);
-  border-radius: var(--r-m); background: var(--bg-1);
-}
-.notfound { display: grid; gap: 6px; padding-left: 18px; color: var(--fg-2); }
+.box.lit { background: rgba(243, 156, 18, .28); }
+.leader { position: absolute; height: 2px; margin-top: -1px; background: var(--love); transform-origin: 0 50%; pointer-events: none; }
 
 dialog {
-  width: min(1280px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 20px; overflow: auto;
+  /* ponytail: the third width keeps a default 1440x900 capture fully in view; other shapes just scroll. */
+  width: min(1320px, calc(100vw - 32px), calc((100dvh - 132px) * 1.6 + var(--rail) + 42px));
+  max-height: calc(100dvh - 32px); padding: 20px; overflow: auto;
   border: 1px solid var(--line-2); border-radius: var(--r-m); background: var(--bg-1); color: var(--fg);
 }
 dialog::backdrop { background: rgba(6, 8, 10, .8); }
 .zoom-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+#zoom-body { overflow-x: auto; }
+#zoom-body .shot { min-width: 720px; }
+.zoom-hint { display: none; margin-bottom: 12px; }
 
-@media (max-width: 720px) {
-  .slots { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 860px) {
+  :root { --rail: 28px; }
+  .bench, .compare, .report-head, .spec, .modes > div, .delta, .tell { grid-template-columns: minmax(0, 1fr); }
+  .tell .field { grid-column: auto; }
+  .tell .art { max-width: 220px; }
+  .tell.clear { padding-bottom: 12px; }
+  .zoom-hint { display: block; }
+  .report-head .shot { max-width: 420px; }
+  .report-head .result-head { min-height: 0; }
+  .spec-label:has(.pin) + .spec-body { padding-left: calc(var(--pin) + 12px); } /* values sit under the title, not under the badge */
+  .spec { padding: 24px 0; }
+  .to { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .arrow { transform: rotate(90deg); }
+  .title { font-size: 26px; }
 }
 @media (max-width: 600px) {
   .wrap { padding: 0 16px; }
-  main.wrap { padding-top: 16px; }
-  .slot { padding: 16px; }
+  main.wrap { padding-top: 24px; padding-bottom: 80px; }
   .row { flex-wrap: wrap; }
   input[type="url"] { flex-basis: 100%; }
+  .btn.small { height: 36px; padding: 0 12px; }
+  .chips li { height: 40px; }
+  .chip-x { width: 32px; height: 32px; }
+  .specimen { column-gap: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }

@@ -10,18 +10,17 @@
   <a class="skip" href="#main">Skip to measure</a>
   <header class="top">
     <div class="wrap top-row">
-      <img class="logo" src="/logo.svg" alt="Piggyback" width="90" height="28">
+      <h1 class="brand"><img class="logo" src="/logo.svg" alt="Piggyback" width="103" height="32"></h1>
       <p class="status" id="status" role="status" aria-live="polite"></p>
     </div>
   </header>
   <main id="main" class="wrap">
-    <form class="slots" id="slots" novalidate>
+    <form class="bench" id="slots" novalidate>
       <section class="slot" role="group" aria-labelledby="ref-title">
         <div class="slot-head">
           <h2 class="slot-title" id="ref-title">Reference</h2>
-          <p class="hint">1 to 3, a page you admire</p>
+          <p class="hint">1 to 3 pages you admire</p>
         </div>
-        <ul class="chips" id="ref-list"></ul>
         <div class="row">
           <label class="vh" for="ref-input">Reference URL</label>
           <input id="ref-input" type="url" inputmode="url" autocomplete="off" spellcheck="false"
@@ -29,6 +28,8 @@
           <button type="button" class="btn" id="ref-add">Add reference</button>
         </div>
         <p class="error" id="ref-error" hidden></p>
+        <ul class="chips" id="ref-list" aria-label="References added"></ul>
+        <p class="hint chips-empty">None added yet. Your build alone is checked for generic defaults.</p>
       </section>
       <section class="slot" role="group" aria-labelledby="build-title">
         <div class="slot-head">
@@ -40,23 +41,33 @@
           <input id="build-input" type="url" inputmode="url" autocomplete="off" spellcheck="false"
                  placeholder="http://localhost:3000">
         </div>
+        <div class="actions">
+          <button type="submit" class="btn primary" id="measure">Measure</button>
+          <button type="button" class="btn" id="rerun" hidden>Re-run</button>
+          <button type="button" class="btn" id="copy" hidden>Copy for agent</button>
+        </div>
       </section>
-      <div class="actions">
-        <button type="submit" class="btn primary" id="measure">Measure</button>
-        <button type="button" class="btn" id="rerun" hidden>Re-run</button>
-        <button type="button" class="btn" id="copy" hidden>Copy for agent</button>
-      </div>
     </form>
-    <p class="error" id="error" role="alert" hidden></p>
+    <p class="error banner" id="error" role="alert" hidden></p>
     <textarea class="fallback" id="fallback" readonly hidden aria-label="BRIEF.md text"></textarea>
-    <section class="result" id="result" aria-live="polite"></section>
+    <section class="result" id="result" aria-live="polite">
+      <div class="guide">
+        <h2 class="vh">What a measurement returns</h2>
+        <dl class="modes">
+          <div><dt>Reference only</dt><dd>A design brief: its type scale, palette, radius, spacing, container and fonts, drawn as specimens.</dd></div>
+          <div><dt>Reference and your build</dt><dd>The differences, numbered and pinned on both screenshots.</dd></div>
+          <div><dt>Your build only</dt><dd>A check for generic defaults.</dd></div>
+        </dl>
+      </div>
+    </section>
   </main>
   <dialog id="zoom" aria-labelledby="zoom-title">
     <div class="zoom-head">
       <h2 class="section-title" id="zoom-title"></h2>
       <button type="button" class="btn" id="zoom-close">Close</button>
     </div>
-    <div id="zoom-body"></div>
+    <p class="note zoom-hint">Shown at a readable size. Scroll sideways to see the rest of the page.</p>
+    <div id="zoom-body" tabindex="0" role="group" aria-label="Screenshot, scrollable"></div>
   </dialog>
   <script src="/app.js"></script>
 </body>
