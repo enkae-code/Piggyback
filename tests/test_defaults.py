@@ -30,8 +30,15 @@ class DefaultsTests(unittest.TestCase):
         self.assertNotIn("repeated_motion", concepts({**self.build, "motion": motion}))
 
     def test_uniform_radius_fires_on_one_radius(self):
-        build = {**self.build, "radius": [{"value": "12px", "share": 1}]}
+        build = {**self.build, "radius": [{"value": "12px", "share": 1}], "rounded_boxes": 3}
         self.assertIn("uniform_radius", concepts(build))
+
+    def test_uniform_radius_needs_three_rounded_boxes(self):
+        radius = [{"value": "12px", "share": 1}]
+        for boxes in (2, None):
+            with self.subTest(boxes=boxes):
+                build = {**self.build, "radius": radius, "rounded_boxes": boxes}
+                self.assertNotIn("uniform_radius", concepts(build))
 
     def test_flat_scale_fires_on_one_font_and_small_heading_ratio(self):
         heading = {**self.build["anchors"]["heading"], "font_size": "18px"}

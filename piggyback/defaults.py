@@ -5,6 +5,7 @@ from .glossary import note
 
 FLAT_RATIO = 1.5  # headings at most 1.5x the body text size read as a flat scale
 MIN_REPEATS = 3  # the same fade-and-move on at least this many elements
+MIN_RADIUS_BOXES = 3  # one radius on fewer rounded boxes is a coincidence, not a pattern
 
 
 def find(build):
@@ -45,15 +46,20 @@ def _one_font_flat_scale(build):
         return None
     return (
         "one_font_flat_scale",
-        f"one font ({fp.clean(primary.pop(), 40)}) and headings {ratio:.1f}x body text",
+        f"one font ({fp.clean(primary.pop(), 40)}) and headings {ratio:.1f}x body text "
+        "in the first screen",
     )
 
 
 def _uniform_radius(build):
     sizes = {fp.px(value) for value, _ in fp.pairs(fp.get(build, "radius"))} - {None}
-    if len(sizes) != 1:
+    boxes = fp.number(fp.get(build, "rounded_boxes"))
+    if len(sizes) != 1 or boxes is None or boxes < MIN_RADIUS_BOXES:
         return None
-    return "uniform_radius", f"one radius ({next(iter(sizes)):g}px) on every rounded box"
+    return (
+        "uniform_radius",
+        f"one radius ({next(iter(sizes)):g}px) on {boxes:g} rounded boxes in the first screen",
+    )
 
 
 def _repeated_motion(build):

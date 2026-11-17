@@ -59,7 +59,7 @@ def _type_gap(label, location, ref_anchor, build_anchor, sizes):
 
     detail = f"{label} at {location}: {type_text(bf, bl)} → {type_text(rf, rl)}"
     if tracking_differs:
-        detail += f", {rt / rf:.2f}em"
+        detail += f", tracking {bt / bf:.2f}em → {rt / rf:.2f}em"
     return detail
 
 
@@ -90,7 +90,7 @@ def _page_rows(ref, build):
         absent.append((None, _absent("Accent share", ref_share, build_share)))
     elif abs(round(ref_share - build_share, 4)) > SHARE_TOLERANCE:
         now, target = round(build_share * 100, 1), round(ref_share * 100, 1)
-        rows.append(("accent", f"accent share at page: {now:g}% → {target:g}%", None, None))
+        rows.append(("accent", f"accent share at first screen: {now:g}% → {target:g}%", None, None))
 
     ref_width, build_width = (fp.number(fp.get(d, "container_width")) for d in (ref, build))
     if ref_width is None or build_width is None:
@@ -108,20 +108,50 @@ def _page_rows(ref, build):
     return rows, absent
 
 
-def _signature_text(kind, props, duration, delay, easing, count):
-    """One motion signature as plain text: what animates, its timing, and how many elements."""
-    kind = fp.clean(kind, 30)
-    props = [fp.clean(prop, 40) for prop in props]
-    easing = fp.clean(easing, 40)
-    if duration is None or delay is None or count is None:
-        return (
-            f"{kind}, {', '.join(props) or 'properties not measured'}, timing or count not measured"
-        )
+def _bounded(value, default):
+    return value if isinstance(value, str) and len(value) <= 4096 else default
+
+
+def _identity(row):
+    """Kind, properties and timing: what a motion row is. Its count is shown, not compared."""
+    raw_props = row.get("props") if isinstance(row.get("props"), list) else []
+    props = tuple(sorted(prop for prop in raw_props if isinstance(prop, str) and len(prop) <= 4096))
     return (
-        f"{kind}, {', '.join(props) or 'properties not measured'}, "
-        f"{fp.fmt(duration)}ms duration, {fp.fmt(delay)}ms delay, "
-        f"{easing or 'easing not measured'}, {fp.fmt(count)} elements"
+        _bounded(row.get("kind", "unknown"), "unknown"),
+        props,
+        fp.number(row.get("duration")),
+        fp.number(row.get("delay")),
+        _bounded(row.get("easing"), None),
     )
+
+
+def _counts(rows):
+    """Element count per identity; rows sharing an identity add up. None when a count is missing."""
+    totals = {}
+    for row in rows:
+        key, count = _identity(row), fp.number(row.get("count"))
+        prior = totals.get(key, 0)
+        totals[key] = None if count is None or prior is None else prior + count
+    return totals
+
+
+def _signature_base(identity):
+    """A motion signature as plain text without its count: kind, properties, timing, easing."""
+    kind, props, duration, delay, easing = identity
+    if duration is None or delay is None:
+        timing = "timing not measured"
+    else:
+        timing = (
+            f"{fp.fmt(duration)}ms duration, {fp.fmt(delay)}ms delay, "
+            f"{fp.easing(easing) or 'easing not measured'}"
+        )
+    shown = fp.motion_props(list(props)) or "properties not measured"
+    return f"{fp.clean(kind, 30)}, {shown}, {timing}"
+
+
+def _signature_text(identity, count):
+    count_text = "count not measured" if count is None else f"{fp.fmt(count)} elements"
+    return f"{_signature_base(identity)}, {count_text}"
 
 
 def _motion_rows(ref, build):
@@ -135,44 +165,27 @@ def _motion_rows(ref, build):
     ref_rows, build_rows = valid(ref_rows), valid(build_rows)
     rows = []
     if len(ref_rows) != len(build_rows):
-        rows.append(("motion", f"motion signatures at page: {len(build_rows)} → {len(ref_rows)}"))
-
-    def signatures(values):
-        def full_text(value, default):
-            return value if isinstance(value, str) and len(value) <= 4096 else default
-
-        signatures = set()
-        for row in values:
-            raw_props = row.get("props")
-            if not isinstance(raw_props, list):
-                raw_props = []
-            signatures.add(
-                (
-                    full_text(row.get("kind", "unknown"), "unknown"),
-                    tuple(
-                        sorted(
-                            full_text(prop, "")
-                            for prop in raw_props
-                            if isinstance(prop, str) and len(prop) <= 4096
-                        )
-                    ),
-                    fp.number(row.get("duration")),
-                    fp.number(row.get("delay")),
-                    full_text(row.get("easing", ""), ""),
-                    fp.number(row.get("count")),
-                )
-            )
-        return signatures
-
-    ref_signatures, build_signatures = signatures(ref_rows), signatures(build_rows)
+        rows.append(
+            ("motion", f"motion signatures in whole document: {len(build_rows)} → {len(ref_rows)}")
+        )
+    ref_counts, build_counts = _counts(ref_rows), _counts(build_rows)
     sides = (
-        ("present in build, absent in reference", build_signatures - ref_signatures),
-        ("present in reference, absent in build", ref_signatures - build_signatures),
+        ("present in build, absent in reference", build_counts, ref_counts),
+        ("present in reference, absent in build", ref_counts, build_counts),
     )
-    for side, extra in sides:
-        for signature in sorted(extra, key=str):
+    for side, counts, other in sides:
+        for identity in sorted(counts.keys() - other.keys(), key=str):
+            text = _signature_text(identity, counts[identity])
+            rows.append(("motion", f"motion signature in whole document, {side}: {text}"))
+    for identity in sorted(build_counts.keys() & ref_counts.keys(), key=str):
+        build_n, ref_n = build_counts[identity], ref_counts[identity]
+        if build_n is not None and ref_n is not None and build_n != ref_n:
             rows.append(
-                ("motion", f"motion signature at page: {_signature_text(*signature)} {side}")
+                (
+                    "motion",
+                    f"motion count differs in whole document: {_signature_base(identity)}, "
+                    f"{fp.fmt(build_n)} → {fp.fmt(ref_n)} elements",
+                )
             )
     ref_still = fp.number(fp.get(ref, "reduced_motion", "still_running"))
     build_still = fp.number(fp.get(build, "reduced_motion", "still_running"))
@@ -180,8 +193,8 @@ def _motion_rows(ref, build):
         rows.append(
             (
                 "motion",
-                "animations still running with reduced motion requested: "
-                f"{fp.fmt(build_still)} → {fp.fmt(ref_still)}",
+                "animations still running with reduced motion requested — "
+                f"build: {fp.fmt(build_still)}, reference: {fp.fmt(ref_still)} (whole document)",
             )
         )
     return rows
@@ -240,11 +253,6 @@ def render(pins):
     for pin in pins:
         if pin.number is None:
             lines.append(f"- {pin.detail}")
-            continue
-        if pin.concept is None:
-            mark = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
-            label = mark[pin.number - 1] if pin.number <= len(mark) else f"({pin.number})"
-            lines.append(f"- {label} {pin.detail}")
             continue
         lines.append(note(pin.concept, pin.detail, pin.number, why=pin.concept not in explained))
         explained.add(pin.concept)

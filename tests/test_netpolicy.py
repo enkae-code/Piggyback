@@ -2,7 +2,7 @@ import socket
 import unittest
 from unittest import mock
 
-from piggyback.netpolicy import host_allowed, resolve_allowed, url_allowed
+from piggyback.netpolicy import host_allowed, local_name, resolve_allowed, url_allowed
 
 # Literal IPs and fixed names only: no DNS, so the table runs offline.
 PUBLIC = ["93.184.216.34", "2606:4700:4700::1111"]
@@ -101,6 +101,13 @@ class NetPolicyTests(unittest.TestCase):
             for name in ("printer.local", "app.localhost", "localhost", "LOCALHOST."):
                 with self.subTest(name=name):
                     self.assertIsNone(resolve_allowed(name))
+
+    def test_local_name_rewrites_only_the_localhost_name(self):
+        self.assertEqual(local_name("http://LOCALHOST:8080/a?b"), "http://127.0.0.1:8080/a?b")
+        self.assertEqual(
+            local_name("https://example.com/localhost"), "https://example.com/localhost"
+        )
+        self.assertEqual(local_name("http://localhost:99999x/"), "http://localhost:99999x/")
 
 
 def infos(*ips):

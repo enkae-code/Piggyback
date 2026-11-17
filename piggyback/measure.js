@@ -101,11 +101,8 @@
   };
 
   const shapes = boxes.filter((b) => b.area > 0);
-  const radius = hist(
-    shapes
-      .filter((b) => b.cs.borderTopLeftRadius !== "0px")
-      .map((b) => [b.cs.borderTopLeftRadius, b.area]),
-  );
+  const rounded = shapes.filter((b) => b.cs.borderTopLeftRadius !== "0px");
+  const radius = hist(rounded.map((b) => [b.cs.borderTopLeftRadius, b.area]));
   const shadow = hist(
     shapes.filter((b) => b.cs.boxShadow !== "none").map((b) => [b.cs.boxShadow, b.area]),
   );
@@ -316,6 +313,7 @@
     type,
     palette,
     radius,
+    rounded_boxes: rounded.length,
     shadow,
     spacing,
     container_width: container,
