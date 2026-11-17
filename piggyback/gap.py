@@ -154,29 +154,24 @@ def _signature_text(identity, count):
     return f"{_signature_base(identity)}, {count_text}"
 
 
-def _motion_rows(ref, build):
-    """Evidence-shaped motion differences; signatures are compared by kind and properties."""
-    ref_rows = fp.get(ref, "motion") if isinstance(fp.get(ref, "motion"), list) else []
-    build_rows = fp.get(build, "motion") if isinstance(fp.get(build, "motion"), list) else []
+def _valid_motion(page):
+    """The page's motion rows that are objects; anything else counts as no motion."""
+    rows = fp.get(page, "motion")
+    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
 
-    def valid(rows):
-        return [row for row in rows if isinstance(row, dict)]
 
-    ref_rows, build_rows = valid(ref_rows), valid(build_rows)
+def _absent_rows(counts, other, side):
+    """Signatures in `counts` that `other` lacks, as motion rows labelled with `side`."""
     rows = []
-    if len(ref_rows) != len(build_rows):
-        rows.append(
-            ("motion", f"motion signatures in whole document: {len(build_rows)} → {len(ref_rows)}")
-        )
-    ref_counts, build_counts = _counts(ref_rows), _counts(build_rows)
-    sides = (
-        ("present in build, absent in reference", build_counts, ref_counts),
-        ("present in reference, absent in build", ref_counts, build_counts),
-    )
-    for side, counts, other in sides:
-        for identity in sorted(counts.keys() - other.keys(), key=str):
-            text = _signature_text(identity, counts[identity])
-            rows.append(("motion", f"motion signature in whole document, {side}: {text}"))
+    for identity in sorted(counts.keys() - other.keys(), key=str):
+        text = _signature_text(identity, counts[identity])
+        rows.append(("motion", f"motion signature in whole document, {side}: {text}"))
+    return rows
+
+
+def _count_rows(build_counts, ref_counts):
+    """Signatures on both pages whose element counts differ; a missing count is not compared."""
+    rows = []
     for identity in sorted(build_counts.keys() & ref_counts.keys(), key=str):
         build_n, ref_n = build_counts[identity], ref_counts[identity]
         if build_n is not None and ref_n is not None and build_n != ref_n:
@@ -187,17 +182,37 @@ def _motion_rows(ref, build):
                     f"{fp.fmt(build_n)} → {fp.fmt(ref_n)} elements",
                 )
             )
+    return rows
+
+
+def _still_rows(ref, build):
+    """Animations still running under reduced motion, when both pages report a count."""
     ref_still = fp.number(fp.get(ref, "reduced_motion", "still_running"))
     build_still = fp.number(fp.get(build, "reduced_motion", "still_running"))
     if ref_still is not None and build_still is not None and ref_still != build_still:
-        rows.append(
+        return [
             (
                 "motion",
                 "animations still running with reduced motion requested — "
                 f"build: {fp.fmt(build_still)}, reference: {fp.fmt(ref_still)} (whole document)",
             )
+        ]
+    return []
+
+
+def _motion_rows(ref, build):
+    """Evidence-shaped motion differences; signatures are compared by kind and properties."""
+    ref_rows, build_rows = _valid_motion(ref), _valid_motion(build)
+    rows = []
+    if len(ref_rows) != len(build_rows):
+        rows.append(
+            ("motion", f"motion signatures in whole document: {len(build_rows)} → {len(ref_rows)}")
         )
-    return rows
+    ref_counts, build_counts = _counts(ref_rows), _counts(build_rows)
+    rows += _absent_rows(build_counts, ref_counts, "present in build, absent in reference")
+    rows += _absent_rows(ref_counts, build_counts, "present in reference, absent in build")
+    rows += _count_rows(build_counts, ref_counts)
+    return rows + _still_rows(ref, build)
 
 
 def gap(ref, build):

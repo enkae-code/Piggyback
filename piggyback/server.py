@@ -180,10 +180,8 @@ def _defaults(build_fp, seen):
     return payload, defaults_mod.render(hits)
 
 
-def _compare(fps, build_fp, seen, before):
-    """`before` is the last compare payload of a re-run on the same references, else None."""
-    pins = gap_mod.gap(fps[0], build_fp)
-    views = [
+def _pin_views(pins, seen):
+    return [
         {
             **_arrow(_line(pin.concept, pin.detail, seen)),
             "number": pin.number,
@@ -193,18 +191,28 @@ def _compare(fps, build_fp, seen, before):
         for pin in pins
         if pin.number is not None
     ]
+
+
+def _ticked(prev, now, done):
+    """Ticks from the last run that still hold, plus pins whose concept closed just now."""
+    kept = [pin for pin in prev["ticked"] if pin["concept"] not in now]
+    return kept + [pin for pin in prev["pins"] if pin["concept"] in done]
+
+
+def _compare(fps, build_fp, seen, before):
+    """`before` is the last compare payload of a re-run on the same references, else None."""
+    pins = gap_mod.gap(fps[0], build_fp)
+    views = _pin_views(pins, seen)
     # A pin ticks when its concept was open and still compares now; ticks stay until reopened.
     prev = before or {"pins": [], "ticked": []}
     now = gap_mod.differing(pins)
     done = gap_mod.fixed({pin["concept"] for pin in prev["pins"]}, now, fps[0], build_fp)
-    ticked = [pin for pin in prev["ticked"] if pin["concept"] not in now]
-    ticked += [pin for pin in prev["pins"] if pin["concept"] in done]
     payload = {
         "state": "compare",
         "reference": _view(fps[0]),
         "build": _view(build_fp),
         "pins": views,
-        "ticked": ticked,
+        "ticked": _ticked(prev, now, done),
         "not_found": [_plain(pin.detail) for pin in pins if pin.number is None],
         "note": NOTE,
     }
@@ -244,21 +252,27 @@ class Screen(ThreadingHTTPServer):
         self.shots[shot_id] = path
         return {**fp, "url": shown or fp["url"], "shot": shot_id}
 
+    def _measure_references(self, refs):
+        self.refs_key = None  # a failed capture leaves no half-kept list behind
+        self.ref_fps = [self._shoot(url, False) for url in refs]
+        self.refs_key = tuple(refs)
+
+    def _forget_shots(self, build_fp):
+        keep = {fp["shot"] for fp in self.ref_fps} | ({build_fp["shot"]} if build_fp else set())
+        for shot_id in [shot_id for shot_id in self.shots if shot_id not in keep]:
+            self.shots.pop(shot_id).unlink(missing_ok=True)
+
     def run(self, refs, build, typed=None, rerun=False):
         # A re-run on the same references reuses their captures and the ticks; a new list or a fresh
         # measure measures them again.
         same = rerun and tuple(refs) == self.refs_key
         before = self.last_compare if same else None
         if not same:
-            self.refs_key = None  # a failed capture leaves no half-kept list behind
-            self.ref_fps = [self._shoot(url, False) for url in refs]
-            self.refs_key = tuple(refs)
+            self._measure_references(refs)
         # The page shows the build as the user typed it (localhost), not the address we measured.
         build_fp = self._shoot(build, _on_this_machine(build), typed) if build else None
         payload, text = _render(self.ref_fps, build_fp, before)
-        keep = {fp["shot"] for fp in self.ref_fps} | ({build_fp["shot"]} if build_fp else set())
-        for shot_id in [shot_id for shot_id in self.shots if shot_id not in keep]:
-            self.shots.pop(shot_id).unlink(missing_ok=True)
+        self._forget_shots(build_fp)
         self.last_text = text
         self.last_compare = payload if payload["state"] == "compare" else None
         return payload
