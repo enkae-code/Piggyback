@@ -7,10 +7,10 @@ from . import fingerprint as fp
 from .glossary import TERMS, note
 
 MAX_REFS = 3
-MAX_NOTES = 20
 NOTE_CHARS = 200
 VERDICTS = ("borrow", "avoid")
 CONCEPTS = ("type_scale", "palette", "accent", "radius", "spacing", "container", "fonts")
+MAX_NOTES = MAX_REFS * len(CONCEPTS)  # one note per measured row: the screen can never exceed it
 TOP = 6
 FONT_CAP = 3  # primary families only, most visible first
 PALETTE_CAP = 5  # the dominant colours only; a long tail reads as noise

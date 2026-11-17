@@ -355,11 +355,12 @@ function delta(line) {
 function noteControls(ref, index, line) {
   const key = JSON.stringify([ref.url, line.concept]);
   const title = concept(line.name)[0].toLowerCase();
-  const input = el("input", { type: "text", maxlength: NOTE_CHARS, autocomplete: "off", spellcheck: "false" });
+  const input = el("input", { type: "text", maxlength: NOTE_CHARS, autocomplete: "off", spellcheck: "false",
+    placeholder: "what to keep or skip" });
   const field = el("label", { class: "note-field" }, el("span", { text: "Note (optional)" }), input);
   const buttons = ["Borrow", "Avoid"].map((label) => {
     const verdict = label.toLowerCase();
-    const button = el("button", { type: "button", class: "btn small", text: label,
+    const button = el("button", { type: "button", class: "btn small", text: label, "data-verdict": verdict,
       "aria-label": `${label} ${title} from ${bare(ref.url)}` });
     button.addEventListener("click", () => {
       const current = state.notes.get(key);

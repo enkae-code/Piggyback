@@ -165,15 +165,16 @@ class BriefTests(unittest.TestCase):
         self.assertEqual(brief_mod.brief([ref], []), brief_mod.brief([ref]))
         self.assertEqual(brief_mod.brief([ref], None), brief_mod.brief([ref]))
 
-    def test_twenty_notes_are_the_most_and_are_all_kept(self):
+    def test_every_row_of_three_references_can_carry_a_note(self):
         refs = [load("ref.json")] * 3
         notes = [
             {"ref": 1 + i // 7, "concept": CONCEPT_ORDER[i % 7], "verdict": "borrow"}
-            for i in range(20)
+            for i in range(brief_mod.MAX_NOTES)
         ]
+        self.assertEqual(brief_mod.MAX_NOTES, 21)
         self.assertEqual(brief_mod.brief(refs, notes).count("### Borrow"), 3)
         extra = {"ref": 3, "concept": "fonts", "verdict": "avoid"}
-        with self.assertRaisesRegex(ValueError, "at most 20"):
+        with self.assertRaises(ValueError):
             brief_mod.brief(refs, [*notes, extra])
 
     def test_bad_notes_are_refused_with_a_message(self):

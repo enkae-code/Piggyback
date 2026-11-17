@@ -110,16 +110,21 @@ input::placeholder { color: var(--fg-3); opacity: 1; }
   height: 40px; padding: 0 16px; border-radius: var(--r-s); border: 1px solid var(--line-2);
   background: var(--bg-2); color: var(--fg); font-weight: 600; cursor: pointer; white-space: nowrap;
 }
-.btn:hover:not(:disabled) { background: var(--bg-3); }
+.btn:hover:not(:disabled, [aria-pressed="true"]) { background: var(--bg-3); }
 .btn.primary { min-width: 112px; background: var(--brand-strong); border-color: transparent; color: var(--fg-max); }
 .btn.primary:hover:not(:disabled) { background: var(--brand); }
 .btn.small { height: 28px; padding: 0 10px; font-size: 13px; }
-.btn[aria-pressed="true"] { background: var(--bg-4); border-color: var(--fg-max); color: var(--fg-max); box-shadow: inset 0 0 0 1px var(--fg-max); }
+/* A pressed verdict is a filled chip, not an outline, so it never reads as the focus ring. */
+.btn[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.btn[data-verdict="avoid"][aria-pressed="true"] { background: var(--avoid); border-color: var(--avoid); }
+/* Shape as well as colour: the button keeps its aria-label, so the mark is not read aloud twice. */
+.btn[data-verdict="borrow"][aria-pressed="true"]::before { content: "✓"; margin-right: 6px; }
+.btn[data-verdict="avoid"][aria-pressed="true"]::before { content: "✕"; margin-right: 6px; }
 .btn:disabled { opacity: .5; cursor: progress; }
 .note-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.note-field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; color: var(--fg-2); font-size: 13px; }
+.note-field { flex: 1 1 320px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; color: var(--fg-2); font-size: 13px; }
 .note-field[hidden] { display: none; }
-.note-field input { width: min(440px, 100%); }
+.note-field input { height: 28px; max-width: 440px; }
 .btn, .chip-x, input[type="url"], .spec, .pin, .box { transition: background-color .12s, border-color .12s, box-shadow .12s; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .fallback {
