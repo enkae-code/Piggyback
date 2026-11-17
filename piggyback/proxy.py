@@ -7,6 +7,8 @@ a private address. Refused targets get 403 and are recorded in `blocked`.
 
 Not covered: WebRTC UDP bypasses this proxy; browser.py blocks it
 (launch switch + NO_WEBRTC init script).
+WebTransport (HTTP/3 over QUIC) is never sent while a proxy is set (Chromium, probed
+2026-11-16); a browser-integration test pins it.
 """
 
 import contextlib

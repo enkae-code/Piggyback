@@ -5,6 +5,8 @@ import copy
 import http.client
 import io
 import json
+import os
+import re
 import tempfile
 import threading
 import unittest
@@ -434,6 +436,60 @@ class ScreenTests(unittest.TestCase):
             ["gradient_text", "repeated_motion", "icon_tile"],
         )
         self.assertEqual(text, defaults_mod.render(defaults_mod.find(build)))
+
+
+class OpenRedirectTests(unittest.TestCase):
+    def open_serve(self):
+        """Run serve() with the loop stubbed; return what webbrowser.open got and saw on disk."""
+        seen = {}
+
+        def record(uri):
+            seen["uri"] = uri
+            seen["path"] = Path(uri.removeprefix("file://"))
+            seen["exists"] = seen["path"].exists()
+            seen["text"] = seen["path"].read_text(encoding="utf-8") if seen["exists"] else ""
+            seen["mode"] = os.stat(seen["path"]).st_mode & 0o777 if seen["exists"] else None
+
+        with (
+            contextlib.redirect_stdout(io.StringIO()),
+            mock.patch("piggyback.server.webbrowser.open", side_effect=record),
+            mock.patch.object(server.Screen, "serve_forever", return_value=None),
+        ):
+            server.serve(0, self.tmp.name)
+        return seen
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+    def test_browser_gets_a_file_uri_without_the_token(self):
+        seen = self.open_serve()
+        self.assertTrue(seen["uri"].startswith("file://"))
+        found = re.search(r"\?t=([\w-]+)", seen["text"])
+        if found is None:
+            self.fail("redirect file holds no token URL")
+        self.assertNotIn(found.group(1), seen["uri"])
+
+    def test_redirect_file_holds_the_token_url_while_serving(self):
+        seen = self.open_serve()
+        self.assertTrue(seen["exists"])
+        self.assertIn('http-equiv="refresh"', seen["text"])
+        self.assertIn("<a href=", seen["text"])
+        self.assertRegex(seen["text"], r"http://127\.0\.0\.1:\d+/\?t=[\w-]+")
+
+    @unittest.skipUnless(os.name == "posix", "POSIX modes only")
+    def test_redirect_file_is_mode_0600(self):
+        self.assertEqual(self.open_serve()["mode"], 0o600)
+
+    def test_redirect_file_is_gone_after_serve_returns(self):
+        seen = self.open_serve()
+        self.assertFalse(seen["path"].exists())
+
+    def test_redirect_url_is_html_escaped(self):
+        page = server.redirect_file(self.tmp.name, 'http://h/?t=a&b"<c>')
+        text = page.read_text(encoding="utf-8")
+        self.assertIn("t=a&amp;b&quot;&lt;c&gt;", text)
+        self.assertNotIn('"<c>', text)
 
 
 class OpenCommandTests(unittest.TestCase):

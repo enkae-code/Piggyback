@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Fixture webtransport</title>
+</head>
+<body>
+<h1>WebTransport pending</h1>
+<script>
+  // Opens WebTransport to the UDP port in ?port= and writes what happened into the heading,
+  // so the test can tell that the script ran and that the constructor existed.
+  const heading = document.querySelector("h1");
+  const port = new URLSearchParams(location.search).get("port");
+  let result = typeof WebTransport === "function" ? "WebTransport function" : "WebTransport missing";
+  try {
+    const transport = new WebTransport(`https://127.0.0.1:${port}/`);
+    const writer = transport.datagrams.writable.getWriter();
+    for (let i = 0; i < 5; i++) writer.write(new Uint8Array([i])).catch(() => {});
+    result += ", constructed";
+  } catch (err) {
+    result += `, threw ${err.name}`;
+  }
+  heading.textContent = result;
+</script>
+</body>
+</html>

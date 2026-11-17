@@ -264,6 +264,31 @@ class MeasureIntegration(unittest.TestCase):
         self.assertGreater(control_count, 0, "control saw no UDP: the probe measures nothing")
         self.assertEqual(flagged_count, 0, "WebRTC sent UDP to a LAN host")
 
+    def test_webtransport_never_leaves_while_the_proxy_is_set(self):
+        # Control first: unproxied, the same page must reach a UDP listener on loopback, so a
+        # silent listener under the proxy means something. The heading proves the script ran and
+        # that the WebTransport constructor existed and accepted the call.
+        listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.addCleanup(listener.close)
+        listener.bind(("127.0.0.1", 0))
+        url = f"{self.base}/webtransport.html?port={listener.getsockname()[1]}"
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as p:
+            control = p.chromium.launch(chromium_sandbox=True)
+            try:
+                tab = control.new_page()
+                tab.goto(url, wait_until="load")
+                tab.wait_for_timeout(2000)
+                self.assertEqual(tab.inner_text("h1"), "WebTransport function, constructed")
+            finally:
+                control.close()
+            control_count = drain(listener)
+        result = measure(url, allow_loopback=True)
+        self.assertEqual(result["anchors"]["heading"]["text"], "WebTransport function, constructed")
+        self.assertGreater(control_count, 0, "control saw no UDP: the probe measures nothing")
+        self.assertEqual(drain(listener), 0, "WebTransport sent UDP while the proxy was set")
+
     def test_cli_measure_writes_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = io.StringIO()

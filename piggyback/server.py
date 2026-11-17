@@ -4,6 +4,7 @@ Stdlib only. Every API call carries the per-launch token; Host and Origin must n
 Results live in memory for the session. Screenshots are served by opaque id from a temp dir.
 """
 
+import html
 import ipaddress
 import json
 import os
@@ -407,6 +408,21 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(status, {"error": message})
 
 
+def redirect_file(folder, url):
+    """0600 page in folder that forwards to url; the browser's argv then holds only this path."""
+    target = html.escape(url, quote=True)
+    page = (
+        '<!doctype html><meta charset="utf-8">'
+        f'<meta http-equiv="refresh" content="0; url={target}">'
+        f'<a href="{target}">Open Piggyback</a>'
+    )
+    path = Path(folder) / "open.html"
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as out:
+        out.write(page)
+    return path
+
+
 def serve(port=0, out_dir="."):
     """Run until Ctrl-C. Prints the URL (with the session token) and opens the browser."""
     if not Path(out_dir).is_dir():
@@ -415,13 +431,12 @@ def serve(port=0, out_dir="."):
     for sig in (signal.SIGTERM, getattr(signal, "SIGHUP", None)):
         if sig is not None:
             signal.signal(sig, lambda *_: sys.exit(0))
-    # ponytail: the token rides in the opened URL, so other local users can see it in the process
-    # list; on a shared machine open a 0600 redirect file instead (as Jupyter does).
+    # The token stays out of the browser's argv (ps): the browser opens a 0600 redirect file.
     with tempfile.TemporaryDirectory(prefix="piggyback-shots-") as shot_dir:
         screen = Screen(port, out_dir, shot_dir)
         url = f"http://127.0.0.1:{screen.port}/?t={screen.token}"
         print(f"Piggyback is running at {url}\nPress Ctrl-C to stop.", flush=True)
-        webbrowser.open(url)
+        webbrowser.open(redirect_file(shot_dir, url).as_uri())
         try:
             screen.serve_forever()
         except KeyboardInterrupt:
