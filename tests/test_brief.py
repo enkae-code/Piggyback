@@ -7,6 +7,8 @@ from piggyback import fingerprint as fp
 from piggyback import gap as gap_mod
 from piggyback import glossary
 
+MOTION_CONCEPTS = {"motion_total", "motion_only_one_page", "motion_reach"}
+
 FIXTURES = Path(__file__).parent / "fixtures" / "fingerprints"
 BRACKETS = re.compile(r"(?<!\\)[\[\]`<>]")  # an unescaped character a renderer could act on
 HEX = re.compile(r"#[0-9a-f]{6}")
@@ -211,16 +213,14 @@ class GapTests(unittest.TestCase):
         prefix = "cubic-bezier(" + "1" * 40
         ref = {"motion": [{"kind": "animation", "props": ["opacity"], "easing": prefix + "a"}]}
         build = {"motion": [{"kind": "animation", "props": ["opacity"], "easing": prefix + "b"}]}
-        details = [
-            pin.detail for pin in gap_mod.gap(ref, build) if pin.concept in gap_mod.MOTION_CONCEPTS
-        ]
+        details = [pin.detail for pin in gap_mod.gap(ref, build) if pin.concept in MOTION_CONCEPTS]
         self.assertEqual(sum("motion signature in whole document" in d for d in details), 2)
         for props in (None, 5):
             with self.subTest(props=props):
                 details = [
                     pin.detail
                     for pin in gap_mod.gap({}, {"motion": [{"kind": "animation", "props": props}]})
-                    if pin.concept in gap_mod.MOTION_CONCEPTS
+                    if pin.concept in MOTION_CONCEPTS
                 ]
                 self.assertTrue(any("properties not measured" in d for d in details))
 
@@ -249,9 +249,7 @@ class GapTests(unittest.TestCase):
         }
         pins = gap_mod.gap(ref, build)
         concepts = {
-            pin.concept
-            for pin in pins
-            if pin.concept in gap_mod.MOTION_CONCEPTS | {"reduced_motion"}
+            pin.concept for pin in pins if pin.concept in MOTION_CONCEPTS | {"reduced_motion"}
         }
         self.assertEqual(
             concepts,
@@ -262,14 +260,12 @@ class GapTests(unittest.TestCase):
 
     def test_motion_and_reduced_motion_compare_only_when_both_pages_carry_them(self):
         both = {"motion": [], "reduced_motion": {"still_running": 0}}
-        self.assertTrue(
-            gap_mod.MOTION_CONCEPTS | {"reduced_motion"} <= gap_mod.compared(both, both)
-        )
+        self.assertTrue(MOTION_CONCEPTS | {"reduced_motion"} <= gap_mod.compared(both, both))
         no_motion = {"reduced_motion": {"still_running": 0}}
-        self.assertFalse(gap_mod.MOTION_CONCEPTS & gap_mod.compared(both, no_motion))
+        self.assertFalse(MOTION_CONCEPTS & gap_mod.compared(both, no_motion))
         self.assertNotIn("reduced_motion", gap_mod.compared(both, {"motion": []}))
         still = {"reduced_motion": {"still_running": 0}}
-        self.assertFalse(gap_mod.MOTION_CONCEPTS & gap_mod.compared(still, {"motion": [], **still}))
+        self.assertFalse(MOTION_CONCEPTS & gap_mod.compared(still, {"motion": [], **still}))
 
     def test_motion_reach_needs_a_numeric_count_on_every_shared_signature(self):
         row = {
@@ -560,9 +556,7 @@ class ReceiptScopeMotionTests(unittest.TestCase):
                 ]
             }
 
-        pins = [
-            p for p in gap_mod.gap(motion(5), motion(6)) if p.concept in gap_mod.MOTION_CONCEPTS
-        ]
+        pins = [p for p in gap_mod.gap(motion(5), motion(6)) if p.concept in MOTION_CONCEPTS]
         self.assertEqual(len(pins), 1)
         self.assertEqual(
             pins[0].detail,

@@ -20,7 +20,6 @@ ANCHORS = {
 PX_TOLERANCE = 1.0  # the plan's pin gate: a value within 1px is right
 SHARE_TOLERANCE = 0.02  # ... and a share within 2% is right
 TRACKING_TOLERANCE = 0.01  # em
-MOTION_CONCEPTS = {"motion_total", "motion_only_one_page", "motion_reach"}
 
 
 @dataclass(frozen=True)
