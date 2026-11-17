@@ -120,14 +120,18 @@ class DefaultsTests(unittest.TestCase):
             {"x": float("nan"), "y": 2, "width": 3, "height": 4},
             {"x": 1, "y": 2, "width": 0, "height": 4},
             {"x": 1, "y": 2, "width": 3, "height": -4},
+            {"x": 1, "y": 2, "width": 10**400, "height": 4},
         ]
         for value in bad:
             with self.subTest(value=value):
                 build = self.with_boxes()
-                build["effects"] = {**build["effects"], "gradient_text_box": value}
+                build["effects"] = {
+                    **build["effects"],
+                    "gradient_text_box": value,
+                    "tinted_icon_square_box": value,
+                }
                 build["motion"] = [{**build["motion"][0], "box": value}]
-                self.assertNotIn("gradient_text", defaults.boxes(build))
-                self.assertNotIn("repeated_motion", defaults.boxes(build))
+                self.assertEqual(defaults.boxes(build), {})
 
     def test_old_fingerprint_has_no_boxes(self):
         self.assertEqual(defaults.boxes(self.build), {})

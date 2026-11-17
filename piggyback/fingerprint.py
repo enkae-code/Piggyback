@@ -66,8 +66,13 @@ def get(data, *keys):
 
 def number(value):
     """A finite real number, or None. Booleans are not numbers here."""
-    is_number = isinstance(value, (int, float)) and not isinstance(value, bool)
-    return float(value) if is_number and math.isfinite(value) else None
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    try:
+        found = float(value)
+    except OverflowError:  # JSON integers have no size limit; 10**400 is a valid page value
+        return None
+    return found if math.isfinite(found) else None
 
 
 def share(value):

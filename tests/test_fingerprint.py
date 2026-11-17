@@ -40,6 +40,13 @@ class CleanTests(unittest.TestCase):
         self.assertEqual(fp.clean("Inter Tight 4.5"), "Inter Tight 4.5")
 
 
+class NumberTests(unittest.TestCase):
+    def test_an_integer_too_big_for_a_float_is_not_a_number(self):
+        self.assertIsNone(fp.number(10**400))
+        self.assertIsNone(fp.number(-(10**400)))
+        self.assertEqual(fp.number(10**300), 1e300)
+
+
 class LoadTests(unittest.TestCase):
     def write(self, data):
         handle, name = tempfile.mkstemp(dir=os.environ.get("TMPDIR"))
