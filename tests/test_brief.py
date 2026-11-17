@@ -8,6 +8,7 @@ from piggyback import gap as gap_mod
 from piggyback import glossary
 
 MOTION_CONCEPTS = {"motion_total", "motion_only_one_page", "motion_reach"}
+CONCEPT_ORDER = ("type_scale", "palette", "accent", "radius", "spacing", "container", "fonts")
 
 FIXTURES = Path(__file__).parent / "fixtures" / "fingerprints"
 BRACKETS = re.compile(r"(?<!\\)[\[\]`<>]")  # an unescaped character a renderer could act on
@@ -110,13 +111,90 @@ class BriefTests(unittest.TestCase):
         line = next(x for x in brief_mod.brief([ref]).splitlines() if x.startswith("- Fonts"))
         self.assertTrue(line.endswith(": not measured"), line)
 
-    def test_notes_are_cleaned_and_blank_ones_dropped(self):
-        notes = {"borrow": ["Tight tracking\n## Avoid <b>x</b>"], "avoid": ["   "]}
-        text = brief_mod.brief([load("ref.json")], notes)
-        self.assertIn("## Borrow", text)
-        self.assertNotIn("## Avoid", text)
+    def row(self, ref, prefix):
+        return next(x for x in brief_mod.brief([ref]).splitlines() if x.startswith(prefix))
+
+    def test_a_note_sits_under_its_row_with_the_measured_value(self):
+        ref = load("ref.json")
+        notes = [{"ref": 1, "concept": "type_scale", "verdict": "borrow", "text": "Tight tracking"}]
+        text = brief_mod.brief([ref], notes)
+        line = self.row(ref, "- Type scale")
+        self.assertIn(f"### Borrow\n\n{line} — Tight tracking\n## Motion", text)
+        self.assertEqual(
+            text.replace(f"\n### Borrow\n\n{line} — Tight tracking", ""), brief_mod.brief([ref])
+        )
+
+    def test_each_verdict_renders_under_its_own_reference(self):
+        refs = [load("ref.json"), load("build.json")]
+        notes = [
+            {"ref": 1, "concept": "palette", "verdict": "borrow"},
+            {"ref": 2, "concept": "radius", "verdict": "avoid"},
+        ]
+        first, second = brief_mod.brief(refs, notes).split("## Reference 2:")
+        self.assertIn("### Borrow\n\n" + self.row(refs[0], "- Palette"), first)
+        self.assertNotIn("### Avoid", first)
+        self.assertIn("### Avoid\n\n" + self.row(refs[1], "- Radius"), second)
+        self.assertNotIn("### Borrow", second)
+
+    def test_notes_follow_row_order_not_the_order_they_were_given(self):
+        ref = load("ref.json")
+        notes = [
+            {"ref": 1, "concept": "radius", "verdict": "borrow", "text": "R"},
+            {"ref": 1, "concept": "type_scale", "verdict": "borrow", "text": "T"},
+        ]
+        text = brief_mod.brief([ref], notes)
+        self.assertLess(text.index("— T"), text.index("— R"))
+
+    def test_a_note_on_an_unmeasured_row_is_dropped(self):
+        notes = [{"ref": 1, "concept": "palette", "verdict": "borrow", "text": "Nice"}]
+        self.assertEqual(brief_mod.brief([{}], notes), brief_mod.brief([{}]))
+
+    def test_note_text_is_cleaned_before_it_reaches_the_agent(self):
+        ref = load("ref.json")
+        text_in = "Tight *tracking*\n## Avoid <b>x</b>\u202e\u0007"
+        notes = [{"ref": 1, "concept": "radius", "verdict": "borrow", "text": text_in}]
+        text = brief_mod.brief([ref], notes)
+        self.assertIn("— Tight \\*tracking\\* \\#\\# Avoid \\<b\\>x\\</b\\>", text)
+        self.assertNotIn("\u202e", text)
+        self.assertNotIn("\u0007", text)
         self.assertNotIn("\n## Avoid", text)
         self.assertIsNone(BRACKETS.search(text))
+
+    def test_no_notes_or_empty_notes_are_the_same_brief(self):
+        ref = load("ref.json")
+        self.assertEqual(brief_mod.brief([ref], []), brief_mod.brief([ref]))
+        self.assertEqual(brief_mod.brief([ref], None), brief_mod.brief([ref]))
+
+    def test_twenty_notes_are_the_most_and_are_all_kept(self):
+        refs = [load("ref.json")] * 3
+        notes = [
+            {"ref": 1 + i // 7, "concept": CONCEPT_ORDER[i % 7], "verdict": "borrow"}
+            for i in range(20)
+        ]
+        self.assertEqual(brief_mod.brief(refs, notes).count("### Borrow"), 3)
+        extra = {"ref": 3, "concept": "fonts", "verdict": "avoid"}
+        with self.assertRaisesRegex(ValueError, "at most 20"):
+            brief_mod.brief(refs, [*notes, extra])
+
+    def test_bad_notes_are_refused_with_a_message(self):
+        ref = load("ref.json")
+        good = {"ref": 1, "concept": "radius", "verdict": "borrow"}
+        bad = [
+            "not a list",
+            ["not an object"],
+            [{**good, "ref": 2}],
+            [{**good, "ref": 0}],
+            [{**good, "ref": True}],
+            [{**good, "concept": "heading_type"}],
+            [{**good, "verdict": "maybe"}],
+            [{**good, "text": 5}],
+            [{**good, "text": "x" * 201}],
+            [good, dict(good)],
+        ]
+        for notes in bad:
+            with self.subTest(notes=str(notes)[:40]), self.assertRaises(ValueError) as found:
+                brief_mod.brief([ref], notes)
+            self.assertTrue(str(found.exception))
 
     def test_missing_or_junk_fields_do_not_crash(self):
         text = brief_mod.brief([{}, {"type": "junk", "palette": 5, "radius": [None, 3]}])

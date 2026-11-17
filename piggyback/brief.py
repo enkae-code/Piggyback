@@ -4,10 +4,13 @@ import json
 import math
 
 from . import fingerprint as fp
-from .glossary import note
+from .glossary import TERMS, note
 
 MAX_REFS = 3
 MAX_NOTES = 20
+NOTE_CHARS = 200
+VERDICTS = ("borrow", "avoid")
+CONCEPTS = ("type_scale", "palette", "accent", "radius", "spacing", "container", "fonts")
 TOP = 6
 FONT_CAP = 3  # primary families only, most visible first
 PALETTE_CAP = 5  # the dominant colours only; a long tail reads as noise
@@ -217,34 +220,81 @@ def sections(refs):
     return [_rows(ref) for ref in refs]
 
 
-def _section(ref, index):
+def _note_text(text):
+    if text is not None and not isinstance(text, str):
+        raise ValueError("a note's text must be a string")
+    text = (text or "").strip()
+    if len(text) > NOTE_CHARS:
+        raise ValueError(f"a note's text is at most {NOTE_CHARS} characters")
+    return text
+
+
+def _one_note(item, count):
+    """((reference number, concept), (verdict, text)) for one note. ValueError on a bad shape."""
+    if not isinstance(item, dict):
+        raise ValueError("each note must be an object")
+    number, concept, verdict = (item.get(key) for key in ("ref", "concept", "verdict"))
+    if not (isinstance(number, int) and not isinstance(number, bool) and 1 <= number <= count):
+        raise ValueError(f"a note must name a reference from 1 to {count}")
+    if concept not in CONCEPTS:
+        raise ValueError("a note must name one measured row of the reference")
+    if verdict not in VERDICTS:
+        raise ValueError("a note's verdict must be borrow or avoid")
+    return (number, concept), (verdict, _note_text(item.get("text")))
+
+
+def _checked(refs, notes):
+    """{(reference number, concept): (verdict, text)} for the notes. ValueError on a bad shape."""
+    if notes is None:
+        return {}
+    if not isinstance(notes, list):
+        raise ValueError("notes must be a list")
+    if len(notes) > MAX_NOTES:
+        raise ValueError(f"at most {MAX_NOTES} notes, not {len(notes)}")
+    checked = {}
+    for item in notes:
+        key, mark = _one_note(item, len(refs))
+        if key in checked:
+            raise ValueError("one note per reference and measured row")
+        checked[key] = mark
+    return checked
+
+
+def _verdict_lists(entries, index, marks):
+    """### Borrow and ### Avoid lists for one reference, in row order. Unmeasured rows drop out."""
+    blocks = []
+    for verdict in VERDICTS:
+        lines = []
+        for concept, detail in entries:
+            mark = marks.get((index, concept))
+            if mark is None or mark[0] != verdict or detail == NOT_MEASURED:
+                continue
+            text = f" — {fp.clean(mark[1], NOTE_CHARS)}" if mark[1] else ""
+            lines.append(f"- {TERMS[concept][0]}: {detail}{text}")
+        if lines:
+            blocks.append(f"### {verdict.capitalize()}\n\n" + "\n".join(lines))
+    return blocks
+
+
+def _section(ref, index, marks):
     title, entries = _rows(ref)
     header = [line for line in (_receipt(ref), _scope(ref)) if line]
     lines = header + [note(concept, detail) for concept, detail in entries]
+    lines += _verdict_lists(entries, index, marks)
     lines.append("## Motion\n\n" + "\n".join(_motion(ref)))
     return f"## Reference {index}: {title}\n\n" + "\n".join(lines)
 
 
-def _notes(notes):
-    blocks = []
-    for title, key in (("Borrow", "borrow"), ("Avoid", "avoid")):
-        items = [text for text in notes.get(key, []) if isinstance(text, str) and text.strip()]
-        if items:
-            lines = [f"- {fp.clean(text, 200)}" for text in items[:MAX_NOTES]]
-            blocks.append(f"## {title}\n\n" + "\n".join(lines))
-    return blocks
-
-
 def brief(refs, notes=None):
-    """BRIEF.md text for 1 to 3 reference fingerprints. Borrow/Avoid lines come from `notes`."""
+    """BRIEF.md text for 1 to 3 reference fingerprints. `notes` attach Borrow/Avoid to rows."""
     _check_count(refs)
+    marks = _checked(refs, notes)
     intro = (
         f"Measured from {len(refs)} reference page(s). Each one is listed on its own; "
         f"none are averaged. {FRAMING}"
     )
     blocks = ["# Design brief\n\n" + intro]
-    blocks += [_section(ref, index) for index, ref in enumerate(refs, 1)]
-    blocks += _notes(notes or {})
+    blocks += [_section(ref, index, marks) for index, ref in enumerate(refs, 1)]
     blocks.append(HANDOFF)
     return "\n\n".join(blocks) + "\n"
 

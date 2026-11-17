@@ -438,8 +438,54 @@ class ScreenTests(unittest.TestCase):
     def test_a_reference_reset_clears_the_design_md_reference(self):
         self.post_measure({"references": ["https://example.com"]})
         self.screen._measure_references(["https://example.com"])
-        self.assertIsNone(self.screen.last_ref)
+        self.assertEqual(self.screen.last_refs, [])
         self.assertEqual(self.call("POST", "/api/design-md", {})[0], 409)
+
+    def test_notes_reach_the_file_and_the_text(self):
+        self.post_measure({"references": ["https://example.com"]})
+        notes = [{"ref": 1, "concept": "radius", "verdict": "avoid", "text": "Too round"}]
+        status, _, data = self.call("POST", "/api/brief", {"notes": notes})
+        body = json.loads(data)
+        self.assertEqual(status, 200)
+        self.assertIn(
+            "### Avoid\n\n- Radius (how rounded the corners of a box are): 8px, 4px", body["text"]
+        )
+        self.assertIn("— Too round", body["text"])
+        written = Path(self.tmp.name, "BRIEF.md").read_text(encoding="utf-8")
+        self.assertEqual(written, body["text"])
+
+    def test_a_note_on_the_second_reference_lands_under_it(self):
+        self.post_measure({"references": ["https://example.com", "https://example.org"]})
+        self.assertEqual(len(self.screen.last_refs), 2)
+        notes = [{"ref": 2, "concept": "palette", "verdict": "borrow"}]
+        _, _, data = self.call("POST", "/api/brief", {"notes": notes})
+        first, second = json.loads(data)["text"].split("## Reference 2:")
+        self.assertNotIn("### Borrow", first)
+        self.assertIn("### Borrow", second)
+
+    def test_a_bad_note_is_a_400_and_writes_nothing(self):
+        self.post_measure({"references": ["https://example.com"]})
+        notes = [{"ref": 1, "concept": "nope", "verdict": "borrow"}]
+        status, _, data = self.call("POST", "/api/brief", {"notes": notes})
+        self.assertEqual(status, 400)
+        self.assertEqual(
+            json.loads(data)["error"], "a note must name one measured row of the reference"
+        )
+        self.assertFalse(Path(self.tmp.name, "BRIEF.md").exists())
+
+    def test_notes_need_a_reference_measured_first(self):
+        self.post_measure({"build": "http://localhost:3000"})
+        notes = [{"ref": 1, "concept": "radius", "verdict": "borrow"}]
+        status, _, data = self.call("POST", "/api/brief", {"notes": notes})
+        self.assertEqual(status, 409)
+        self.assertIn("measure a reference first", json.loads(data)["error"])
+        self.assertFalse(Path(self.tmp.name, "BRIEF.md").exists())
+
+    def test_empty_notes_keep_the_current_brief(self):
+        self.post_measure({"references": ["https://example.com"]})
+        status, _, data = self.call("POST", "/api/brief", {"notes": []})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(data)["text"], self.screen.last_text)
 
     def test_build_is_shown_as_typed_and_visuals_come_from_measured_values(self):
         _, data = self.post_measure(

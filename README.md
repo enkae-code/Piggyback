@@ -46,6 +46,8 @@ Type, palette, radius, anchors and container width are measured on the first scr
 
 Copy the brief to your agent as `BRIEF.md`, let it revise, then re-run. Fixed pins tick and open ones stay. "Copy DESIGN.md" writes the first reference as a `DESIGN.md` that works with Impeccable.
 
+On a reference's brief, press Borrow or Avoid on a measured row to add a note, with optional text of up to 200 characters. Each note hangs off one row of one reference, and `BRIEF.md` prints it under that reference with the row's measured value. Notes are kept while the reference list stays the same.
+
 ## Status
 
 Pre-release. v0.1 is in progress and nothing is installable yet. This README describes what v0.1 will do, not something you can run today.

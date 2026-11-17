@@ -12,7 +12,8 @@ const PILL = 100; // ponytail: a radius this large is drawn as a pill; the data 
 const token = new URLSearchParams(location.search).get("t") || "";
 history.replaceState(null, "", "/"); // keep the session token out of the address bar and history
 
-const state = { refs: [], last: null, lastRequest: null, urls: [], busy: false };
+const NOTE_CHARS = 200; // the server's cap on a note's text
+const state = { refs: [], last: null, lastRequest: null, urls: [], busy: false, notes: new Map() };
 const frames = new Map(); // frame element -> relayout function, for screenshots with pins
 const $ = (id) => document.getElementById(id);
 
@@ -113,6 +114,10 @@ async function measure(rerun) {
   setBusy(true, "Measuring. A page can take up to a minute.");
   try {
     const data = await api("/api/measure", { ...request, rerun });
+    // Notes name a reference by its place in the list, so a changed list drops them.
+    if (JSON.stringify(state.lastRequest?.references) !== JSON.stringify(request.references)) {
+      state.notes.clear();
+    }
     state.lastRequest = request;
     state.last = data;
     renderResult(data);
@@ -138,11 +143,11 @@ function setBusy(busy, message) {
 }
 
 // One copy path for BRIEF.md and DESIGN.md. `file` is the name written and copied.
-async function copyFile(endpoint, file) {
+async function copyFile(endpoint, file, body = {}) {
   let data;
   let kept = "";
   try {
-    data = await api(endpoint, {});
+    data = await api(endpoint, body);
   } catch (err) {
     if (typeof err.text !== "string") return showError("error", err.message);
     data = { text: err.text }; // the file exists: copy the text anyway, and say it was kept
@@ -346,8 +351,45 @@ function delta(line) {
       side("after", "Reference", line.after)));
 }
 
+// A Borrow or Avoid note hangs off one measured row of one reference. Pressing the pressed verdict again clears it.
+function noteControls(ref, index, line) {
+  const key = JSON.stringify([ref.url, line.concept]);
+  const title = concept(line.name)[0].toLowerCase();
+  const input = el("input", { type: "text", maxlength: NOTE_CHARS, autocomplete: "off", spellcheck: "false" });
+  const field = el("label", { class: "note-field" }, el("span", { text: "Note (optional)" }), input);
+  const buttons = ["Borrow", "Avoid"].map((label) => {
+    const verdict = label.toLowerCase();
+    const button = el("button", { type: "button", class: "btn small", text: label,
+      "aria-label": `${label} ${title} from ${bare(ref.url)}` });
+    button.addEventListener("click", () => {
+      const current = state.notes.get(key);
+      if (current && current.verdict === verdict) state.notes.delete(key);
+      else state.notes.set(key, { ref: index + 1, concept: line.concept, verdict, text: current ? current.text : "" });
+      paint();
+    });
+    return [verdict, button];
+  });
+  const paint = () => {
+    const current = state.notes.get(key);
+    for (const [verdict, button] of buttons) button.setAttribute("aria-pressed", String(current?.verdict === verdict));
+    field.hidden = !current;
+    input.value = current ? current.text : "";
+  };
+  input.addEventListener("input", () => {
+    const current = state.notes.get(key);
+    if (current) current.text = input.value;
+  });
+  paint();
+  return el("div", { class: "note-controls" }, ...buttons.map(([, button]) => button), field);
+}
+
+// Notes as the brief numbers them: the reference's place in the last measure, and the row it is on.
+function briefNotes() {
+  return [...state.notes.values()].map(({ ref, concept, verdict, text }) => ({ ref, concept, verdict, text }));
+}
+
 function briefView(data) {
-  return el("div", { class: "result-body" }, ...data.references.map((ref) => {
+  return el("div", { class: "result-body" }, ...data.references.map((ref, index) => {
     const fonts = ref.lines.filter((line) => line.concept === "fonts"); // typefaces read with the sizes they are set in
     const lines = ref.lines.filter((line) => line.concept !== "fonts");
     lines.splice(lines.findIndex((line) => line.concept === "type_scale") + 1, 0, ...fonts);
@@ -355,7 +397,10 @@ function briefView(data) {
     const section = el("section", { class: "report" },
       el("div", { class: "report-head" }, figure,
         head("Design brief", bare(ref.url), `${count(ref.lines.length, "property", "properties")} measured`)),
-      el("ul", { class: "sheet" }, ...lines.map((line) => specRow(line, specimen(line)))));
+      el("ul", { class: "sheet" }, ...lines.map((line) => {
+        const measured = Boolean(line.detail) && !/^not measured/i.test(line.detail);
+        return specRow(line, [...specimen(line), measured ? noteControls(ref, index, line) : null]);
+      })));
     figure.querySelector("img").addEventListener("load", (event) => scaleRulers(section, event.target.naturalWidth));
     return section;
   }));
@@ -575,7 +620,7 @@ $("slots").addEventListener("submit", (event) => {
   measure(false);
 });
 $("rerun").addEventListener("click", () => measure(true));
-$("copy").addEventListener("click", () => copyFile("/api/brief", "BRIEF.md"));
+$("copy").addEventListener("click", () => copyFile("/api/brief", "BRIEF.md", { notes: briefNotes() }));
 $("copy-design").addEventListener("click", () => copyFile("/api/design-md", "DESIGN.md"));
 $("zoom-close").addEventListener("click", () => $("zoom").close());
 window.addEventListener("resize", relayoutAll);

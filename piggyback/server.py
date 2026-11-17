@@ -260,8 +260,8 @@ class Screen(ThreadingHTTPServer):
         # The last compare payload: its open and ticked pins carry into a re-run.
         self.last_compare = None
         self.last_text = None  # BRIEF.md text of the last run
-        # First reference fingerprint of the last run; None when that run had no reference.
-        self.last_ref = None
+        # Every reference fingerprint of the last run; empty when that run had no reference.
+        self.last_refs = []
 
     def _shoot(self, url, allow_loopback, shown=None):
         shot_id = secrets.token_hex(16)
@@ -273,7 +273,7 @@ class Screen(ThreadingHTTPServer):
     def _measure_references(self, refs):
         self.refs_key = None  # a failed capture leaves no half-kept list behind
         self.last_compare = None  # a re-measured reference is not a fix: no ticks carry over
-        self.last_ref = None
+        self.last_refs = []
         self.ref_fps = [self._shoot(url, False) for url in refs]
         self.refs_key = tuple(refs)
 
@@ -294,7 +294,7 @@ class Screen(ThreadingHTTPServer):
         payload, text = _render(self.ref_fps, build_fp, before)
         self._forget_shots(build_fp)
         self.last_text = text
-        self.last_ref = self.ref_fps[0] if self.ref_fps else None
+        self.last_refs = list(self.ref_fps)
         self.last_compare = payload if payload["state"] == "compare" else None
         return payload
 
@@ -326,7 +326,7 @@ class Handler(BaseHTTPRequestHandler):
         if body is None:
             return
         if path == "/api/brief":
-            return self._brief()
+            return self._brief(body)
         if path == "/api/design-md":
             return self._design_md()
         return self._measure(body)
@@ -383,16 +383,26 @@ class Handler(BaseHTTPRequestHandler):
             self.server.busy.release()
         return self._json(*reply)
 
-    def _brief(self):
-        text = self.server.last_text
-        if text is None:
-            return self._error(409, "measure first, then copy the brief")
+    def _brief(self, body):
+        notes = body.get("notes")
+        if notes is None or notes == []:
+            text = self.server.last_text
+            if text is None:
+                return self._error(409, "measure first, then copy the brief")
+            return self._write("BRIEF.md", text)
+        if not self.server.last_refs:
+            return self._error(409, "measure a reference first, then copy the brief")
+        try:
+            text = brief_mod.brief(self.server.last_refs, notes)
+        except ValueError as exc:
+            return self._error(400, str(exc))
         return self._write("BRIEF.md", text)
 
     def _design_md(self):
-        ref = self.server.last_ref
-        if ref is None:
+        refs = self.server.last_refs
+        if not refs:
             return self._error(409, "measure a reference first, then copy DESIGN.md")
+        ref = refs[0]
         return self._write(
             "DESIGN.md", brief_mod.design_md(ref), source=brief_mod.source_title(ref)
         )
