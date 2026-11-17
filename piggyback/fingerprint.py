@@ -147,3 +147,27 @@ def box(value):
     """An anchor box {x, y, width, height} as numbers, or None."""
     coords = {key: number(get(value, key)) for key in ("x", "y", "width", "height")}
     return None if None in coords.values() else coords
+
+
+# A CSS easing: a keyword or one function. Anything else is a page's own value and is not shown.
+EASING = re.compile(
+    r"ease(?:-in|-out|-in-out)?|linear|step-start|step-end"
+    r"|(?:cubic-bezier|steps|linear)\([-\w.,%\s]{1,120}\)"
+)
+
+
+def easing(value):
+    """The easing if it is a CSS easing pattern, else 'custom easing'; None if absent."""
+    if not isinstance(value, str):
+        return None
+    return clean(value, 160) if EASING.fullmatch(value) else "custom easing"
+
+
+def motion_props(values):
+    """Animated property names as display text. Custom properties (--*) become a count."""
+    names = [v for v in values if isinstance(v, str)] if isinstance(values, list) else []
+    custom = [name for name in names if name.startswith("--")]
+    shown = [clean(name, 40) for name in names if not name.startswith("--")]
+    if custom:
+        shown.append(f"{len(custom)} custom propert{'y' if len(custom) == 1 else 'ies'}")
+    return ", ".join(shown)

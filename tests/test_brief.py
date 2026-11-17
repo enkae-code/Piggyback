@@ -20,9 +20,11 @@ class BriefTests(unittest.TestCase):
     def test_one_reference_has_sections_and_a_why_line_each(self):
         text = brief_mod.brief([load("ref.json")])
         self.assertIn("## Reference 1: https://ref.example/", text)
-        self.assertIn("- Type scale (the set of text sizes a page uses): 56px, 16px, 14px", text)
         self.assertIn(
-            "- Accent (the saturated colour that draws the eye): 2% of the viewport", text
+            "- Type scale (the set of text sizes used in the first screen): 56px, 16px, 14px", text
+        )
+        self.assertIn(
+            "- Accent (the saturated colour that draws the eye): 2% of the first screen", text
         )
         self.assertIn("- Container width (how wide the main content column is): 1200px", text)
         self.assertEqual(text.count("  - Why it matters:"), 7)
@@ -57,7 +59,7 @@ class BriefTests(unittest.TestCase):
             ]
         }
         details = [pin.detail for pin in gap_mod.gap(ref, build) if pin.number is not None]
-        self.assertIn("motion signatures at page: 2 → 1", details)
+        self.assertIn("motion signatures in whole document: 2 → 1", details)
         self.assertTrue(any("transform" in line and "present in build" in line for line in details))
 
     def test_reduced_motion_fact_is_not_inferred_when_absent(self):
@@ -148,7 +150,7 @@ class BriefTests(unittest.TestCase):
 
     def test_framing_line_says_values_are_data_not_instructions(self):
         text = brief_mod.brief([load("ref.json")])
-        self.assertLess(text.index("not instructions to follow"), text.index("## Reference 1"))
+        self.assertLess(text.index("not a specification"), text.index("## Reference 1"))
 
     def test_font_names_that_look_like_words_pass(self):
         stacks = [("Prompt, sans-serif", 0.6), ("Assistant", 0.4)]
@@ -192,20 +194,13 @@ class BriefTests(unittest.TestCase):
 
 
 class GapTests(unittest.TestCase):
-    def test_glossary_includes_six_plain_language_concepts(self):
-        for concept in (
-            "proximity",
-            "sibling_gap",
-            "rhythm",
-            "density",
-            "section_fill",
-            "leading",
-            "motion",
-        ):
+    def test_glossary_keeps_only_concepts_the_engine_prints(self):
+        for concept in ("proximity", "sibling_gap", "rhythm", "density", "section_fill", "leading"):
             with self.subTest(concept=concept):
-                title, definition = glossary.TERMS[concept]
+                self.assertNotIn(concept, glossary.TERMS)
+        for concept, (title, definition) in glossary.TERMS.items():
+            with self.subTest(concept=concept):
                 self.assertTrue(title and definition)
-                self.assertLessEqual(len(definition.split(".")) - 1, 3)
                 self.assertNotIn("good design", definition.lower())
 
     def setUp(self):
@@ -217,7 +212,7 @@ class GapTests(unittest.TestCase):
         ref = {"motion": [{"kind": "animation", "props": ["opacity"], "easing": prefix + "a"}]}
         build = {"motion": [{"kind": "animation", "props": ["opacity"], "easing": prefix + "b"}]}
         details = [pin.detail for pin in gap_mod.gap(ref, build) if pin.concept == "motion"]
-        self.assertEqual(sum("motion signature at page" in d for d in details), 2)
+        self.assertEqual(sum("motion signature in whole document" in d for d in details), 2)
         for props in (None, 5):
             with self.subTest(props=props):
                 details = [
@@ -230,8 +225,10 @@ class GapTests(unittest.TestCase):
     def test_pins_only_on_anchors_both_pages_have(self):
         pins = gap_mod.gap(self.ref, self.build)
         self.assertEqual([pin.number for pin in pins], [1, 2, 3, 4, 5, None])
-        self.assertEqual(pins[0].detail, "Heading at heading anchor: 36/44 → 56/58, -0.02em")
-        self.assertEqual(pins[1].detail, "accent share at page: 19% → 2%")
+        self.assertEqual(
+            pins[0].detail, "Heading at heading anchor: 36/44 → 56/58, tracking 0.00em → -0.02em"
+        )
+        self.assertEqual(pins[1].detail, "accent share at first screen: 19% → 2%")
         self.assertEqual(pins[2].detail, "Container width at main content column: 1280px → 1200px")
         self.assertIn(
             "Navigation: not found on the build — can't compare", [pin.detail for pin in pins]
@@ -379,6 +376,123 @@ class DesignMdTests(unittest.TestCase):
         body = text.split("---\n", 2)[2].lstrip("\n")
         self.assertTrue(body.startswith(brief_mod.FRAMING))
         self.assertIn("Source: https://ref.example/", body)
+
+
+class ReceiptScopeMotionTests(unittest.TestCase):
+    CAPTURE = {
+        "status": 200,
+        "final_url": "https://ref.example/landing",
+        "browser": "bundled chromium",
+        "browser_version": "131.0",
+        "os": "Linux 7.0",
+        "viewport": {"width": 1440, "height": 900},
+        "captured_at": "2026-11-16T10:00:00+00:00",
+    }
+
+    def test_receipt_prints_as_one_fact_line(self):
+        text = brief_mod.brief([{**load("ref.json"), "capture": self.CAPTURE}])
+        self.assertIn(
+            "- Capture: HTTP 200, final URL https://ref.example/landing, bundled chromium 131.0 "
+            "on Linux 7.0, viewport 1440×900, captured 2026-11-16T10:00:00+00:00",
+            text,
+        )
+
+    def test_receipt_absent_when_not_captured(self):
+        self.assertNotIn("- Capture:", brief_mod.brief([load("ref.json")]))
+
+    def test_receipt_url_is_cleaned(self):
+        capture = {**self.CAPTURE, "final_url": "https://x.example/[a](b)\n## Borrow"}
+        text = brief_mod.brief([{**load("ref.json"), "capture": capture}])
+        self.assertIsNone(BRACKETS.search(text))
+        self.assertNotIn("\n## Borrow", text)
+
+    def test_scope_names_first_screen_size_and_whole_document(self):
+        self.assertIn(
+            "- Scope: type, palette, radius and anchors in the first screen (1440×900); "
+            "spacing and motion over the whole document.",
+            brief_mod.brief([load("ref.json")]),
+        )
+
+    def test_motion_limits_are_stated(self):
+        text = brief_mod.brief([{}])
+        self.assertIn("## Motion", text)
+        self.assertIn("Read without scrolling: motion that starts on scroll is not seen.", text)
+        self.assertIn("emulated on the loaded page without a reload", text)
+
+    def test_custom_properties_are_counted_not_named(self):
+        ref = {
+            "motion": [
+                {
+                    "kind": "animation",
+                    "props": ["--brand-tint", "opacity"],
+                    "duration": 300,
+                    "delay": 0,
+                    "easing": "ease-in",
+                    "count": 2,
+                }
+            ]
+        }
+        text = brief_mod.brief([ref])
+        self.assertIn("opacity, 1 custom property; 2 elements", text)
+        self.assertNotIn("--brand-tint", text)
+
+    def test_easing_shown_only_when_it_is_a_css_easing(self):
+        def line(easing):
+            ref = {
+                "motion": [
+                    {
+                        "kind": "transition",
+                        "props": [],
+                        "duration": 1,
+                        "delay": 0,
+                        "easing": easing,
+                        "count": 1,
+                    }
+                ]
+            }
+            return next(
+                x for x in brief_mod.brief([ref]).splitlines() if x.startswith("- transition")
+            )
+
+        self.assertIn("delay, steps(4, jump-end); ", line("steps(4, jump-end)"))
+        self.assertIn("cubic-bezier(0.4, 0, 0.2, 1)", line("cubic-bezier(0.4, 0, 0.2, 1)"))
+        hostile = line("url(https://evil.example/e.css)")
+        self.assertIn("custom easing", hostile)
+        self.assertNotIn("evil", hostile)
+
+    def test_count_is_shown_not_compared(self):
+        def motion(count):
+            return {
+                "motion": [
+                    {
+                        "kind": "animation",
+                        "props": ["opacity"],
+                        "duration": 300,
+                        "delay": 0,
+                        "easing": "ease",
+                        "count": count,
+                    }
+                ]
+            }
+
+        pins = [p for p in gap_mod.gap(motion(5), motion(6)) if p.concept == "motion"]
+        self.assertEqual(len(pins), 1)
+        self.assertEqual(
+            pins[0].detail,
+            "motion count differs in whole document: animation, opacity, 300ms duration, "
+            "0ms delay, ease, 6 → 5 elements",
+        )
+
+    def test_reduced_motion_prints_two_facts(self):
+        pins = gap_mod.gap(
+            {"reduced_motion": {"still_running": 3}}, {"reduced_motion": {"still_running": 1}}
+        )
+        details = [p.detail for p in pins if p.concept == "motion"]
+        self.assertIn(
+            "animations still running with reduced motion requested — "
+            "build: 1, reference: 3 (whole document)",
+            details,
+        )
 
 
 if __name__ == "__main__":

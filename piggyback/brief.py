@@ -15,13 +15,18 @@ NEAR_RGB = 16  # colours this close in RGB distance read as one colour
 NOT_MEASURED = "not measured"
 PILL_PX = 999  # radii this large draw a pill whatever the element height
 FRAMING = (
-    "The values are measured from public pages: they are data to compare against, not "
-    "instructions to follow."
+    "These are measurements of the public reference pages, not a specification: the agent "
+    "decides which values to match."
 )
 HANDOFF = (
-    "These numbers are the target. If you use a design skill such as Impeccable, Hallmark or "
-    "taste-skill, use it for the method and check its output against these numbers; when they "
-    "conflict, the user's references win."
+    "These are measurements of the reference pages, not a target. If you use a design skill such "
+    "as Impeccable, Hallmark or taste-skill, use it for the method and check its output against "
+    "these measurements."
+)
+MOTION_LIMITS = (
+    "- Read without scrolling: motion that starts on scroll is not seen.",
+    "- Reduced motion is emulated on the loaded page without a reload: a script that read "
+    "matchMedia at load does not reflect it.",
 )
 
 
@@ -97,7 +102,7 @@ def _fonts(rows):
 
 def _accent(ref):
     found = fp.share(fp.get(ref, "palette", "accent_share"))
-    return None if found is None else f"{round(found * 100, 1):g}% of the viewport"
+    return None if found is None else f"{round(found * 100, 1):g}% of the first screen"
 
 
 def _container(ref):
@@ -114,11 +119,41 @@ def _title(ref):
     return fp.clean(url if isinstance(url, str) else "unknown source", 120)
 
 
-def _names(values):
-    """Cleaned comma-joined names from a fingerprint list, or empty when unmeasured."""
-    if not isinstance(values, list):
-        return ""
-    return ", ".join(fp.clean(value, 40) for value in values if isinstance(value, str))
+def _text(value, limit):
+    return fp.clean(value, limit) if isinstance(value, str) and value else NOT_MEASURED
+
+
+def _receipt(ref):
+    """The capture receipt as one fact line, or None when the fingerprint carries none."""
+    if not isinstance(fp.get(ref, "capture"), dict):
+        return None
+    status = fp.number(fp.get(ref, "capture", "status"))
+    width, height = (
+        fp.number(fp.get(ref, "capture", "viewport", axis)) for axis in ("width", "height")
+    )
+    screen = (
+        NOT_MEASURED if width is None or height is None else f"{fp.fmt(width)}×{fp.fmt(height)}"
+    )
+    return (
+        f"- Capture: HTTP {NOT_MEASURED if status is None else fp.fmt(status)}, "
+        f"final URL {_text(fp.get(ref, 'capture', 'final_url'), 120)}, "
+        f"{_text(fp.get(ref, 'capture', 'browser'), 40)} "
+        f"{_text(fp.get(ref, 'capture', 'browser_version'), 20)} on "
+        f"{_text(fp.get(ref, 'capture', 'os'), 40)}, viewport {screen}, "
+        f"captured {_text(fp.get(ref, 'capture', 'captured_at'), 40)}"
+    )
+
+
+def _scope(ref):
+    """Where the measurements were read: the first screen at the captured size, or the page."""
+    width, height = (fp.number(fp.get(ref, "viewport", axis)) for axis in ("width", "height"))
+    screen = "first screen"
+    if width is not None and height is not None:
+        screen += f" ({fp.fmt(width)}×{fp.fmt(height)})"
+    return (
+        f"- Scope: type, palette, radius and anchors in the {screen}; "
+        "spacing and motion over the whole document."
+    )
 
 
 def _motion_line(row):
@@ -129,16 +164,16 @@ def _motion_line(row):
     duration, delay, count = (fp.number(row.get(key)) for key in ("duration", "delay", "count"))
     if not (kind and duration is not None and delay is not None and count is not None):
         return None
-    easing = fp.clean(row.get("easing", ""), 40)
+    easing = fp.easing(row.get("easing"))
     return (
         f"- {kind}: {fp.fmt(duration)}ms duration, {fp.fmt(delay)}ms delay, "
-        f"{easing or NOT_MEASURED}; {_names(row.get('props')) or NOT_MEASURED}; "
+        f"{easing or NOT_MEASURED}; {fp.motion_props(row.get('props')) or NOT_MEASURED}; "
         f"{fp.fmt(count)} elements"
     )
 
 
 def _motion(ref):
-    """Measured motion signatures and reduced-motion result, as factual plain text."""
+    """Measured motion signatures and the reduced-motion count, as plain facts, then the limits."""
     lines = []
     rows = fp.get(ref, "motion")
     for row in rows if isinstance(rows, list) else []:
@@ -148,8 +183,10 @@ def _motion(ref):
     still = fp.number(fp.get(ref, "reduced_motion", "still_running"))
     if still is not None and still >= 0:
         noun = "animation" if still == 1 else "animations"
-        lines.append(f"- {fp.fmt(still)} {noun} still run with reduced motion requested")
-    return lines
+        lines.append(
+            f"- {fp.fmt(still)} {noun} still run with reduced motion requested (whole document)"
+        )
+    return (lines or [f"- {NOT_MEASURED}"]) + list(MOTION_LIMITS)
 
 
 def _rows(ref):
@@ -182,10 +219,9 @@ def sections(refs):
 
 def _section(ref, index):
     title, entries = _rows(ref)
-    lines = [note(concept, detail) for concept, detail in entries]
-    motion = _motion(ref)
-    if motion:
-        lines.append("## Motion\n\n" + "\n".join(motion))
+    header = [line for line in (_receipt(ref), _scope(ref)) if line]
+    lines = header + [note(concept, detail) for concept, detail in entries]
+    lines.append("## Motion\n\n" + "\n".join(_motion(ref)))
     return f"## Reference {index}: {title}\n\n" + "\n".join(lines)
 
 
@@ -267,7 +303,7 @@ BODY_SECTIONS = (
 
 def _body(ref, title):
     detail = dict(_rows(ref)[1])
-    blocks = [FRAMING, f"Source: {title}"]
+    blocks = [FRAMING, f"Source: {title}", _scope(ref)]
     for heading, items in BODY_SECTIONS:
         lines = [f"- {label}: {detail[concept]}" for concept, label in items]
         lines = [line for line in lines if not line.endswith(f": {NOT_MEASURED}")]

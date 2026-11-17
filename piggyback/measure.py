@@ -8,11 +8,13 @@ page is ever put on a command line or evaluated as code: the page script is a fi
 import contextlib
 import json
 import os
+import platform
 import subprocess
 import sys
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from . import __version__, netpolicy
 from .browser import NO_WEBRTC, launch
@@ -30,16 +32,30 @@ class MeasureError(RuntimeError):
 
 
 def check_url(url, allow_loopback=False):
+    """The URL to fetch (localhost rewritten to 127.0.0.1), or MeasureError."""
+    url = netpolicy.local_name(url)
     if netpolicy.url_allowed(url, allow_loopback):
-        return
+        return url
     hint = ""
     if not allow_loopback and netpolicy.url_allowed(url, allow_loopback=True):
         hint = " (use --allow-loopback for your own local build)"
     raise MeasureError(f"url is not a public http(s) address{hint}")
 
 
+def receipt_refusal(status, requested, final):
+    """Why the answer cannot stand as the reference, or None. Only 2xx on the same host passes."""
+    final_host = urlsplit(final).hostname or "unknown host"
+    if status is None:
+        return "page gave no HTTP response"
+    if not 200 <= status < 300:
+        return f"page answered HTTP {status} from {final_host}: measure a page that loads with 2xx"
+    if final_host != urlsplit(requested).hostname:
+        return f"page redirected to {final_host}, not the host you gave: measure that address"
+    return None
+
+
 def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None):
-    check_url(url, allow_loopback)
+    url = check_url(url, allow_loopback)
     request = {
         "url": url,
         "viewport": list(viewport),
@@ -117,11 +133,25 @@ def _capture(req):
             ctx.route("**/*", guard)
             ctx.add_init_script(NO_WEBRTC)
             page = ctx.new_page()
-            page.goto(req["url"], wait_until="load", timeout=NAV_MS)
+            response = page.goto(req["url"], wait_until="load", timeout=NAV_MS)
+            status = response.status if response else None
+            refusal = receipt_refusal(status, req["url"], page.url)
+            if refusal:
+                raise MeasureError(refusal)
             page.evaluate("() => document.fonts.ready")
             with contextlib.suppress(Exception):
                 page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
             fingerprint = _capture_motion(page, req["screenshot"])
+            captured_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            receipt = {
+                "status": status,
+                "final_url": page.url,
+                "browser": label,
+                "browser_version": browser.version,
+                "os": f"{platform.system()} {platform.release()}",
+                "viewport": {"width": width, "height": height},
+                "captured_at": captured_at,
+            }
         finally:
             browser.close()
     return {
@@ -129,7 +159,8 @@ def _capture(req):
         "url": req["url"],
         "captured_with": f"piggyback {__version__}",
         "browser": label,
-        "captured_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "captured_at": captured_at,
+        "capture": receipt,
         "blocked_requests": egress.blocked,
         "screenshot": req["screenshot"],
     }

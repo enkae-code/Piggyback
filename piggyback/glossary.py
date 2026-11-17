@@ -3,42 +3,15 @@
 # Concepts re-expressed in our own words from pbakaus/impeccable (Apache-2.0)
 # and Leonxlnx/taste-skill (MIT); no source wording is copied.
 TERMS = {
-    "proximity": (
-        "Proximity (how close related items sit to one another)",
-        "Distance between items helps show whether they belong together.",
-    ),
-    "sibling_gap": (
-        "Sibling gap (the space between items at the same level)",
-        "Comparing this gap with the space around groups shows how the layout separates peers.",
-    ),
-    "rhythm": (
-        "Rhythm (a recurring pattern of spacing or sizing)",
-        "Repeated intervals create a pattern that can be followed across the page.",
-    ),
-    "density": (
-        "Density (how much content occupies an area)",
-        "It describes the amount of text, controls, and other elements within a given space.",
-    ),
-    "section_fill": (
-        "Section fill (how much of a section's area its content occupies)",
-        "Comparing the content area with the full section shows how much open space remains.",
-    ),
-    "leading": (
-        "Leading (the vertical distance between lines of text)",
-        "It is measured from one line's baseline to the next and affects how lines stack.",
-    ),
     "type_scale": (
-        "Type scale (the set of text sizes a page uses)",
+        "Type scale (the set of text sizes used in the first screen)",
         "Clear steps between sizes make headings feel deliberate.",
-    ),
-    "tracking": (
-        "Tracking (the space between letters)",
-        "Tight tracking makes big headings feel deliberate.",
     ),
     "palette": (
         "Palette (the colours used for text and backgrounds)",
         "A few colours used consistently make a page look chosen.",
     ),
+    # The 5% and 8% thresholds are Hallmark's (MIT, github.com/Nutlope/hallmark), not ours.
     "accent": (
         "Accent (the saturated colour that draws the eye)",
         "A small share keeps it for emphasis; a large share competes with the content. "
@@ -47,7 +20,7 @@ TERMS = {
     ),
     "radius": (
         "Radius (how rounded the corners of a box are)",
-        "One radius across boxes makes their shapes feel related.",
+        "Corner radius is one of the shape cues a reader sees across boxes.",
     ),
     "spacing": (
         "Spacing rhythm (the gaps and padding between blocks)",
@@ -58,7 +31,7 @@ TERMS = {
         "A narrower column keeps long lines comfortable to read.",
     ),
     "fonts": (
-        "Fonts (the typefaces named on the page)",
+        "Fonts (the typefaces used for text in the first screen)",
         "The typeface sets the page's voice, so matching it matters as much as matching sizes.",
     ),
     "heading_type": (
@@ -75,7 +48,7 @@ TERMS = {
     ),
     "nav_type": (
         "Navigation type (the menu labels)",
-        "Menu labels at a consistent size keep the navigation calm.",
+        "Menu labels set the type of the navigation.",
     ),
     "card_type": (
         "Repeated card type (the text in repeated boxes)",
@@ -91,10 +64,10 @@ TERMS = {
     ),
     "uniform_radius": (
         "Uniform radius (every rounded box has the same corners)",
-        "Only one corner shape across cards, buttons and inputs reads as default.",
+        "Cards, buttons and inputs in the first screen share one corner radius.",
     ),
     "motion": (
-        "Motion (the animations and transitions measured on a page)",
+        "Motion (the animations and transitions measured in the whole document)",
         "Each signature records its kind, timing, easing, animated properties, and element count.",
     ),
     "repeated_motion": (
@@ -103,7 +76,7 @@ TERMS = {
     ),
     "icon_tile": (
         "Icon tile (an icon on a tinted square)",
-        "A common default; a bare icon often reads cleaner.",
+        "Counted, not rated: an icon on a tinted square is one pattern among several.",
     ),
 }
 
