@@ -296,6 +296,29 @@ class Run(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("measure-list failed", err.getvalue())
 
+    def test_a_failed_batch_json_publish_keeps_the_old_file_and_leaves_no_temp(self):
+        Path(self.out).mkdir(parents=True)
+        old = b'[{"old": true}]'
+        (Path(self.out) / "batch.json").write_bytes(old)
+        path = write_list(self.tmp.name, OK_URL + "\n")
+        real = os.replace
+
+        def replace(src, dst):
+            if Path(dst).name == "batch.json":
+                raise OSError("disk full")
+            real(src, dst)
+
+        with (
+            mock.patch("piggyback.measure.measure", side_effect=fake_ok),
+            mock.patch("piggyback.measure.os.replace", side_effect=replace),
+            contextlib.redirect_stderr(io.StringIO()),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            code = main(["measure-list", path, "--out", self.out])
+        self.assertEqual(code, 1)
+        self.assertEqual((Path(self.out) / "batch.json").read_bytes(), old)
+        self.assertEqual([p for p in Path(self.out).iterdir() if p.name.startswith(".")], [])
+
 
 if __name__ == "__main__":
     unittest.main()

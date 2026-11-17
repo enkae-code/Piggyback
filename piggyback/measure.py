@@ -9,9 +9,10 @@ import contextlib
 import json
 import os
 import platform
+import secrets
+import stat
 import subprocess
 import sys
-import tempfile
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
@@ -70,13 +71,33 @@ def refuse_links(*paths):
             )
 
 
+def _temp_beside(path):
+    """Empty temp file beside path under a random name, created O_EXCL so it is never an existing
+    file or link. The umask sets its mode; an existing regular file at path only narrows it."""
+    path = Path(path)
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
+    os.close(
+        os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o666)
+    )
+    try:
+        try:
+            existing = os.lstat(path).st_mode
+        except FileNotFoundError:
+            existing = 0
+        if stat.S_ISREG(existing):
+            os.chmod(tmp, os.lstat(tmp).st_mode & existing & 0o777)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+    return str(tmp)
+
+
 def publish_json(path, data):
     """Replace path with JSON text in one rename: a crash never leaves a partial file."""
-    fd, tmp = tempfile.mkstemp(dir=Path(path).parent, prefix=f".{Path(path).name}.", suffix=".tmp")
+    tmp = _temp_beside(path)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        with open(tmp, "w", encoding="utf-8") as handle:
             handle.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-        os.chmod(tmp, 0o644)  # mkstemp makes 0600; the files were always world-readable
         os.replace(tmp, path)  # replaces a link at path, never writes through it
     except BaseException:
         with contextlib.suppress(OSError):
@@ -147,6 +168,21 @@ def _capture_motion(page, screenshot):
 
 
 def _capture(req):
+    shot = req["screenshot"]
+    # Playwright writes a fresh temp file beside the final name. os.replace publishes it last, so
+    # a link or hardlink at the final name is replaced, never written through.
+    tmp = _temp_beside(shot) if shot else None
+    try:
+        result = _capture_page(req, tmp)
+        if tmp:
+            os.replace(tmp, shot)
+        return result
+    finally:
+        if tmp:
+            Path(tmp).unlink(missing_ok=True)
+
+
+def _capture_page(req, tmp):
     from playwright.sync_api import sync_playwright
 
     width, height = req["viewport"]
@@ -182,7 +218,7 @@ def _capture(req):
             page.evaluate("() => document.fonts.ready")
             with contextlib.suppress(Exception):
                 page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
-            fingerprint = _capture_motion(page, req["screenshot"])
+            fingerprint = _capture_motion(page, tmp)
             try:
                 _refuse_if_moved(status, req, page)  # a script may redirect while the page settles
             except MeasureError:

@@ -1,7 +1,9 @@
 import contextlib
 import io
 import os
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -9,6 +11,91 @@ from unittest import mock
 import piggyback.measure as measure_mod
 from piggyback.cli import main
 from piggyback.measure import MeasureError, check_url, measure, receipt_refusal
+
+URL = "https://93.184.216.34/"
+
+
+class FakePage:
+    def __init__(self, on_shot):
+        self.url = URL
+        self.on_shot = on_shot
+
+    def goto(self, url, **_):
+        return types.SimpleNamespace(status=200)
+
+    def evaluate(self, script):
+        if "playState" in script:
+            return 0
+        if "fonts" in script:
+            return None
+        return {"motion": []}
+
+    def wait_for_load_state(self, *_, **__):
+        pass
+
+    def screenshot(self, path, type):
+        self.on_shot(self, path)
+
+    def emulate_media(self, **_):
+        pass
+
+
+class FakeBrowser:
+    version = "1.0"
+
+    def __init__(self, page):
+        self.page = page
+
+    def new_context(self, **_):
+        return types.SimpleNamespace(
+            route=lambda *_: None,
+            add_init_script=lambda *_: None,
+            new_page=lambda: self.page,
+        )
+
+    def close(self):
+        pass
+
+
+class FakeProxy:
+    port = 1
+    blocked = []
+
+    def __init__(self, _allow_loopback):
+        pass
+
+    def record(self, url):
+        pass
+
+    def close(self):
+        pass
+
+
+class FakeSyncPlaywright:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, *_):
+        return False
+
+
+def run_capture(shot, on_shot):
+    """Run the real _capture with Playwright, the proxy and the browser faked."""
+    api = types.SimpleNamespace(sync_playwright=FakeSyncPlaywright)
+    fake_modules = {"playwright": types.ModuleType("playwright"), "playwright.sync_api": api}
+    req = {
+        "url": URL,
+        "viewport": [1440, 900],
+        "allow_loopback": False,
+        "screenshot": str(shot),
+    }
+    browser = FakeBrowser(FakePage(on_shot))
+    with (
+        mock.patch.dict(sys.modules, fake_modules),
+        mock.patch("piggyback.measure.EgressProxy", FakeProxy),
+        mock.patch("piggyback.measure.launch", return_value=(browser, "fake")),
+    ):
+        return measure_mod._capture(req)
 
 
 class MeasureRefusalTests(unittest.TestCase):
@@ -112,6 +199,135 @@ class LinkGuardTests(unittest.TestCase):
                 measure_mod.write_measure("https://93.184.216.34/", out)
             m.assert_not_called()
             self.assertEqual(target.read_text(encoding="utf-8"), "EXTERNAL")
+
+
+class ScreenshotPublishTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.out = Path(self.tmp.name)
+        self.shot = self.out / "screenshot.png"
+
+    def test_a_link_planted_after_the_early_check_is_never_written_through(self):
+        external = self.out / "external.png"
+        external.write_bytes(b"EXTERNAL")
+
+        def plant_then_write(page, path):
+            os.symlink(external, self.shot)
+            Path(path).write_bytes(b"PNG")
+
+        run_capture(self.shot, plant_then_write)
+        self.assertEqual(external.read_bytes(), b"EXTERNAL")
+        self.assertFalse(self.shot.is_symlink())
+        self.assertEqual(self.shot.read_bytes(), b"PNG")
+
+    def test_a_hardlinked_screenshot_keeps_its_old_bytes_on_the_other_name(self):
+        other = self.out / "other.png"
+        other.write_bytes(b"OLD")
+        os.link(other, self.shot)
+
+        def write(page, path):
+            Path(path).write_bytes(b"PNG")
+
+        run_capture(self.shot, write)
+        self.assertEqual(other.read_bytes(), b"OLD")
+        self.assertEqual(self.shot.read_bytes(), b"PNG")
+
+    def test_success_leaves_only_the_screenshot(self):
+        def write(page, path):
+            Path(path).write_bytes(b"PNG")
+
+        run_capture(self.shot, write)
+        self.assertEqual([p.name for p in self.out.iterdir()], ["screenshot.png"])
+
+    def test_a_late_refusal_leaves_no_screenshot_and_no_temp(self):
+        def move_then_write(page, path):
+            Path(path).write_bytes(b"PNG")
+            page.url = "https://other.example/"
+
+        with self.assertRaisesRegex(MeasureError, "redirected"):
+            run_capture(self.shot, move_then_write)
+        self.assertEqual(list(self.out.iterdir()), [])
+
+    def test_a_failed_capture_leaves_no_temp_and_no_screenshot(self):
+        def partial_then_fail(page, path):
+            Path(path).write_bytes(b"part")
+            raise OSError("disk full")
+
+        with self.assertRaises(OSError):
+            run_capture(self.shot, partial_then_fail)
+        self.assertEqual(list(self.out.iterdir()), [])
+
+
+class ModeTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = Path(self.tmp.name) / "fingerprint.json"
+
+    def use_umask(self, mask):
+        self.addCleanup(os.umask, os.umask(mask))
+
+    def mode(self):
+        return os.stat(self.path).st_mode & 0o777
+
+    def test_a_new_file_under_umask_077_is_0600(self):
+        self.use_umask(0o077)
+        measure_mod.publish_json(self.path, {})
+        self.assertEqual(self.mode(), 0o600)
+
+    def test_an_existing_0600_file_is_replaced_and_stays_0600(self):
+        self.use_umask(0)  # a wide umask would make a new file 0666: the old mode must narrow it
+        self.path.write_text("{}", encoding="utf-8")
+        os.chmod(self.path, 0o600)
+        measure_mod.publish_json(self.path, {"new": True})
+        self.assertEqual(self.mode(), 0o600)
+
+    def test_a_new_file_under_umask_022_is_0644(self):
+        self.use_umask(0o022)
+        measure_mod.publish_json(self.path, {})
+        self.assertEqual(self.mode(), 0o644)
+
+
+class AtomicCallerTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.out = Path(self.tmp.name)
+
+    def fail_replace_of(self, name):
+        real = os.replace
+
+        def replace(src, dst):
+            if Path(dst).name == name:
+                raise OSError("disk full")
+            real(src, dst)
+
+        return mock.patch("piggyback.measure.os.replace", side_effect=replace)
+
+    def test_write_measure_keeps_the_old_fingerprint_when_the_publish_fails(self):
+        (self.out / "fingerprint.json").write_bytes(b'{"old": true}')
+        fake = {"url": URL}
+        with mock.patch("piggyback.measure.measure", return_value=fake):
+            with self.fail_replace_of("fingerprint.json"), self.assertRaises(OSError):
+                measure_mod.write_measure(URL, self.out)
+        self.assertEqual((self.out / "fingerprint.json").read_bytes(), b'{"old": true}')
+        self.assertEqual([p.name for p in self.out.iterdir()], ["fingerprint.json"])
+
+
+class SingleMeasureErrorTests(unittest.TestCase):
+    def test_the_error_text_is_cleaned_before_it_reaches_stderr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            err = io.StringIO()
+            hostile = MeasureError("page says \x1b[2J *bold* <script>")
+            with (
+                mock.patch("piggyback.measure.measure", side_effect=hostile),
+                contextlib.redirect_stderr(err),
+            ):
+                code = main(["measure", URL, "--out", tmp])
+        self.assertEqual(code, 1)
+        self.assertNotIn("\x1b", err.getvalue())
+        self.assertIn(r"\*bold\*", err.getvalue())
 
 
 class PublishTests(unittest.TestCase):

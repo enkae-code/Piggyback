@@ -63,7 +63,7 @@ def run_measure(url, out, viewport, allow_loopback):
             url, out, viewport=viewport, allow_loopback=allow_loopback
         )
     except MeasureError as exc:
-        print(f"measure failed: {exc}", file=sys.stderr)
+        print(f"measure failed: {fingerprints.clean(exc, 200)}", file=sys.stderr)
         return 1
     print(f"wrote {fingerprint} and {shot}")
     return 0
