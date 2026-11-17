@@ -44,7 +44,11 @@ async function api(path, body) {
   }
   const res = await fetch(path, init);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+  if (!res.ok) {
+    const error = new Error(data.error || `Request failed (${res.status}).`);
+    error.text = data.text; // a 409 for an existing BRIEF.md still carries the brief text
+    throw error;
+  }
   return data;
 }
 
@@ -133,21 +137,25 @@ function setBusy(busy, message) {
 }
 
 async function copyBrief() {
+  let data;
+  let kept = "";
   try {
-    const data = await api("/api/brief", {});
-    try {
-      await navigator.clipboard.writeText(data.text);
-      setStatus(`Wrote ${data.path} and copied it.`);
-    } catch {
-      const area = $("fallback");
-      area.value = data.text;
-      area.hidden = false;
-      area.focus();
-      area.select();
-      setStatus(`Wrote ${data.path}. Clipboard unavailable: the text is selected below.`);
-    }
+    data = await api("/api/brief", {});
   } catch (err) {
-    showError("error", err.message);
+    if (typeof err.text !== "string") return showError("error", err.message);
+    data = { text: err.text }; // BRIEF.md exists: copy the text anyway, and say it was kept
+    kept = `${err.message}.`;
+  }
+  try {
+    await navigator.clipboard.writeText(data.text);
+    setStatus(kept || `Wrote ${data.path} and copied it.`);
+  } catch {
+    const area = $("fallback");
+    area.value = data.text;
+    area.hidden = false;
+    area.focus();
+    area.select();
+    setStatus(`${kept || `Wrote ${data.path}.`} Clipboard unavailable: the text is selected below.`);
   }
 }
 

@@ -408,8 +408,9 @@ class ReceiptScopeMotionTests(unittest.TestCase):
 
     def test_scope_names_first_screen_size_and_whole_document(self):
         self.assertIn(
-            "- Scope: type, palette, radius and anchors in the first screen (1440×900); "
-            "spacing and motion over the whole document.",
+            "- Scope: type, palette, radius, anchors and container width in the first screen "
+            "(1440×900); container width weighted by visible area; spacing and motion over the "
+            "whole document.",
             brief_mod.brief([load("ref.json")]),
         )
 

@@ -52,6 +52,13 @@ ESCAPED = re.compile(r"\\([\\`*_\[\]<>|#~!])")  # brief.py escapes markdown; the
 NOTE = "Differences use reference 1 (the first one listed)."  # shared by screen, MCP and CLI
 
 
+def exists_message(path):
+    return (
+        f"{path} already exists (or is a link); Piggyback never overwrites it: "
+        "move or delete it, then try again"
+    )
+
+
 def write_new(path, text):
     """Create a file that must not exist yet: BRIEF.md and DESIGN.md are never overwritten.
 
@@ -60,10 +67,7 @@ def write_new(path, text):
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
     except FileExistsError:
-        raise FileExistsError(
-            f"{path} already exists; Piggyback never overwrites it: "
-            "move or delete it, then try again"
-        ) from None
+        raise FileExistsError(exists_message(path)) from None
     with os.fdopen(fd, "w", encoding="utf-8") as out:
         out.write(text)
 
@@ -193,9 +197,12 @@ def _pin_views(pins, seen):
     ]
 
 
-def _ticked(prev, now, done):
-    """Ticks from the last run that still hold, plus pins whose concept closed just now."""
-    kept = [pin for pin in prev["ticked"] if pin["concept"] not in now]
+def _ticked(prev, now, can, done):
+    """Ticks that still hold, plus pins whose concept closed just now.
+
+    A carried tick holds only while its element still compares and is still closed.
+    """
+    kept = [pin for pin in prev["ticked"] if pin["concept"] in can and pin["concept"] not in now]
     return kept + [pin for pin in prev["pins"] if pin["concept"] in done]
 
 
@@ -203,16 +210,17 @@ def _compare(fps, build_fp, seen, before):
     """`before` is the last compare payload of a re-run on the same references, else None."""
     pins = gap_mod.gap(fps[0], build_fp)
     views = _pin_views(pins, seen)
-    # A pin ticks when its concept was open and still compares now; ticks stay until reopened.
+    # A pin ticks when its concept was open and still compares now; a tick holds while it compares.
     prev = before or {"pins": [], "ticked": []}
     now = gap_mod.differing(pins)
-    done = gap_mod.fixed({pin["concept"] for pin in prev["pins"]}, now, fps[0], build_fp)
+    can = gap_mod.compared(fps[0], build_fp)
+    done = ({pin["concept"] for pin in prev["pins"]} - now) & can
     payload = {
         "state": "compare",
         "reference": _view(fps[0]),
         "build": _view(build_fp),
         "pins": views,
-        "ticked": _ticked(prev, now, done),
+        "ticked": _ticked(prev, now, can, done),
         "not_found": [_plain(pin.detail) for pin in pins if pin.number is None],
         "note": NOTE,
     }
@@ -254,6 +262,7 @@ class Screen(ThreadingHTTPServer):
 
     def _measure_references(self, refs):
         self.refs_key = None  # a failed capture leaves no half-kept list behind
+        self.last_compare = None  # a re-measured reference is not a fix: no ticks carry over
         self.ref_fps = [self._shoot(url, False) for url in refs]
         self.refs_key = tuple(refs)
 
@@ -367,8 +376,9 @@ class Handler(BaseHTTPRequestHandler):
         path = self.server.out_dir / "BRIEF.md"
         try:
             write_new(path, text)
+        # The 409 still carries the text: the page copies it and says the file was not overwritten.
         except FileExistsError as exc:
-            return self._error(409, str(exc))
+            return self._json(409, {"error": str(exc), "text": text})
         except OSError as exc:
             return self._error(500, f"could not write {path}: {exc.strerror}")
         return self._json(200, {"path": str(path), "text": text})

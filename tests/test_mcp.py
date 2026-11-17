@@ -247,8 +247,14 @@ class Tools(unittest.TestCase):
             raise MeasureError("reference is down")
 
         session = mcp.Session([REF_URL], BUILD_URL, refs_down)
-        for _ in range(2):
-            self.assertTrue(exchange(session, call("check"))[0]["result"]["isError"])
+        self.assertTrue(exchange(session, call("check"))[0]["result"]["isError"])
+        result = exchange(session, call("check"))[0]["result"]  # answered from the cached failure
+        self.assertTrue(result["isError"])
+        self.assertTrue(
+            result["content"][0]["text"].endswith(
+                "reference is down; call get_brief with refresh: true to measure again"
+            )
+        )
         self.assertEqual(measured, [REF_URL])
         exchange(session, call("get_brief", {"refresh": True}))
         self.assertEqual(measured, [REF_URL, REF_URL])

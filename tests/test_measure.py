@@ -74,7 +74,18 @@ class ReceiptAndLoopbackTests(unittest.TestCase):
 
     def test_redirect_to_another_host_is_refused_by_name(self):
         refusal = receipt_refusal(200, "https://ref.example/", "https://other.example/")
-        self.assertIn("other.example", refusal)
+        self.assertIn("https://other.example/", refusal)
+
+    def test_a_redirect_while_the_page_settles_is_refused(self):
+        class Moved:
+            url = "https://other.example/"
+
+        with self.assertRaisesRegex(MeasureError, "redirected to https://other.example/"):
+            measure_mod._refuse_if_moved(200, {"url": "https://ref.example/"}, Moved())
+
+    def test_subdomain_of_localhost_is_refused_even_with_loopback_allowed(self):
+        with self.assertRaises(MeasureError):
+            check_url("http://app.localhost:3000", allow_loopback=True)
 
     def test_localhost_is_fetched_as_127_0_0_1(self):
         self.assertEqual(

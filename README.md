@@ -40,9 +40,9 @@ v0.1 is one local page with two slots: a **reference** (a URL you admire) and **
 | Reference&nbsp;+&nbsp;build | The same brief as **differences**, with numbered pins on both screenshots: "H1 36/44 → 56/58", "accent on 19% of the first screen (1440×900) → 2%". |
 | Build&nbsp;only | **Defaults detected**: marks on generic tells such as gradient text, one font with a flat scale, or the same radius everywhere. |
 
-Every pin and brief line names the concept in plain words and says why it matters. For example: *Tracking: the space between letters. Tight tracking makes big headings feel deliberate.*
+Every pin and brief line names the concept in plain words and says why it matters. For example: *Radius (how rounded the corners of a box are)*, with its reason *Corner radius is one of the shape cues a reader sees across boxes.*
 
-Type, palette, radius and anchors are measured on the first screen (1440×900). Spacing and motion are measured over the whole document.
+Type, palette, radius, anchors and container width are measured on the first screen (1440×900); container width is weighted by visible area. Spacing and motion are measured over the whole document.
 
 Copy the brief to your agent as `BRIEF.md`, let it revise, then re-run. Fixed pins tick and open ones stay.
 
@@ -114,7 +114,7 @@ Piggyback's wording was edited with [no-ai-slop](https://github.com/petergyang/n
 
 - **No taste score.** Piggyback reports measurements and differences. You decide what is good.
 - **Local-first.** It runs on your machine and opens a local page.
-- **Screenshots stay on your machine.** A brief carries links, measured values and your notes.
+- **Screenshots stay on your machine.** A brief carries links, measured values, your notes and the capture receipt (final URL, OS and kernel release, browser version).
 - **No AI key.** Piggyback holds none. Your own agent does the judging.
 
 ## Develop

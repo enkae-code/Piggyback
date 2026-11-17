@@ -37,6 +37,11 @@ TOOLS = [
     },
 ]
 ARGUMENTS = {"get_brief": {"refresh"}, "check": set()}
+REFRESH_HINT = "call get_brief with refresh: true to measure again"
+
+
+class RefFailed(MeasureError):
+    """A reference capture that failed earlier: measured again only by refresh."""
 
 
 class RpcError(Exception):
@@ -52,19 +57,19 @@ class Session:
         self.refs, self.build = refs, build
         self.measure_page = measure_page
         self.ref_pages = None
-        self.ref_failure = None  # (reference URLs, error) of a capture that failed, until refresh
+        self.ref_failure = None  # the error of a reference capture that failed, until refresh
         self.differing = set()  # concepts that differed at the previous check
 
     def _refs(self, refresh=False):
         if refresh:
             self.ref_failure = None
-        if self.ref_failure and self.ref_failure[0] == tuple(self.refs):
-            raise self.ref_failure[1]
+        if self.ref_failure is not None:
+            raise RefFailed(str(self.ref_failure))
         if self.ref_pages is None or refresh:
             try:
                 self.ref_pages = [self.measure_page(url) for url in self.refs]
             except MeasureError as exc:
-                self.ref_failure = (tuple(self.refs), exc)
+                self.ref_failure = exc
                 raise
             self.differing = set()  # a moved reference is not a fix
         return self.ref_pages
@@ -109,6 +114,8 @@ def _call(session, params):
         if name == "check":
             return _text(session.check())
         return _text(session.get_brief(refresh))
+    except RefFailed as exc:  # the hint is ours, so it is added after the page text is cleaned
+        return _text(f"{fp.clean(exc, 200)}; {REFRESH_HINT}", error=True)
     except (ValueError, MeasureError) as exc:
         return _text(fp.clean(exc, 200), error=True)
     except Exception:  # noqa: BLE001 - answer the agent instead of dropping the connection

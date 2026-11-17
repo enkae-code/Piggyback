@@ -64,7 +64,7 @@ def local_name(url):
         parts = urlsplit(url)
         if parts.hostname != "localhost":
             return url
-        port = f":{parts.port}" if parts.port else ""
+        port = f":{parts.port}" if parts.port is not None else ""
     except ValueError:
         return url
     return parts._replace(netloc=f"127.0.0.1{port}").geturl()

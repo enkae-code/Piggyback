@@ -114,7 +114,7 @@ def _or_unmeasured(value):
     return value or NOT_MEASURED
 
 
-def _title(ref):
+def source_title(ref):
     url = fp.get(ref, "url")
     return fp.clean(url if isinstance(url, str) else "unknown source", 120)
 
@@ -151,8 +151,8 @@ def _scope(ref):
     if width is not None and height is not None:
         screen += f" ({fp.fmt(width)}×{fp.fmt(height)})"
     return (
-        f"- Scope: type, palette, radius and anchors in the {screen}; "
-        "spacing and motion over the whole document."
+        f"- Scope: type, palette, radius, anchors and container width in the {screen}; "
+        "container width weighted by visible area; spacing and motion over the whole document."
     )
 
 
@@ -191,7 +191,7 @@ def _motion(ref):
 
 def _rows(ref):
     """(title, [(concept, detail)]) for one reference: the measured rows, before any markdown."""
-    title = _title(ref)
+    title = source_title(ref)
     entries = (
         ("type_scale", _lengths(fp.get(ref, "type", "font_size"))),
         ("palette", _or_unmeasured(_palette(ref))),
@@ -314,5 +314,5 @@ def _body(ref, title):
 
 def design_md(ref):
     """DESIGN.md for ONE reference: measured tokens in frontmatter, then a short markdown body."""
-    title = _title(ref)
+    title = source_title(ref)
     return "---\n" + "\n".join(_front(ref, title)) + "\n---\n\n" + _body(ref, title) + "\n"

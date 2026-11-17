@@ -96,6 +96,22 @@ class DesignMdCliTests(unittest.TestCase):
             self.assertTrue(target.read_text(encoding="utf-8").startswith("---\nname: "))
             self.assertEqual(target.read_text(encoding="utf-8"), brief_design(REF))
 
+    def test_an_existing_file_is_refused_before_either_output_is_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            brief, design = Path(tmp) / "BRIEF.md", Path(tmp) / "DESIGN.md"
+            design.write_text("hand-written\n", encoding="utf-8")
+            code, _, err = run(["brief", REF, "--out", str(brief), "--design-md", str(design)])
+            self.assertEqual(code, 1)
+            self.assertIn("already exists", err)
+            self.assertFalse(brief.exists())
+            self.assertEqual(design.read_text(encoding="utf-8"), "hand-written\n")
+
+    def test_design_md_message_names_the_reference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, _, err = run(["brief", REF, "--design-md", str(Path(tmp) / "DESIGN.md")])
+            self.assertEqual(code, 0)
+            self.assertIn(f"DESIGN.md for {brief_mod.source_title(fp.load(REF))})", err)
+
     def test_design_md_refuses_to_write_through_a_symlink(self):
         with tempfile.TemporaryDirectory() as tmp:
             victim = Path(tmp) / "victim.txt"

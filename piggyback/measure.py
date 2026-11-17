@@ -50,8 +50,14 @@ def receipt_refusal(status, requested, final):
     if not 200 <= status < 300:
         return f"page answered HTTP {status} from {final_host}: measure a page that loads with 2xx"
     if final_host != urlsplit(requested).hostname:
-        return f"page redirected to {final_host}, not the host you gave: measure that address"
+        return f"page redirected to {final}, not the host you gave: measure that address"
     return None
+
+
+def _refuse_if_moved(status, req, page):
+    refusal = receipt_refusal(status, req["url"], page.url)
+    if refusal:
+        raise MeasureError(refusal)
 
 
 def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None):
@@ -135,13 +141,12 @@ def _capture(req):
             page = ctx.new_page()
             response = page.goto(req["url"], wait_until="load", timeout=NAV_MS)
             status = response.status if response else None
-            refusal = receipt_refusal(status, req["url"], page.url)
-            if refusal:
-                raise MeasureError(refusal)
+            _refuse_if_moved(status, req, page)
             page.evaluate("() => document.fonts.ready")
             with contextlib.suppress(Exception):
                 page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
             fingerprint = _capture_motion(page, req["screenshot"])
+            _refuse_if_moved(status, req, page)  # a script may redirect while the page settles
             captured_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
             receipt = {
                 "status": status,

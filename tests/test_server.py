@@ -263,6 +263,27 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual([pin["concept"] for pin in second["ticked"]], ["heading_type"])
 
+    def test_a_tick_is_dropped_once_its_element_vanishes(self):
+        ref = fp.load(FIXTURES / "ref.json")
+        build = fp.load(FIXTURES / "build.json")
+        body = {"references": ["https://example.com"], "build": "http://localhost:3000"}
+        self.use_build(build)
+        self.post_measure(body)  # run 1: the heading differs
+        build = copy.deepcopy(build)
+        build["anchors"]["heading"] = copy.deepcopy(ref["anchors"]["heading"])
+        self.use_build(build)
+        _, second = self.post_measure({**body, "rerun": True})
+        self.assertEqual([pin["concept"] for pin in second["ticked"]], ["heading_type"])
+        del build["anchors"]["heading"]  # run 3: the heading vanishes; its tick must go too
+        self.use_build(build)
+        _, third = self.post_measure({**body, "rerun": True})
+        self.assertEqual(third["ticked"], [])
+
+    def test_a_measured_reference_drops_the_last_compare(self):
+        self.screen.last_compare = {"state": "compare", "pins": [], "ticked": [{"concept": "x"}]}
+        self.screen._measure_references(["https://example.com"])
+        self.assertIsNone(self.screen.last_compare)
+
     def test_a_rerun_reuses_the_reference_capture_until_the_list_changes(self):
         body = {"references": ["https://example.com"], "build": "http://localhost:3000"}
 
@@ -285,8 +306,10 @@ class ScreenTests(unittest.TestCase):
         self.post_measure({"references": ["https://example.com"]})
         self.assertEqual(self.call("POST", "/api/brief", {})[0], 200)
         status, _, data = self.call("POST", "/api/brief", {})
+        body = json.loads(data)
         self.assertEqual(status, 409)
-        self.assertIn("BRIEF.md already exists", json.loads(data)["error"])
+        self.assertIn("BRIEF.md already exists", body["error"])
+        self.assertEqual(body["text"], self.screen.last_text)  # the page can still copy it
 
     def test_brief_needs_a_measure_first_then_writes_the_file(self):
         self.assertEqual(self.call("POST", "/api/brief", {})[0], 409)

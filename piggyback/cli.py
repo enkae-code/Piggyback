@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -82,6 +83,10 @@ def run_measure(url, out, viewport, allow_loopback):
 def _write_outputs(text, out, design_path, ref):
     if design_path and out and Path(out).resolve() == Path(design_path).resolve():
         raise ValueError("--out and --design-md must be different files")
+    # Both refusals come before any write; write_new's O_EXCL still guards the race.
+    for path in (out, design_path):
+        if path and os.path.lexists(path):
+            raise FileExistsError(server.exists_message(path))
     # The brief first: a bad --out path then fails before any DESIGN.md exists.
     if out:
         server.write_new(out, text)
@@ -111,7 +116,10 @@ def run_brief(paths, build_path, out, design_path=None):
     else:
         print(text, end="")
     if design_path:
-        print(f"wrote {design_path} (DESIGN.md for the first reference)", file=sys.stderr)
+        print(
+            f"wrote {design_path} (DESIGN.md for {brief_mod.source_title(refs[0])})",
+            file=sys.stderr,
+        )
     return 0
 
 

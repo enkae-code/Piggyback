@@ -108,6 +108,10 @@ class NetPolicyTests(unittest.TestCase):
             local_name("https://example.com/localhost"), "https://example.com/localhost"
         )
         self.assertEqual(local_name("http://localhost:99999x/"), "http://localhost:99999x/")
+        self.assertEqual(local_name("http://localhost:0/"), "http://127.0.0.1:0/")
+
+    def test_subdomain_of_localhost_stays_refused_with_loopback_allowed(self):
+        self.assertFalse(url_allowed("http://app.localhost:3000", allow_loopback=True))
 
 
 def infos(*ips):
