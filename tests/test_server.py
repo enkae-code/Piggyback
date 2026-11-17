@@ -12,6 +12,8 @@ import threading
 import unittest
 from pathlib import Path
 from unittest import mock
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 from piggyback import defaults as defaults_mod
 from piggyback import fingerprint as fp
@@ -445,7 +447,7 @@ class OpenRedirectTests(unittest.TestCase):
 
         def record(uri):
             seen["uri"] = uri
-            seen["path"] = Path(uri.removeprefix("file://"))
+            seen["path"] = Path(url2pathname(urlsplit(uri).path))
             seen["exists"] = seen["path"].exists()
             seen["text"] = seen["path"].read_text(encoding="utf-8") if seen["exists"] else ""
             seen["mode"] = os.stat(seen["path"]).st_mode & 0o777 if seen["exists"] else None
@@ -480,6 +482,15 @@ class OpenRedirectTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "posix", "POSIX modes only")
     def test_redirect_file_is_mode_0600(self):
         self.assertEqual(self.open_serve()["mode"], 0o600)
+
+    def test_a_temp_folder_with_a_space_still_works(self):
+        spaced = Path(self.tmp.name) / "has space"
+        spaced.mkdir()
+        with mock.patch.object(tempfile, "tempdir", str(spaced)):
+            seen = self.open_serve()
+        self.assertIn("%20", seen["uri"])
+        self.assertTrue(seen["exists"])
+        self.assertIn("?t=", seen["text"])
 
     def test_redirect_file_is_gone_after_serve_returns(self):
         seen = self.open_serve()
