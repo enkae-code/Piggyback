@@ -248,6 +248,7 @@ input::placeholder { color: var(--fg-3); opacity: 1; }
 .arrow { flex: none; width: 16px; color: var(--fg-3); font: 16px/1.35 var(--mono); }
 .tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag { padding: 2px 10px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--fg-2); font-size: 12px; font-weight: 500; }
+.defaults-group { display: grid; gap: 16px; padding-top: 28px; border-top: 1px solid var(--line); }
 .notfound ul { display: grid; gap: 6px; }
 .notfound ul li { font-size: 15px; overflow-wrap: anywhere; }
 
