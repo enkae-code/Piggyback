@@ -259,6 +259,9 @@ class ScreenshotPublishTests(unittest.TestCase):
         self.assertEqual(list(self.out.iterdir()), [])
 
 
+@unittest.skipUnless(
+    os.name == "posix", "Windows keeps only a read-only bit, so POSIX modes can't be checked"
+)
 class ModeTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
