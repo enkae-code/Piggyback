@@ -38,7 +38,7 @@ v0.1 is one local page with two slots: a **reference** (a URL you admire) and **
 |---|---|
 | Reference&nbsp;only | A **brief**: the measured type scale, palette and accent share, radius set, spacing rhythm, container width and fonts, plus your own Borrow and Avoid lines. |
 | Reference&nbsp;+&nbsp;build | The same brief as **differences**, with numbered pins on both screenshots: "H1 36/44 → 56/58", "accent on 19% of the first screen (1440×900) → 2%". Generic defaults found on your build are listed under them, never pinned. |
-| Build&nbsp;only | **Defaults detected**: marks on generic tells such as gradient text, one font with a flat scale, or the same radius everywhere. |
+| Build&nbsp;only | **Defaults detected**: marks on generic tells such as gradient text, one font with a flat scale, or the same radius everywhere. Gradient text, icon tiles and repeated motion get a numbered pin on the element they show; page-level tells have none. |
 
 Every pin and brief line names the concept in plain words and says why it matters. For example: *Radius (how rounded the corners of a box are)*, with its reason *Corner radius is one of the shape cues a reader sees across boxes.*
 

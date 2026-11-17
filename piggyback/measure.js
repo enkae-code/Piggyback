@@ -6,6 +6,24 @@
   const VW = document.documentElement.clientWidth;
   const VH = window.innerHeight;
   const round = (n) => Math.round(n * 100) / 100;
+  const boxOf = (r) => ({
+    x: Math.round(r.left),
+    y: Math.round(r.top),
+    width: Math.round(r.width),
+    height: Math.round(r.height),
+  });
+  // The first rendered element in document order; null when none is rendered.
+  const firstBox = (els) => {
+    let first = null;
+    for (const el of els) {
+      const r = el instanceof Element ? el.getBoundingClientRect() : null;
+      if (!r || r.width <= 0 || r.height <= 0) continue;
+      if (first === null || (first.el.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING)) {
+        first = { el, r };
+      }
+    }
+    return first && boxOf(first.r);
+  };
   const rgba = (c) => {
     const m = /rgba?\(([^)]+)\)/.exec(c);
     if (!m) return null;
@@ -145,15 +163,15 @@
     .slice(0, 20)
     .map(([key, targets]) => {
       const [kind, duration, delay, easing, props] = JSON.parse(key);
-      return { kind, duration, delay, easing, props, count: targets.size };
+      return { kind, duration, delay, easing, props, count: targets.size, box: firstBox(targets) };
     });
 
   // Effects: counts behind the defaults-detected rules.
-  const gradientText = texts.filter(
+  const gradientTexts = texts.filter(
     (b) =>
       (b.cs.backgroundClip || b.cs.webkitBackgroundClip) === "text" &&
       b.cs.backgroundImage.includes("gradient"),
-  ).length;
+  );
   // Tinted: translucent, or an opaque pastel that differs from the page background. Squares
   // only: circles (avatars) and buttons are not icon tiles.
   const paint = (cs) => {
@@ -185,7 +203,7 @@
       radiusPx(b) < b.r.width / 2 &&
       !b.el.matches(CONTROL) &&
       b.el.querySelector("svg") !== null,
-  ).length;
+  );
 
   // Anchors. Each is null when the page has no such element; never guessed.
   // Text anchors (heading, body) are blocks as wide as their container; their pin belongs on the
@@ -214,12 +232,7 @@
       background: b.cs.backgroundColor,
       radius: b.cs.borderTopLeftRadius,
       padding: [b.cs.paddingTop, b.cs.paddingRight, b.cs.paddingBottom, b.cs.paddingLeft],
-      box: ((r) => ({
-        x: Math.round(r.left),
-        y: Math.round(r.top),
-        width: Math.round(r.width),
-        height: Math.round(r.height),
-      }))(ink ? inkRect(b) : b.r),
+      box: boxOf(ink ? inkRect(b) : b.r),
     };
   // Score keys: font size or CTA background dominates, visible area breaks ties.
   const heading = best(
@@ -318,7 +331,12 @@
     spacing,
     container_width: container,
     motion,
-    effects: { gradient_text: gradientText, tinted_icon_squares: tintedIconSquares },
+    effects: {
+      gradient_text: gradientTexts.length,
+      tinted_icon_squares: tintedIconSquares.length,
+      gradient_text_box: gradientTexts.length ? boxOf(inkRect(gradientTexts[0])) : null,
+      tinted_icon_square_box: tintedIconSquares.length ? boxOf(tintedIconSquares[0].r) : null,
+    },
     anchors: {
       heading: describe(heading, true),
       body: describe(body, true),

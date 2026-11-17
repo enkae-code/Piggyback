@@ -144,6 +144,17 @@ class MeasureIntegration(unittest.TestCase):
         self.assertEqual(result["effects"]["tinted_icon_squares"], 1)
         rise = [m for m in result["motion"] if {"opacity", "transform"} <= set(m["props"])]
         self.assertEqual(rise[0]["count"], 3)
+        viewport = result["viewport"]
+        for box in (
+            result["effects"]["gradient_text_box"],
+            result["effects"]["tinted_icon_square_box"],
+            rise[0]["box"],
+        ):
+            self.assertIsNotNone(box)
+            self.assertGreaterEqual(box["x"], 0)
+            self.assertGreaterEqual(box["y"], 0)
+            self.assertLessEqual(box["x"] + box["width"], viewport["width"])
+            self.assertLessEqual(box["y"] + box["height"], viewport["height"])
 
     def test_container_is_the_centred_body_column(self):
         result = measure(f"{self.base}/container-body.html", allow_loopback=True)

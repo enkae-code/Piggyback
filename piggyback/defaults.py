@@ -62,7 +62,29 @@ def _uniform_radius(build):
     )
 
 
-def _repeated_motion(build):
+def boxes(build):
+    """{concept: box} for each fired rule that points at one element. Bad boxes are left out."""
+    fired = {concept for concept, _ in find(build)}
+    sources = {
+        "gradient_text": fp.get(build, "effects", "gradient_text_box"),
+        "icon_tile": fp.get(build, "effects", "tinted_icon_square_box"),
+        "repeated_motion": fp.get(_motion_row(build), "box"),
+    }
+    return {
+        concept: box
+        for concept, value in sources.items()
+        if concept in fired and (box := _element_box(value)) is not None
+    }
+
+
+def _element_box(value):
+    """A box fp.box accepts, with a positive size; None otherwise."""
+    box = fp.box(value)
+    return box if box and box["width"] > 0 and box["height"] > 0 else None
+
+
+def _motion_row(build):
+    """The first motion row that shows repeated fade-and-move, or None."""
     rows = fp.get(build, "motion")
     for row in rows if isinstance(rows, list) else []:
         props = fp.get(row, "props")
@@ -71,11 +93,19 @@ def _repeated_motion(build):
         if not _names(props) or count is None or duration is None:
             continue
         if {"opacity", "transform"} <= set(props) and count >= MIN_REPEATS:
-            return (
-                "repeated_motion",
-                f"opacity and transform on {count:g} elements over {duration:g}ms",
-            )
+            return row
     return None
+
+
+def _repeated_motion(build):
+    row = _motion_row(build)
+    if row is None:
+        return None
+    count, duration = fp.number(row["count"]), fp.number(row["duration"])
+    return (
+        "repeated_motion",
+        f"opacity and transform on {count:g} elements over {duration:g}ms",
+    )
 
 
 def _names(props):

@@ -5,6 +5,7 @@ from piggyback import defaults
 from piggyback import fingerprint as fp
 
 FIXTURES = Path(__file__).parent / "fixtures" / "fingerprints"
+BOX = {"x": 80, "y": 120, "width": 520, "height": 44}
 
 
 def concepts(build):
@@ -74,6 +75,62 @@ class DefaultsTests(unittest.TestCase):
             {"props": ["opacity", "transform"], "count": 5, "duration": 300},
         ]
         self.assertEqual(concepts({"motion": motion}), ["repeated_motion"])
+
+    def with_boxes(self):
+        square = {"x": 300, "y": 40, "width": 48, "height": 48}
+        effects = {
+            **self.build["effects"],
+            "gradient_text_box": BOX,
+            "tinted_icon_square_box": square,
+        }
+        motion = [{**self.build["motion"][0], "box": BOX}]
+        return {**self.build, "effects": effects, "motion": motion}
+
+    def test_boxes_for_the_three_rules_that_point_at_an_element(self):
+        self.assertEqual(
+            defaults.boxes(self.with_boxes()),
+            {
+                "gradient_text": BOX,
+                "icon_tile": {"x": 300, "y": 40, "width": 48, "height": 48},
+                "repeated_motion": BOX,
+            },
+        )
+
+    def test_repeated_motion_box_comes_from_the_row_that_fired(self):
+        quiet = {
+            **self.build["motion"][0],
+            "count": 2,
+            "box": {"x": 1, "y": 1, "width": 9, "height": 9},
+        }
+        build = {**self.with_boxes(), "motion": [quiet, {**self.build["motion"][0], "box": BOX}]}
+        self.assertEqual(defaults.boxes(build)["repeated_motion"], BOX)
+
+    def test_no_box_without_the_fired_rule(self):
+        build = self.with_boxes()
+        build["effects"] = {**build["effects"], "gradient_text": 0, "tinted_icon_squares": 0}
+        build["motion"] = []
+        self.assertEqual(defaults.boxes(build), {})
+
+    def test_missing_malformed_or_empty_box_gives_no_entry(self):
+        bad = [
+            None,
+            {"x": 1, "y": 2, "width": 3},
+            {"x": "1", "y": 2, "width": 3, "height": 4},
+            {"x": True, "y": 2, "width": 3, "height": 4},
+            {"x": float("nan"), "y": 2, "width": 3, "height": 4},
+            {"x": 1, "y": 2, "width": 0, "height": 4},
+            {"x": 1, "y": 2, "width": 3, "height": -4},
+        ]
+        for value in bad:
+            with self.subTest(value=value):
+                build = self.with_boxes()
+                build["effects"] = {**build["effects"], "gradient_text_box": value}
+                build["motion"] = [{**build["motion"][0], "box": value}]
+                self.assertNotIn("gradient_text", defaults.boxes(build))
+                self.assertNotIn("repeated_motion", defaults.boxes(build))
+
+    def test_old_fingerprint_has_no_boxes(self):
+        self.assertEqual(defaults.boxes(self.build), {})
 
     def test_no_evidence_no_defaults(self):
         self.assertEqual(defaults.find({}), [])

@@ -185,7 +185,12 @@ def _default_lines(hits, seen):
 
 def _defaults(build_fp, seen):
     hits = defaults_mod.find(build_fp)
-    payload = {"state": "defaults", "build": _view(build_fp), "items": _default_lines(hits, seen)}
+    boxed = defaults_mod.boxes(build_fp)
+    items = [
+        {**item, "build_box": boxed[item["concept"]]} if item["concept"] in boxed else item
+        for item in _default_lines(hits, seen)
+    ]
+    payload = {"state": "defaults", "build": _view(build_fp), "items": items}
     return payload, defaults_mod.render(hits)
 
 

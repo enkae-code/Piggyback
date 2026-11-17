@@ -430,10 +430,11 @@ const field = (label, text, strong) => el("p", { class: strong ? "field strong" 
 const plural = (text) => text.replace(/\b(\d+) ([^()]*?\w)\(s\)/g, (all, n, word) => count(Number(n), word)); // "1 icon(s)" -> "1 icon"
 
 // One found default: what the page shows and what to do instead. Shared by the defaults and compare screens.
-function defaultRow(item, mark) {
+function defaultRow(item, mark, pinned, tags = []) {
   return specRow(item, [el("div", { class: "tell" }, art(item.concept),
     field("Found on this page", cap(plural(item.detail)), true),
-    DEFAULTS[item.concept] ? field("Do instead", DEFAULTS[item.concept][1]) : null)], mark, false);
+    DEFAULTS[item.concept] ? field("Do instead", DEFAULTS[item.concept][1]) : null),
+  tags.length ? el("ul", { class: "tags" }, ...tags.map((text) => el("li", { class: "tag", text }))) : null], mark, pinned);
 }
 
 // The defaults found come first, each with what to do instead; the checks the page is clear of share the last row.
@@ -441,15 +442,21 @@ function defaultsView(data) {
   const found = data.items.length;
   const hit = new Set(data.items.map((item) => item.concept));
   const clear = Object.keys(DEFAULTS).filter((key) => !hit.has(key));
-  const rows = data.items.map((item) => defaultRow(item, item.number));
+  const spots = data.items.map((item) => placement(item.build_box, data.build.viewport));
+  const pins = data.items.flatMap((item, index) => (spots[index] === "in" ? [{ number: item.number, box: item.build_box }] : []));
+  const rows = data.items.map((item, index) => {
+    const tags = !item.build_box ? ["Page-level: no pin"]
+      : spots[index] === "in" ? [] : [`No pin on your build: ${OFF[spots[index]]}`];
+    return defaultRow(item, item.number, spots[index] === "in", tags);
+  });
   const cleared = clear.length ? specRow({ name: `Checked and clear (${count(clear.length, "default")} looked for, not found on this page)` },
     clear.map((key) => el("div", { class: "tell clear" }, art(key), field(...concept(DEFAULTS[key][0])),
       field("Result", "Not found"))), "✓", false) : null;
   const title = head("Defaults check", found ? `${count(found, "generic default")} detected` : "No generic defaults detected",
     `${bare(data.build.url)} · ${count(found + clear.length, "check")} run, ${found} found`);
-  if (found) title.append(el("p", { class: "note", text: "A default describes the whole page, so none is pinned on the screenshot." }));
+  if (found) title.append(el("p", { class: "note", text: "Numbers mark where a default shows; page-level defaults have no mark." }));
   return el("section", { class: "report" },
-    el("div", { class: "report-head" }, shotFigure("Your build", data.build, [], false), title),
+    el("div", { class: "report-head" }, shotFigure("Your build", data.build, pins, pins.length > 0), title),
     el("ol", { class: "sheet", "aria-label": "Defaults checked" }, ...rows, cleared));
 }
 

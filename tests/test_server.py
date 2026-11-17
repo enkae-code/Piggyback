@@ -586,6 +586,32 @@ class ScreenTests(unittest.TestCase):
             ["gradient_text", "repeated_motion", "icon_tile"],
         )
         self.assertEqual(text, defaults_mod.render(defaults_mod.find(build)))
+        self.assertTrue(all("build_box" not in item for item in payload["items"]))
+
+    def test_build_only_items_carry_build_box_for_the_three_rules(self):
+        build = fp.load(FIXTURES / "build.json")
+        box = {"x": 80, "y": 120, "width": 520, "height": 44}
+        build["effects"] = {
+            **build["effects"],
+            "gradient_text_box": box,
+            "tinted_icon_square_box": box,
+        }
+        build["motion"] = [{**build["motion"][0], "box": box}]
+        build.update(url="http://127.0.0.1:9/", shot="a" * 32)
+        payload, text = server._render([], build)
+        self.assertEqual([item.get("build_box") for item in payload["items"]], [box, box, box])
+        self.assertEqual([item["number"] for item in payload["items"]], [1, 2, 3])
+        self.assertEqual(text, defaults_mod.render(defaults_mod.find(build)))
+
+    def test_compare_defaults_never_carry_build_box(self):
+        build = fp.load(FIXTURES / "build.json")
+        box = {"x": 80, "y": 120, "width": 520, "height": 44}
+        build["effects"] = {**build["effects"], "gradient_text_box": box}
+        build.update(url="http://127.0.0.1:9/", shot="a" * 32)
+        ref = {**fp.load(FIXTURES / "ref.json"), "url": "https://example.com/", "shot": "b" * 32}
+        payload, _ = server._render([ref], build)
+        self.assertTrue(payload["defaults"])
+        self.assertTrue(all("build_box" not in item for item in payload["defaults"]))
 
 
 class OpenRedirectTests(unittest.TestCase):
