@@ -91,17 +91,6 @@ function addRef() {
 
 // Measure, re-run, copy
 
-function carryTicks(previous, next) {
-  // On a re-run, a pin that is no longer open reads as fixed. Earlier fixes stay ticked.
-  if (!previous || previous.state !== "compare" || next.state !== "compare") return [];
-  const open = new Set(next.pins.map((pin) => pin.concept));
-  const kept = new Map();
-  for (const pin of [...(previous.ticked || []), ...previous.pins]) {
-    if (!open.has(pin.concept)) kept.set(pin.concept, pin);
-  }
-  return [...kept.values()];
-}
-
 function clock() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
@@ -119,8 +108,7 @@ async function measure(rerun) {
   showError("error", "");
   setBusy(true, "Measuring. A page can take up to a minute.");
   try {
-    const data = await api("/api/measure", request);
-    data.ticked = rerun ? carryTicks(state.last, data) : [];
+    const data = await api("/api/measure", { ...request, rerun });
     state.lastRequest = request;
     state.last = data;
     renderResult(data);

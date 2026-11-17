@@ -17,7 +17,6 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2C3E50?style=flat" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-2C3E50?style=flat&logo=python&logoColor=white" alt="Python 3.11+">
-  <a href="https://github.com/enkae-code/piggyback/actions/workflows/ci.yml"><img src="https://github.com/enkae-code/piggyback/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="#status"><img src="https://img.shields.io/badge/status-pre--release-F39C12?style=flat" alt="Status: pre-release"></a>
 </p>
 
@@ -38,10 +37,12 @@ v0.1 is one local page with two slots: a **reference** (a URL you admire) and **
 | You give it | You get |
 |---|---|
 | Reference&nbsp;only | A **brief**: the measured type scale, palette and accent share, radius set, spacing rhythm, container width and fonts, plus your own Borrow and Avoid lines. |
-| Reference&nbsp;+&nbsp;build | The same brief as **differences**, with numbered pins on both screenshots: "H1 36/44 → 56/58", "accent on 19% of the page → 2%". |
+| Reference&nbsp;+&nbsp;build | The same brief as **differences**, with numbered pins on both screenshots: "H1 36/44 → 56/58", "accent on 19% of the first screen (1440×900) → 2%". |
 | Build&nbsp;only | **Defaults detected**: marks on generic tells such as gradient text, one font with a flat scale, or the same radius everywhere. |
 
 Every pin and brief line names the concept in plain words and says why it matters. For example: *Tracking: the space between letters. Tight tracking makes big headings feel deliberate.*
+
+Type, palette, radius and anchors are measured on the first screen (1440×900). Spacing and motion are measured over the whole document.
 
 Copy the brief to your agent as `BRIEF.md`, let it revise, then re-run. Fixed pins tick and open ones stay.
 
@@ -57,7 +58,7 @@ Coming with v0.1. The planned command:
 uvx "piggyback-design[measure]"
 ```
 
-This does not work yet. It will need Python 3.11 or newer.
+This does not work yet. It will need Python 3.11 or newer. `pip install piggyback` installs a different project; this one is `piggyback-design`.
 
 ## Use with your agent
 
@@ -81,7 +82,7 @@ Add this to your MCP client config (Claude Desktop, or `.mcp.json` for Claude Co
 }
 ```
 
-- `--ref` takes up to three public reference pages. `--build` takes your localhost or a public preview. Give at least one.
+- `--ref` takes up to three public reference pages; differences use reference 1 (the first one listed). `--build` takes your localhost or a public preview. Give at least one.
 - `get_brief` returns the brief. Its `refresh` flag measures again. `check` measures the build and returns numbered differences, marking the ones now within tolerance as fixed.
 - The Claude Code skill in `skills/piggyback/SKILL.md` tells the agent when to call these tools.
 - This is a config you edit. Your agent does not install or run it. Like the install command above, it works once v0.1 is installable.
@@ -103,6 +104,8 @@ impeccable detect src/
 
 `impeccable detect` reads the `DESIGN.md` at your project root for local file scans. It ignores `DESIGN.md` for http(s) URL scans.
 
+Impeccable enforces the fonts in `DESIGN.md` as warnings (exit 2); colour, radius and size drift are advisory. Piggyback makes no Hallmark compatibility claim: Hallmark expects its own `DESIGN.md` format.
+
 These numbers are the target. If you use a design skill such as Impeccable, Hallmark or taste-skill, use it for the method and check its output against these numbers; when they conflict, the user's references win.
 
 Piggyback's wording was edited with [no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT).
@@ -113,6 +116,10 @@ Piggyback's wording was edited with [no-ai-slop](https://github.com/petergyang/n
 - **Local-first.** It runs on your machine and opens a local page.
 - **Screenshots stay on your machine.** A brief carries links, measured values and your notes.
 - **No AI key.** Piggyback holds none. Your own agent does the judging.
+
+## Develop
+
+Run `scripts/check.sh` for the gates. To run them before every push, enable the hook once: `git config core.hooksPath .githooks`.
 
 ## License
 

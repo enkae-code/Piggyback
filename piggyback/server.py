@@ -49,6 +49,23 @@ MAX_BODY = 16 * 1024
 MAX_URL = 2048
 SHOT = re.compile(r"/api/shot/([0-9a-f]{32})\.png")
 ESCAPED = re.compile(r"\\([\\`*_\[\]<>|#~!])")  # brief.py escapes markdown; the screen shows text
+NOTE = "Differences use reference 1 (the first one listed)."  # shared by screen, MCP and CLI
+
+
+def write_new(path, text):
+    """Create a file that must not exist yet: BRIEF.md and DESIGN.md are never overwritten.
+
+    O_EXCL also refuses a symlink, even a dangling one.
+    """
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except FileExistsError:
+        raise FileExistsError(
+            f"{path} already exists; Piggyback never overwrites it: "
+            "move or delete it, then try again"
+        ) from None
+    with os.fdopen(fd, "w", encoding="utf-8") as out:
+        out.write(text)
 
 
 def _plain(text):
@@ -173,7 +190,8 @@ def _defaults(build_fp, seen):
     return payload, defaults_mod.render(hits)
 
 
-def _compare(fps, build_fp, seen):
+def _compare(fps, build_fp, seen, before):
+    """`before` is the last compare payload of a re-run on the same references, else None."""
     pins = gap_mod.gap(fps[0], build_fp)
     views = [
         {
@@ -185,25 +203,32 @@ def _compare(fps, build_fp, seen):
         for pin in pins
         if pin.number is not None
     ]
+    # A pin ticks when its concept was open and still compares now; ticks stay until reopened.
+    prev = before or {"pins": [], "ticked": []}
+    now = gap_mod.differing(pins)
+    done = gap_mod.fixed({pin["concept"] for pin in prev["pins"]}, now, fps[0], build_fp)
+    ticked = [pin for pin in prev["ticked"] if pin["concept"] not in now]
+    ticked += [pin for pin in prev["pins"] if pin["concept"] in done]
     payload = {
         "state": "compare",
         "reference": _view(fps[0]),
         "build": _view(build_fp),
         "pins": views,
+        "ticked": ticked,
         "not_found": [_plain(pin.detail) for pin in pins if pin.number is None],
-        "note": "Differences are against the first reference only." if len(fps) > 1 else "",
+        "note": NOTE,
     }
-    return payload, brief_mod.brief(fps) + "\n" + gap_mod.render(pins)
+    return payload, brief_mod.brief(fps) + "\n" + gap_mod.render(pins) + f"\n{NOTE}\n"
 
 
-def _render(fps, build_fp):
+def _render(fps, build_fp, before=None):
     """(state payload for the page, BRIEF.md text) for one run."""
     seen = set()
     if build_fp is None:
         return _brief(fps, seen)
     if not fps:
         return _defaults(build_fp, seen)
-    return _compare(fps, build_fp, seen)
+    return _compare(fps, build_fp, seen, before)
 
 
 class Screen(ThreadingHTTPServer):
@@ -215,26 +240,37 @@ class Screen(ThreadingHTTPServer):
         self.out_dir = Path(out_dir).resolve()
         self.shot_dir = Path(shot_dir)
         self.busy = threading.Lock()  # one measure batch at a time
-        self.shots = {}  # opaque id -> screenshot path, last run only
+        self.shots = {}  # opaque id -> screenshot path: the reference captures and the last build
+        self.refs_key = None  # reference URLs the captures in ref_fps were measured for
+        self.ref_fps = []  # kept across re-runs, so references do not drift between them
+        # The last compare payload: its open and ticked pins carry into a re-run.
+        self.last_compare = None
         self.last_text = None  # BRIEF.md text of the last run
 
-    def run(self, refs, build, typed=None):
-        shots = {}
+    def _shoot(self, url, allow_loopback, shown=None):
+        shot_id = secrets.token_hex(16)
+        path = self.shot_dir / f"{shot_id}.png"
+        fp = measure(url, allow_loopback=allow_loopback, screenshot=path)
+        self.shots[shot_id] = path
+        return {**fp, "url": shown or fp["url"], "shot": shot_id}
 
-        def shoot(url, allow_loopback, shown=None):
-            shot_id = secrets.token_hex(16)
-            path = self.shot_dir / f"{shot_id}.png"
-            fp = measure(url, allow_loopback=allow_loopback, screenshot=path)
-            shots[shot_id] = path
-            return {**fp, "url": shown or fp["url"], "shot": shot_id}
-
-        fps = [shoot(url, False) for url in refs]
+    def run(self, refs, build, typed=None, rerun=False):
+        # A re-run on the same references reuses their captures and the ticks; a new list or a fresh
+        # measure measures them again.
+        same = rerun and tuple(refs) == self.refs_key
+        before = self.last_compare if same else None
+        if not same:
+            self.refs_key = None  # a failed capture leaves no half-kept list behind
+            self.ref_fps = [self._shoot(url, False) for url in refs]
+            self.refs_key = tuple(refs)
         # The page shows the build as the user typed it (localhost), not the address we measured.
-        build_fp = shoot(build, _on_this_machine(build), typed) if build else None
-        payload, text = _render(fps, build_fp)
-        for old in self.shots.values():
-            old.unlink(missing_ok=True)
-        self.shots, self.last_text = shots, text
+        build_fp = self._shoot(build, _on_this_machine(build), typed) if build else None
+        payload, text = _render(self.ref_fps, build_fp, before)
+        keep = {fp["shot"] for fp in self.ref_fps} | ({build_fp["shot"]} if build_fp else set())
+        for shot_id in [shot_id for shot_id in self.shots if shot_id not in keep]:
+            self.shots.pop(shot_id).unlink(missing_ok=True)
+        self.last_text = text
+        self.last_compare = payload if payload["state"] == "compare" else None
         return payload
 
 
@@ -309,7 +345,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(429, "a measure is already running")
         # The lock is released before any reply, so a client that has its answer can measure again.
         try:
-            reply = (200, self.server.run(refs, build, body.get("build") or None))
+            rerun = body.get("rerun") is True
+            reply = (200, self.server.run(refs, build, body.get("build") or None, rerun))
         except MeasureError as exc:
             reply = (422, {"error": str(exc)})
         except Exception:  # noqa: BLE001 - answer the page instead of dropping the connection
@@ -324,13 +361,10 @@ class Handler(BaseHTTPRequestHandler):
         if text is None:
             return self._error(409, "measure first, then copy the brief")
         path = self.server.out_dir / "BRIEF.md"
-        if path.is_symlink():
-            return self._error(409, f"refusing to write through a symlink: {path}")
-        # O_NOFOLLOW closes the check-then-open gap where the OS has it (not on Windows).
-        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
         try:
-            with os.fdopen(os.open(path, flags, 0o644), "w", encoding="utf-8") as out:
-                out.write(text)
+            write_new(path, text)
+        except FileExistsError as exc:
+            return self._error(409, str(exc))
         except OSError as exc:
             return self._error(500, f"could not write {path}: {exc.strerror}")
         return self._json(200, {"path": str(path), "text": text})

@@ -1,6 +1,7 @@
 """Local screen server: real ephemeral server and HTTP client. Only `measure` is stubbed."""
 
 import contextlib
+import copy
 import http.client
 import io
 import json
@@ -233,6 +234,59 @@ class ScreenTests(unittest.TestCase):
         self.screen.busy.acquire()
         self.addCleanup(self.screen.busy.release)
         self.assertEqual(self.post_measure({"build": "http://localhost:3000"})[0], 429)
+
+    def use_build(self, build):
+        """Reference is the fixture; the loopback build is the given fingerprint."""
+
+        def measure_pages(url, *, allow_loopback=False, screenshot=None, **_):
+            Path(str(screenshot)).write_bytes(PNG)
+            data = build if allow_loopback else fp.load(FIXTURES / "ref.json")
+            return {**data, "url": url, "screenshot": str(screenshot)}
+
+        self.measure.side_effect = measure_pages
+
+    def test_a_pin_ticks_only_while_its_element_still_compares(self):
+        ref = fp.load(FIXTURES / "ref.json")
+        build = fp.load(FIXTURES / "build.json")
+        # Run 1: the nav is on both pages and differs. (The build fixture has no nav at all.)
+        build["anchors"]["nav"] = {**ref["anchors"]["nav"], "font_size": "20px"}
+        self.use_build(build)
+        body = {"references": ["https://example.com"], "build": "http://localhost:3000"}
+        _, first = self.post_measure(body)
+        self.assertIn("nav_type", {pin["concept"] for pin in first["pins"]})
+        # Run 2: the heading now matches and the nav has vanished from the build.
+        build = copy.deepcopy(build)
+        build["anchors"]["heading"] = copy.deepcopy(ref["anchors"]["heading"])
+        del build["anchors"]["nav"]
+        self.use_build(build)
+        status, second = self.post_measure({**body, "rerun": True})
+        self.assertEqual(status, 200)
+        self.assertEqual([pin["concept"] for pin in second["ticked"]], ["heading_type"])
+
+    def test_a_rerun_reuses_the_reference_capture_until_the_list_changes(self):
+        body = {"references": ["https://example.com"], "build": "http://localhost:3000"}
+
+        def ref_measures():
+            return sum(not call.kwargs["allow_loopback"] for call in self.measure.call_args_list)
+
+        _, first = self.post_measure(body)
+        ref_shot = f"/api/shot/{first['reference']['shot']}.png"
+        self.assertEqual(self.call("GET", ref_shot)[0], 200)
+        self.post_measure({**body, "rerun": True})
+        self.assertEqual(ref_measures(), 1)  # the rerun measured only the build
+        self.assertEqual(self.call("GET", ref_shot)[0], 200)  # the kept capture still serves
+        self.post_measure(body)  # a fresh measure measures the reference again
+        self.assertEqual(ref_measures(), 2)
+        other = {"references": ["https://example.org"], "build": body["build"], "rerun": True}
+        self.post_measure(other)  # a changed list is measured again
+        self.assertEqual(ref_measures(), 3)
+
+    def test_brief_is_never_overwritten(self):
+        self.post_measure({"references": ["https://example.com"]})
+        self.assertEqual(self.call("POST", "/api/brief", {})[0], 200)
+        status, _, data = self.call("POST", "/api/brief", {})
+        self.assertEqual(status, 409)
+        self.assertIn("BRIEF.md already exists", json.loads(data)["error"])
 
     def test_brief_needs_a_measure_first_then_writes_the_file(self):
         self.assertEqual(self.call("POST", "/api/brief", {})[0], 409)

@@ -51,6 +51,20 @@ class BriefCliTests(unittest.TestCase):
             self.assertTrue(target.read_text(encoding="utf-8").startswith("# Design brief"))
             self.assertIn("wrote", out)
 
+    def test_out_never_overwrites_an_existing_brief(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "BRIEF.md"
+            target.write_text("mine\n", encoding="utf-8")
+            code, _, err = run(["brief", REF, "--out", str(target)])
+            self.assertEqual(code, 1)
+            self.assertIn("already exists", err)
+            self.assertEqual(target.read_text(encoding="utf-8"), "mine\n")
+
+    def test_build_differences_say_they_use_reference_1(self):
+        code, out, _ = run(["brief", REF, "--build", BUILD])
+        self.assertEqual(code, 0)
+        self.assertIn("Differences use reference 1", out)
+
     def test_missing_file_fails_cleanly(self):
         code, _, err = run(["brief", "/no/such/fingerprint.json"])
         self.assertEqual(code, 1)

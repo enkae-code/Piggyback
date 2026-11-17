@@ -221,6 +221,19 @@ def compared(ref, build):
     return found
 
 
+def differing(pins):
+    """Concepts with an open difference: what the next check compares against."""
+    return {pin.concept for pin in pins if pin.concept is not None}
+
+
+def fixed(before, now, ref, build):
+    """Concepts open at the last check that are closed now, and can still be compared.
+
+    A pin whose element vanished is not fixed: it is not in `compared`.
+    """
+    return (before - now) & compared(ref, build)
+
+
 def render(pins):
     """The differences as markdown, numbered to match the pins. Each concept explains once."""
     lines, explained = [], set()

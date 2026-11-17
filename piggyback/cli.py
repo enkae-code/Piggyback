@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -21,7 +20,9 @@ SANDBOX_HELP = (
     "`python -m playwright install chromium`. On Linux, check unprivileged user "
     "namespaces (AppArmor can block them). Piggyback never falls back to --no-sandbox.\n"
     "Ubuntu 23.10+: install Google Chrome (its package ships an AppArmor profile), or add an "
-    "AppArmor profile that allows unprivileged user namespaces for Playwright's chromium."
+    "AppArmor profile that allows unprivileged user namespaces for Playwright's chromium.\n"
+    "With a uvx install, fetch the browser with: uvx --from 'piggyback-design[measure]' "
+    "playwright install chromium"
 )
 
 
@@ -78,24 +79,14 @@ def run_measure(url, out, viewport, allow_loopback):
     return 0
 
 
-def _write_design(path, text):
-    # A DESIGN.md may be hand-written: never replace one. O_EXCL also refuses any symlink.
-    try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
-    except FileExistsError:
-        raise OSError(f"{path} already exists; Piggyback never overwrites it") from None
-    with os.fdopen(fd, "w", encoding="utf-8") as out:
-        out.write(text)
-
-
 def _write_outputs(text, out, design_path, ref):
     if design_path and out and Path(out).resolve() == Path(design_path).resolve():
         raise ValueError("--out and --design-md must be different files")
     # The brief first: a bad --out path then fails before any DESIGN.md exists.
     if out:
-        Path(out).write_text(text, encoding="utf-8")
+        server.write_new(out, text)
     if design_path:
-        _write_design(design_path, brief_mod.design_md(ref))
+        server.write_new(design_path, brief_mod.design_md(ref))
 
 
 def run_brief(paths, build_path, out, design_path=None):
@@ -110,7 +101,7 @@ def run_brief(paths, build_path, out, design_path=None):
                 )
                 return 1
             build = fingerprints.load(build_path)
-            text += "\n" + gap_mod.render(gap_mod.gap(refs[0], build))
+            text += "\n" + gap_mod.render(gap_mod.gap(refs[0], build)) + f"\n{server.NOTE}\n"
         _write_outputs(text, out, design_path, refs[0])
     except (OSError, ValueError) as exc:
         print(f"brief failed: {exc}", file=sys.stderr)
@@ -199,7 +190,11 @@ def main(argv=None):
     refs.add_argument("directory")
     b = sub.add_parser("brief", help="write BRIEF.md from 1 to 3 reference fingerprints")
     b.add_argument("fingerprints", nargs="+", metavar="FINGERPRINT.json")
-    b.add_argument("--build", metavar="BUILD.json", help="add differences vs one reference")
+    b.add_argument(
+        "--build",
+        metavar="BUILD.json",
+        help="add differences vs one reference (differences use reference 1)",
+    )
     b.add_argument("--out", metavar="BRIEF.md", help="write to a file instead of stdout")
     b.add_argument(
         "--design-md",

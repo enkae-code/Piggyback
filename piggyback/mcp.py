@@ -52,11 +52,20 @@ class Session:
         self.refs, self.build = refs, build
         self.measure_page = measure_page
         self.ref_pages = None
+        self.ref_failure = None  # (reference URLs, error) of a capture that failed, until refresh
         self.differing = set()  # concepts that differed at the previous check
 
     def _refs(self, refresh=False):
+        if refresh:
+            self.ref_failure = None
+        if self.ref_failure and self.ref_failure[0] == tuple(self.refs):
+            raise self.ref_failure[1]
         if self.ref_pages is None or refresh:
-            self.ref_pages = [self.measure_page(url) for url in self.refs]
+            try:
+                self.ref_pages = [self.measure_page(url) for url in self.refs]
+            except MeasureError as exc:
+                self.ref_failure = (tuple(self.refs), exc)
+                raise
             self.differing = set()  # a moved reference is not a fix
         return self.ref_pages
 
@@ -71,12 +80,10 @@ class Session:
             return defaults_mod.render(defaults_mod.find(build))
         ref = self._refs()[0]
         pins = gap_mod.gap(ref, build)
-        differing = {pin.concept for pin in pins if pin.concept is not None}
-        fixed = (self.differing - differing) & gap_mod.compared(ref, build)
+        differing = gap_mod.differing(pins)
+        fixed = gap_mod.fixed(self.differing, differing, ref, build)
         self.differing = differing
-        text = gap_mod.render(pins)
-        if len(self.refs) > 1:
-            text += "\nDifferences are against the first reference only.\n"
+        text = gap_mod.render(pins) + f"\n{server.NOTE}\n"
         if fixed:
             names = "\n".join(f"- {TERMS[concept][0]}" for concept in sorted(fixed))
             text += f"\n## Fixed since the last check\n\n{names}\n"

@@ -41,4 +41,4 @@ jobs:
       # CI runners only; never on a developer machine.
       - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: python -m piggyback doctor
-      - run: python -m unittest -v tests.test_measure_integration
+      - run: python -m unittest -v tests.test_measure_integration tests.test_server_integration tests.test_mcp_integration

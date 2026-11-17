@@ -235,7 +235,23 @@ class Tools(unittest.TestCase):
     def test_check_with_two_references_says_it_compares_against_the_first(self):
         session = mcp.Session([REF_URL, "https://93.184.216.35/"], BUILD_URL, self.fake)
         text = self.text(exchange(session, call("check"))[0])
-        self.assertIn("Differences are against the first reference only.", text)
+        self.assertIn("Differences use reference 1 (the first one listed).", text)
+
+    def test_a_failed_reference_is_not_measured_again_until_refresh(self):
+        measured = []
+
+        def refs_down(url, *, allow_loopback=False, **_):
+            if allow_loopback:
+                return copy.deepcopy(self.fake.build)
+            measured.append(url)
+            raise MeasureError("reference is down")
+
+        session = mcp.Session([REF_URL], BUILD_URL, refs_down)
+        for _ in range(2):
+            self.assertTrue(exchange(session, call("check"))[0]["result"]["isError"])
+        self.assertEqual(measured, [REF_URL])
+        exchange(session, call("get_brief", {"refresh": True}))
+        self.assertEqual(measured, [REF_URL, REF_URL])
 
     def test_refresh_moves_the_reference_without_marking_a_fix(self):
         exchange(self.session, call("check"))  # the build differs from the reference
