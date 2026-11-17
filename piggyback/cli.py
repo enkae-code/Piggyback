@@ -1,20 +1,19 @@
 """`piggyback` command line: measure, check-refs and doctor."""
 
 import argparse
-import json
 import os
 import re
 import sys
 from pathlib import Path
 
+from . import batch, mcp, server
 from . import brief as brief_mod
 from . import defaults as defaults_mod
 from . import fingerprint as fingerprints
 from . import format as ref_format
 from . import gap as gap_mod
-from . import mcp, server
 from .browser import BrowserUnavailable, launch
-from .measure import MeasureError, check_url, measure
+from .measure import MeasureError, write_measure
 
 SANDBOX_HELP = (
     "Chromium would not start with its sandbox. Install Google Chrome, or run "
@@ -60,24 +59,23 @@ def viewport_arg(value):
 
 def run_measure(url, out, viewport, allow_loopback):
     try:
-        check_url(url, allow_loopback)
+        fingerprint, shot = write_measure(
+            url, out, viewport=viewport, allow_loopback=allow_loopback
+        )
     except MeasureError as exc:
         print(f"measure failed: {exc}", file=sys.stderr)
         return 1
-    out_dir = Path(out)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    shot = out_dir / "screenshot.png"
-    try:
-        result = measure(url, viewport=viewport, allow_loopback=allow_loopback, screenshot=shot)
-    except MeasureError as exc:
-        print(f"measure failed: {exc}", file=sys.stderr)
-        return 1
-    fingerprint = out_dir / "fingerprint.json"
-    fingerprint.write_text(
-        json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
     print(f"wrote {fingerprint} and {shot}")
     return 0
+
+
+def run_measure_list(list_path, out, viewport, allow_loopback):
+    try:
+        entries = batch.plan(list_path, out)
+    except (OSError, ValueError) as exc:
+        print(f"measure-list failed: {exc}", file=sys.stderr)
+        return 1
+    return batch.run(entries, out, viewport=viewport, allow_loopback=allow_loopback)
 
 
 def _write_outputs(text, out, design_path, ref):
@@ -194,6 +192,11 @@ def main(argv=None):
     m.add_argument("--out", default=".", help="output directory (default: current directory)")
     m.add_argument("--viewport", type=viewport_arg, default=(1440, 900), help="WIDTHxHEIGHT")
     m.add_argument("--allow-loopback", action="store_true", help="allow 127.0.0.0/8 and ::1 only")
+    ml = sub.add_parser("measure-list", help="measure each URL in a list file, one at a time")
+    ml.add_argument("list", metavar="LIST", help="text file: one URL per line, # lines ignored")
+    ml.add_argument("--out", required=True, help="directory: one folder per URL, plus batch.json")
+    ml.add_argument("--viewport", type=viewport_arg, default=(1440, 900), help="WIDTHxHEIGHT")
+    ml.add_argument("--allow-loopback", action="store_true", help="allow 127.0.0.0/8 and ::1 only")
     refs = sub.add_parser("check-refs", help="validate spec v1 reference files")
     refs.add_argument("directory")
     b = sub.add_parser("brief", help="write BRIEF.md from 1 to 3 reference fingerprints")
@@ -220,6 +223,8 @@ def main(argv=None):
         return run_open(getattr(args, "port", 0), getattr(args, "out", "."))
     if args.command == "measure":
         return run_measure(args.url, args.out, args.viewport, args.allow_loopback)
+    if args.command == "measure-list":
+        return run_measure_list(args.list, args.out, args.viewport, args.allow_loopback)
     if args.command == "check-refs":
         return check_refs(args.directory)
     if args.command == "brief":

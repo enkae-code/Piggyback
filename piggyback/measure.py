@@ -60,6 +60,20 @@ def _refuse_if_moved(status, req, page):
         raise MeasureError(refusal)
 
 
+def write_measure(url, out_dir, *, viewport=(1440, 900), allow_loopback=False):
+    """Measure one page into out_dir: fingerprint.json and screenshot.png. Raises MeasureError."""
+    check_url(url, allow_loopback)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    shot = out_dir / "screenshot.png"
+    result = measure(url, viewport=viewport, allow_loopback=allow_loopback, screenshot=shot)
+    fingerprint = out_dir / "fingerprint.json"
+    fingerprint.write_text(
+        json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    return fingerprint, shot
+
+
 def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None):
     url = check_url(url, allow_loopback)
     request = {
@@ -146,7 +160,12 @@ def _capture(req):
             with contextlib.suppress(Exception):
                 page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
             fingerprint = _capture_motion(page, req["screenshot"])
-            _refuse_if_moved(status, req, page)  # a script may redirect while the page settles
+            try:
+                _refuse_if_moved(status, req, page)  # a script may redirect while the page settles
+            except MeasureError:
+                if req["screenshot"]:
+                    Path(req["screenshot"]).unlink(missing_ok=True)
+                raise
             captured_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
             receipt = {
                 "status": status,

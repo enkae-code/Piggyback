@@ -259,6 +259,24 @@ class Tools(unittest.TestCase):
         exchange(session, call("get_brief", {"refresh": True}))
         self.assertEqual(measured, [REF_URL, REF_URL])
 
+    def test_a_failed_reference_with_markdown_is_cleaned_and_keeps_the_refresh_hint(self):
+        def refuse(url, **_):
+            raise MeasureError("page says *bold* _em_ `code` [x](https://evil.example)")
+
+        session = mcp.Session([REF_URL], None, refuse)
+        # The first call measures and fails; the second is answered from the cached failure.
+        first, again = exchange(session, call("get_brief"), call("get_brief", rid=2))
+        self.assertFalse(self.text(first).endswith(mcp.REFRESH_HINT))
+        result = again["result"]
+        text = self.text(again)
+        self.assertTrue(result["isError"])
+        self.assertIn(r"\*bold\*", text)
+        self.assertIn(r"\_em\_", text)
+        self.assertIn(r"\`code\`", text)
+        self.assertIn(r"\[x\]", text)
+        self.assertNotIn("[x](", text)
+        self.assertTrue(text.endswith(f"; {mcp.REFRESH_HINT}"))
+
     def test_refresh_moves_the_reference_without_marking_a_fix(self):
         exchange(self.session, call("check"))  # the build differs from the reference
         self.fake.ref = copy.deepcopy(self.fake.build)  # the reference moves onto the build

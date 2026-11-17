@@ -60,6 +60,16 @@ uvx "piggyback-design[measure]"
 
 This does not work yet. It will need Python 3.11 or newer. `pip install piggyback` installs a different project; this one is `piggyback-design`.
 
+## Measure a list
+
+`piggyback measure-list` measures one page after another, so only one browser runs at a time. List one URL per line in a text file; `#` lines and blank lines are ignored:
+
+```sh
+piggyback measure-list pages.txt --out measured/
+```
+
+Each URL gets a folder under `measured/` with `fingerprint.json` and `screenshot.png`. A folder that already has `fingerprint.json` is kept, not measured again. `measured/batch.json` lists every URL with its status (`measured`, `kept` or `failed`) and error. The command exits 1 if any URL failed; the other URLs are still measured. It refuses the whole list up front on a duplicate URL, two URLs that give the same folder name, or more than 500 URLs.
+
 ## Use with your agent
 
 Piggyback can run as a read-only MCP server, so your agent can read the brief and re-check your build without you pasting numbers. You set the URLs in the MCP config. The agent cannot pass a URL, a path or any text that reaches the network or disk.

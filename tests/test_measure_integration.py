@@ -23,7 +23,7 @@ from piggyback.proxy import EgressProxy  # noqa: E402
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def serve(hits=None):
+def serve(hits=None, host="127.0.0.1", port=0):
     class Handler(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *args):
             pass
@@ -39,7 +39,7 @@ def serve(hits=None):
             super().do_GET()
 
     handler = functools.partial(Handler, directory=str(FIXTURES))
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server = http.server.ThreadingHTTPServer((host, port), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 
@@ -196,6 +196,21 @@ class MeasureIntegration(unittest.TestCase):
     def test_redirect_into_private_range_is_aborted(self):
         result = measure(f"{self.base}/redirect.html", allow_loopback=True)
         self.assertIn("http://10.0.0.1/", result["blocked_requests"])
+
+    def test_late_redirect_to_another_host_is_refused_and_leaves_no_screenshot(self):
+        # 127.0.0.2 is another loopback host and serves the same port; localhost would be refused
+        # by policy before the page could reach it, so it cannot show a host change.
+        try:
+            other = serve(host="127.0.0.2", port=self.site.server_address[1])
+        except OSError as exc:
+            self.skipTest(f"cannot bind 127.0.0.2 on this host: {exc}")
+        self.addCleanup(other.server_close)
+        self.addCleanup(other.shutdown)
+        with tempfile.TemporaryDirectory() as tmp:
+            shot = Path(tmp) / "shot.png"
+            with self.assertRaises(MeasureError):
+                measure(f"{self.base}/late-redirect.html", allow_loopback=True, screenshot=shot)
+            self.assertFalse(shot.exists())
 
     def test_websocket_to_private_range_is_refused(self):
         result = measure(f"{self.base}/socket.html", allow_loopback=True)

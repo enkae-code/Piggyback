@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Fixture late redirect</title>
+</head>
+<body>
+<h1>Late redirect fixture</h1>
+<!-- After the page loads, a script sends it to 127.0.0.2 (same port): another host, still loopback. -->
+<script>
+  setTimeout(() => {
+    location.href = `http://127.0.0.2:${location.port}/plain.html`;
+  }, 300);
+</script>
+</body>
+</html>
