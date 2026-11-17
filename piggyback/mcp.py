@@ -35,8 +35,13 @@ TOOLS = [
         "description": "Measure the configured build and list how it differs from the references.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
+    {
+        "name": "get_design_md",
+        "description": "DESIGN.md for the first configured reference page (Impeccable reads it).",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
 ]
-ARGUMENTS = {"get_brief": {"refresh"}, "check": set()}
+ARGUMENTS = {"get_brief": {"refresh"}, "check": set(), "get_design_md": set()}
 REFRESH_HINT = "call get_brief with refresh: true to measure again"
 
 
@@ -77,6 +82,11 @@ class Session:
     def get_brief(self, refresh):
         return brief_mod.brief(self._refs(refresh))
 
+    def get_design_md(self):
+        if not self.refs:
+            raise ValueError("no reference configured: start the server with a reference URL")
+        return brief_mod.design_md(self._refs()[0])
+
     def check(self):
         if self.build is None:
             raise ValueError("no build configured: start the server with --build")
@@ -112,9 +122,12 @@ def _call(session, params):
     if not isinstance(refresh, bool):
         raise RpcError(BAD_PARAMS, "refresh must be true or false")
     try:
-        if name == "check":
-            return _text(session.check())
-        return _text(session.get_brief(refresh))
+        handlers = {
+            "get_brief": lambda: session.get_brief(refresh),
+            "check": session.check,
+            "get_design_md": session.get_design_md,
+        }
+        return _text(handlers[name]())
     except RefFailed as exc:  # the hint is ours, so it is added after the page text is cleaned
         return _text(f"{fp.clean(exc, 200)}; {REFRESH_HINT}", error=True)
     except (ValueError, MeasureError) as exc:

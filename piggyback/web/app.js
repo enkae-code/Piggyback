@@ -118,6 +118,7 @@ async function measure(rerun) {
     renderResult(data);
     $("rerun").hidden = false;
     $("copy").hidden = false;
+    $("copy-design").hidden = !request.references.length;
     const pages = request.references.length + (request.build ? 1 : 0);
     setStatus(`${rerun ? "Re-measured" : "Measured"} ${count(pages, "page")} at ${clock()}`);
   } catch (err) {
@@ -130,32 +131,35 @@ async function measure(rerun) {
 
 function setBusy(busy, message) {
   state.busy = busy;
-  for (const id of ["measure", "rerun", "copy"]) $(id).disabled = busy;
+  for (const id of ["measure", "rerun", "copy", "copy-design"]) $(id).disabled = busy;
   $("result").setAttribute("aria-busy", String(busy));
   $("status").classList.toggle("busy", busy);
   if (busy) setStatus(message);
 }
 
-async function copyBrief() {
+// One copy path for BRIEF.md and DESIGN.md. `file` is the name written and copied.
+async function copyFile(endpoint, file) {
   let data;
   let kept = "";
   try {
-    data = await api("/api/brief", {});
+    data = await api(endpoint, {});
   } catch (err) {
     if (typeof err.text !== "string") return showError("error", err.message);
-    data = { text: err.text }; // BRIEF.md exists: copy the text anyway, and say it was kept
+    data = { text: err.text }; // the file exists: copy the text anyway, and say it was kept
     kept = `${err.message}.`;
   }
+  const wrote = data.source ? `${data.path} for ${data.source} (first reference)` : data.path;
   try {
     await navigator.clipboard.writeText(data.text);
-    setStatus(kept || `Wrote ${data.path} and copied it.`);
+    setStatus(kept || `Wrote ${wrote} and copied it.`);
   } catch {
     const area = $("fallback");
     area.value = data.text;
+    area.setAttribute("aria-label", `${file} text`);
     area.hidden = false;
     area.focus();
     area.select();
-    setStatus(`${kept || `Wrote ${data.path}.`} Clipboard unavailable: the text is selected below.`);
+    setStatus(`${kept || `Wrote ${wrote}.`} Clipboard unavailable: the text is selected below.`);
   }
 }
 
@@ -571,7 +575,8 @@ $("slots").addEventListener("submit", (event) => {
   measure(false);
 });
 $("rerun").addEventListener("click", () => measure(true));
-$("copy").addEventListener("click", copyBrief);
+$("copy").addEventListener("click", () => copyFile("/api/brief", "BRIEF.md"));
+$("copy-design").addEventListener("click", () => copyFile("/api/design-md", "DESIGN.md"));
 $("zoom-close").addEventListener("click", () => $("zoom").close());
 window.addEventListener("resize", relayoutAll);
 for (const type of ["mouseover", "focusin"]) {

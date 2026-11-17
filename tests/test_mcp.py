@@ -13,8 +13,8 @@ import sys
 import unittest
 from pathlib import Path
 
+from piggyback import brief, glossary, mcp
 from piggyback import fingerprint as fp
-from piggyback import glossary, mcp
 from piggyback.measure import MeasureError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -90,7 +90,7 @@ class Protocol(unittest.TestCase):
         self.assertEqual(replies[0]["result"]["protocolVersion"], "2025-06-18")
         self.assertIn("tools", replies[0]["result"]["capabilities"])
         tools = {tool["name"]: tool for tool in replies[1]["result"]["tools"]}
-        self.assertEqual(set(tools), {"get_brief", "check"})
+        self.assertEqual(set(tools), {"get_brief", "check", "get_design_md"})
         for tool in tools.values():
             self.assertIs(tool["inputSchema"]["additionalProperties"], False)
 
@@ -231,6 +231,38 @@ class Tools(unittest.TestCase):
         self.assertIn("No differences above the thresholds.", second)
         self.assertIn("## Fixed since the last check", second)
         self.assertIn("- Heading type", second)
+
+    def test_get_design_md_is_framing_then_the_first_reference_as_design_md(self):
+        reply = exchange(self.session, call("get_design_md"))[0]
+        self.assertFalse(reply["result"]["isError"])
+        self.assertEqual(self.text(reply), f"{mcp.FRAMING}\n\n{brief.design_md(load('ref.json'))}")
+
+    def test_get_design_md_refuses_arguments(self):
+        reply = exchange(self.session, call("get_design_md", {"refresh": True}))[0]
+        self.assertEqual(reply["error"]["code"], -32602)
+        self.assertIn("own parameters", reply["error"]["message"])
+        self.assertEqual(self.fake.calls, [])
+
+    def test_get_design_md_without_a_reference_is_a_tool_error(self):
+        session = mcp.Session([], BUILD_URL, self.fake)
+        reply = exchange(session, call("get_design_md"))[0]
+        self.assertTrue(reply["result"]["isError"])
+        self.assertIn(
+            "no reference configured: start the server with a reference URL", self.text(reply)
+        )
+
+    def test_get_design_md_gives_the_refresh_hint_when_the_reference_failed(self):
+        def refs_down(url, *, allow_loopback=False, **_):
+            raise MeasureError("reference is down")
+
+        session = mcp.Session([REF_URL], None, refs_down)
+        _, again = exchange(session, call("get_design_md"), call("get_design_md", rid=2))
+        self.assertTrue(again["result"]["isError"])
+        self.assertTrue(
+            self.text(again).endswith(
+                "reference is down; call get_brief with refresh: true to measure again"
+            )
+        )
 
     def test_check_with_two_references_says_it_compares_against_the_first(self):
         session = mcp.Session([REF_URL, "https://93.184.216.35/"], BUILD_URL, self.fake)

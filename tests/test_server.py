@@ -15,6 +15,7 @@ from unittest import mock
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
+from piggyback import brief as brief_mod
 from piggyback import defaults as defaults_mod
 from piggyback import fingerprint as fp
 from piggyback import server
@@ -380,6 +381,65 @@ class ScreenTests(unittest.TestCase):
         written = Path(self.tmp.name, "BRIEF.md").read_text(encoding="utf-8")
         self.assertEqual(written, body["text"])
         self.assertTrue(written.startswith("# Design brief"))
+
+    def test_design_md_needs_a_reference_run_then_writes_it_once(self):
+        self.assertEqual(self.call("POST", "/api/design-md", {})[0], 409)
+        self.post_measure({"references": ["https://example.com"]})
+        status, _, data = self.call("POST", "/api/design-md", {})
+        body = json.loads(data)
+        self.assertEqual(status, 200)
+        ref = self.screen.ref_fps[0]
+        self.assertEqual(body["text"], brief_mod.design_md(ref))
+        self.assertEqual(body["source"], brief_mod.source_title(ref))
+        written = Path(self.tmp.name, "DESIGN.md").read_text(encoding="utf-8")
+        self.assertEqual(written, body["text"])
+
+    def test_design_md_is_refused_after_a_build_only_run(self):
+        self.post_measure({"references": ["https://example.com"]})
+        self.post_measure({"build": "http://localhost:3000"})
+        self.assertEqual(self.call("POST", "/api/design-md", {})[0], 409)
+        self.assertFalse(Path(self.tmp.name, "DESIGN.md").exists())
+
+    def test_design_md_is_never_overwritten_and_still_carries_the_text(self):
+        self.post_measure({"references": ["https://example.com"]})
+        self.assertEqual(self.call("POST", "/api/design-md", {})[0], 200)
+        written = Path(self.tmp.name, "DESIGN.md").read_text(encoding="utf-8")
+        status, _, data = self.call("POST", "/api/design-md", {})
+        body = json.loads(data)
+        self.assertEqual(status, 409)
+        self.assertIn("DESIGN.md already exists", body["error"])
+        self.assertEqual(body["text"], brief_mod.design_md(self.screen.ref_fps[0]))
+        self.assertEqual(Path(self.tmp.name, "DESIGN.md").read_text(encoding="utf-8"), written)
+
+    def test_design_md_without_a_token_is_refused(self):
+        self.post_measure({"references": ["https://example.com"]})
+        self.assertEqual(self.call("POST", "/api/design-md", {}, token=False)[0], 403)
+        self.assertFalse(Path(self.tmp.name, "DESIGN.md").exists())
+
+    def test_design_md_follows_the_new_first_reference(self):
+        self.post_measure({"references": ["https://example.com"]})
+        status, data = self.post_measure({"references": ["https://example.org"], "rerun": True})
+        self.assertEqual(status, 200)
+        status, _, raw = self.call("POST", "/api/design-md", {})
+        body = json.loads(raw)
+        self.assertEqual(status, 200)
+        self.assertEqual(body["source"], brief_mod.source_title(self.screen.ref_fps[0]))
+        self.assertIn("example.org", body["source"])
+
+    def test_design_md_is_the_first_of_several_references(self):
+        self.post_measure({"references": ["https://example.com", "https://example.org"]})
+        status, _, raw = self.call("POST", "/api/design-md", {})
+        body = json.loads(raw)
+        self.assertEqual(status, 200)
+        self.assertIn("example.com", body["source"])
+        self.assertNotIn("example.org", body["source"])
+        self.assertEqual(body["text"], brief_mod.design_md(self.screen.ref_fps[0]))
+
+    def test_a_reference_reset_clears_the_design_md_reference(self):
+        self.post_measure({"references": ["https://example.com"]})
+        self.screen._measure_references(["https://example.com"])
+        self.assertIsNone(self.screen.last_ref)
+        self.assertEqual(self.call("POST", "/api/design-md", {})[0], 409)
 
     def test_build_is_shown_as_typed_and_visuals_come_from_measured_values(self):
         _, data = self.post_measure(

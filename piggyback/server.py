@@ -260,6 +260,8 @@ class Screen(ThreadingHTTPServer):
         # The last compare payload: its open and ticked pins carry into a re-run.
         self.last_compare = None
         self.last_text = None  # BRIEF.md text of the last run
+        # First reference fingerprint of the last run; None when that run had no reference.
+        self.last_ref = None
 
     def _shoot(self, url, allow_loopback, shown=None):
         shot_id = secrets.token_hex(16)
@@ -271,6 +273,7 @@ class Screen(ThreadingHTTPServer):
     def _measure_references(self, refs):
         self.refs_key = None  # a failed capture leaves no half-kept list behind
         self.last_compare = None  # a re-measured reference is not a fix: no ticks carry over
+        self.last_ref = None
         self.ref_fps = [self._shoot(url, False) for url in refs]
         self.refs_key = tuple(refs)
 
@@ -291,6 +294,7 @@ class Screen(ThreadingHTTPServer):
         payload, text = _render(self.ref_fps, build_fp, before)
         self._forget_shots(build_fp)
         self.last_text = text
+        self.last_ref = self.ref_fps[0] if self.ref_fps else None
         self.last_compare = payload if payload["state"] == "compare" else None
         return payload
 
@@ -316,13 +320,15 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if not self._admit(api=True):
             return
-        if path not in ("/api/measure", "/api/brief"):
+        if path not in ("/api/measure", "/api/brief", "/api/design-md"):
             return self._error(404, "not found")
         body = self._body()
         if body is None:
             return
         if path == "/api/brief":
             return self._brief()
+        if path == "/api/design-md":
+            return self._design_md()
         return self._measure(body)
 
     def _admit(self, api):
@@ -381,7 +387,18 @@ class Handler(BaseHTTPRequestHandler):
         text = self.server.last_text
         if text is None:
             return self._error(409, "measure first, then copy the brief")
-        path = self.server.out_dir / "BRIEF.md"
+        return self._write("BRIEF.md", text)
+
+    def _design_md(self):
+        ref = self.server.last_ref
+        if ref is None:
+            return self._error(409, "measure a reference first, then copy DESIGN.md")
+        return self._write(
+            "DESIGN.md", brief_mod.design_md(ref), source=brief_mod.source_title(ref)
+        )
+
+    def _write(self, name, text, **extra):
+        path = self.server.out_dir / name
         try:
             write_new(path, text)
         # The 409 still carries the text: the page copies it and says the file was not overwritten.
@@ -389,7 +406,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(409, {"error": str(exc), "text": text})
         except OSError as exc:
             return self._error(500, f"could not write {path}: {exc.strerror}")
-        return self._json(200, {"path": str(path), "text": text})
+        return self._json(200, {"path": str(path), "text": text, **extra})
 
     def _send(self, status, body, ctype):
         self.send_response(status)

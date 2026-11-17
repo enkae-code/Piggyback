@@ -44,7 +44,7 @@ Every pin and brief line names the concept in plain words and says why it matter
 
 Type, palette, radius, anchors and container width are measured on the first screen (1440×900); container width is weighted by visible area. Spacing and motion are measured over the whole document.
 
-Copy the brief to your agent as `BRIEF.md`, let it revise, then re-run. Fixed pins tick and open ones stay.
+Copy the brief to your agent as `BRIEF.md`, let it revise, then re-run. Fixed pins tick and open ones stay. "Copy DESIGN.md" writes the first reference as a `DESIGN.md` that works with Impeccable.
 
 ## Status
 
@@ -72,7 +72,7 @@ Each URL gets a folder under `measured/` with `fingerprint.json` and `screenshot
 
 ## Use with your agent
 
-Piggyback can run as a read-only MCP server, so your agent can read the brief and re-check your build without you pasting numbers. You set the URLs in the MCP config. The agent cannot pass a URL, a path or any text that reaches the network or disk.
+Piggyback can run as a read-only MCP server, so your agent can read the brief and re-check your build without you pasting numbers. You set the URLs in the MCP config. The agent cannot pass a URL, a path or any text that reaches the network or disk. The `get_design_md` tool returns the first reference as a `DESIGN.md` that works with Impeccable.
 
 Add this to your MCP client config (Claude Desktop, or `.mcp.json` for Claude Code):
 
