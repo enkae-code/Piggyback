@@ -245,10 +245,21 @@ def _has_motion(page):
     return isinstance(fp.get(page, "motion"), list)
 
 
+def _counts_known(ref, build):
+    """Every signature on both pages has a numeric count on both sides."""
+    ref_counts, build_counts = _counts(_valid_motion(ref)), _counts(_valid_motion(build))
+    return all(
+        ref_counts[key] is not None and build_counts[key] is not None
+        for key in ref_counts.keys() & build_counts.keys()
+    )
+
+
 def _motion_compared(ref, build):
     found = set()
     if _has_motion(ref) and _has_motion(build):
-        found |= MOTION_CONCEPTS
+        found |= {"motion_total", "motion_only_one_page"}
+        if _counts_known(ref, build):
+            found.add("motion_reach")
     if _still(ref) is not None and _still(build) is not None:
         found.add("reduced_motion")
     return found

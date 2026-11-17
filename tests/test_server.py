@@ -286,6 +286,39 @@ class ScreenTests(unittest.TestCase):
         _, second = self.post_measure({**body, "rerun": True})
         self.assertIn("reduced_motion", [pin["concept"] for pin in second["ticked"]])
 
+    def test_a_motion_tick_is_dropped_once_its_count_goes_missing(self):
+        row = {
+            "kind": "animation",
+            "props": ["opacity"],
+            "duration": 300,
+            "delay": 0,
+            "easing": "ease",
+        }
+        ref = fp.load(FIXTURES / "ref.json")
+        ref["motion"] = [{**row, "count": 2}]
+        body = {"references": ["https://example.com"], "build": "http://localhost:3000"}
+
+        def use_build(motion):
+            build = fp.load(FIXTURES / "build.json")
+            build["motion"] = motion
+
+            def measure_pages(url, *, allow_loopback=False, screenshot=None, **_):
+                Path(str(screenshot)).write_bytes(PNG)
+                data = build if allow_loopback else ref
+                return {**copy.deepcopy(data), "url": url, "screenshot": str(screenshot)}
+
+            self.measure.side_effect = measure_pages
+
+        use_build([{**row, "count": 5}])
+        _, first = self.post_measure(body)  # run 1: the count differs
+        self.assertIn("motion_reach", {pin["concept"] for pin in first["pins"]})
+        use_build([{**row, "count": 2}])
+        _, second = self.post_measure({**body, "rerun": True})  # run 2: the count matches
+        self.assertIn("motion_reach", [pin["concept"] for pin in second["ticked"]])
+        use_build([dict(row)])  # run 3: the count goes missing; the carried tick must go too
+        _, third = self.post_measure({**body, "rerun": True})
+        self.assertNotIn("motion_reach", [pin["concept"] for pin in third["ticked"]])
+
     def test_a_tick_is_dropped_once_its_element_vanishes(self):
         ref = fp.load(FIXTURES / "ref.json")
         build = fp.load(FIXTURES / "build.json")

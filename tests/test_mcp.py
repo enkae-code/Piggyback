@@ -303,6 +303,23 @@ class Tools(unittest.TestCase):
         self.assertIn("## Fixed since the last check", second)
         self.assertIn(f"- {glossary.TERMS['reduced_motion'][0]}", second)
 
+    def test_a_motion_count_that_goes_missing_is_not_named_as_fixed(self):
+        row = {
+            "kind": "animation",
+            "props": ["opacity"],
+            "duration": 300,
+            "delay": 0,
+            "easing": "ease",
+        }
+        ref, build = load("ref.json"), load("build.json")
+        ref["motion"], build["motion"] = [{**row, "count": 2}], [{**row, "count": 5}]
+        self.fake.ref, self.fake.build = ref, build
+        first = self.text(exchange(self.session, call("check"))[0])
+        self.assertIn(glossary.TERMS["motion_reach"][0], first)
+        build["motion"] = [dict(row)]  # the same signature loses its count on the re-run
+        second = self.text(exchange(self.session, call("check"))[0])
+        self.assertNotIn("## Fixed since", second)
+
     def test_a_motion_difference_is_not_fixed_when_its_page_loses_its_motion_list(self):
         ref = load("ref.json")
         ref["motion"] = []  # the build's one signature is an open difference

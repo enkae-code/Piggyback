@@ -268,6 +268,43 @@ class GapTests(unittest.TestCase):
         no_motion = {"reduced_motion": {"still_running": 0}}
         self.assertFalse(gap_mod.MOTION_CONCEPTS & gap_mod.compared(both, no_motion))
         self.assertNotIn("reduced_motion", gap_mod.compared(both, {"motion": []}))
+        still = {"reduced_motion": {"still_running": 0}}
+        self.assertFalse(gap_mod.MOTION_CONCEPTS & gap_mod.compared(still, {"motion": [], **still}))
+
+    def test_motion_reach_needs_a_numeric_count_on_every_shared_signature(self):
+        row = {
+            "kind": "animation",
+            "props": ["opacity"],
+            "duration": 300,
+            "delay": 0,
+            "easing": "ease",
+        }
+
+        def page(count=None):
+            return {"motion": [row if count is None else {**row, "count": count}]}
+
+        self.assertIn("motion_reach", gap_mod.compared(page(2), page(5)))
+        self.assertEqual(gap_mod.fixed({"motion_reach"}, set(), page(2), page(2)), {"motion_reach"})
+        # a count dropped on either side of a shared signature: not comparable, so never fixed
+        for ref, build in ((page(2), page()), (page(), page(5))):
+            with self.subTest(ref=ref, build=build):
+                self.assertNotIn("motion_reach", gap_mod.compared(ref, build))
+                self.assertEqual(gap_mod.fixed({"motion_reach"}, set(), ref, build), set())
+                self.assertIn("motion_total", gap_mod.compared(ref, build))
+        # no shared signature, or both lists empty: nothing to count, so comparable
+        other = {"motion": [{**row, "props": ["color"]}]}
+        self.assertIn("motion_reach", gap_mod.compared(page(), other))
+        self.assertIn("motion_reach", gap_mod.compared({"motion": []}, {"motion": []}))
+
+    def test_reduced_motion_needs_a_numeric_still_count_on_both_pages(self):
+        for bad in ("x", None):
+            with self.subTest(bad=bad):
+                ref, build = (
+                    {"reduced_motion": {"still_running": bad}},
+                    {"reduced_motion": {"still_running": 0}},
+                )
+                self.assertNotIn("reduced_motion", gap_mod.compared(ref, build))
+                self.assertNotIn("reduced_motion", gap_mod.compared(build, ref))
 
     def test_pins_only_on_anchors_both_pages_have(self):
         pins = gap_mod.gap(self.ref, self.build)
