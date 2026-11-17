@@ -11,6 +11,7 @@ import os
 import platform
 import subprocess
 import sys
+import tempfile
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,17 +61,39 @@ def _refuse_if_moved(status, req, page):
         raise MeasureError(refusal)
 
 
+def refuse_links(*paths):
+    """MeasureError if a path is a symbolic link: output never follows a link out of its folder."""
+    for path in paths:
+        if os.path.islink(path):
+            raise MeasureError(
+                f"{Path(path).name} is a symbolic link; refusing to write through it"
+            )
+
+
+def publish_json(path, data):
+    """Replace path with JSON text in one rename: a crash never leaves a partial file."""
+    fd, tmp = tempfile.mkstemp(dir=Path(path).parent, prefix=f".{Path(path).name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        os.chmod(tmp, 0o644)  # mkstemp makes 0600; the files were always world-readable
+        os.replace(tmp, path)  # replaces a link at path, never writes through it
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
 def write_measure(url, out_dir, *, viewport=(1440, 900), allow_loopback=False):
     """Measure one page into out_dir: fingerprint.json and screenshot.png. Raises MeasureError."""
     check_url(url, allow_loopback)
     out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
     shot = out_dir / "screenshot.png"
-    result = measure(url, viewport=viewport, allow_loopback=allow_loopback, screenshot=shot)
     fingerprint = out_dir / "fingerprint.json"
-    fingerprint.write_text(
-        json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    refuse_links(shot, fingerprint)  # before the browser runs
+    out_dir.mkdir(parents=True, exist_ok=True)
+    result = measure(url, viewport=viewport, allow_loopback=allow_loopback, screenshot=shot)
+    publish_json(fingerprint, result)  # last: its presence marks the folder complete
     return fingerprint, shot
 
 

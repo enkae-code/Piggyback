@@ -1,8 +1,10 @@
 import contextlib
 import io
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import piggyback.measure as measure_mod
 from piggyback.cli import main
@@ -96,6 +98,32 @@ class ReceiptAndLoopbackTests(unittest.TestCase):
     def test_localhost_without_flag_still_hints_loopback(self):
         with self.assertRaisesRegex(MeasureError, "--allow-loopback"):
             check_url("http://localhost:3000/")
+
+
+class LinkGuardTests(unittest.TestCase):
+    def test_write_measure_refuses_a_linked_fingerprint_before_the_browser_runs(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch("piggyback.measure.measure") as m:
+            target = Path(tmp) / "external.json"
+            target.write_text("EXTERNAL", encoding="utf-8")
+            out = Path(tmp) / "out"
+            out.mkdir()
+            os.symlink(target, out / "fingerprint.json")
+            with self.assertRaisesRegex(MeasureError, "symbolic link"):
+                measure_mod.write_measure("https://93.184.216.34/", out)
+            m.assert_not_called()
+            self.assertEqual(target.read_text(encoding="utf-8"), "EXTERNAL")
+
+
+class PublishTests(unittest.TestCase):
+    def test_a_failed_publish_keeps_the_old_file_and_leaves_no_temp_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "fingerprint.json"
+            path.write_text('{"old": true}', encoding="utf-8")
+            with mock.patch("piggyback.measure.os.replace", side_effect=OSError("disk full")):
+                with self.assertRaises(OSError):
+                    measure_mod.publish_json(path, {"new": True})
+            self.assertEqual(path.read_text(encoding="utf-8"), '{"old": true}')
+            self.assertEqual([p.name for p in Path(tmp).iterdir()], ["fingerprint.json"])
 
 
 if __name__ == "__main__":

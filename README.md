@@ -68,7 +68,7 @@ This does not work yet. It will need Python 3.11 or newer. `pip install piggybac
 piggyback measure-list pages.txt --out measured/
 ```
 
-Each URL gets a folder under `measured/` with `fingerprint.json` and `screenshot.png`. A folder that already has `fingerprint.json` is kept, not measured again. `measured/batch.json` lists every URL with its status (`measured`, `kept` or `failed`) and error. The command exits 1 if any URL failed; the other URLs are still measured. It refuses the whole list up front on a duplicate URL, two URLs that give the same folder name, or more than 500 URLs.
+Each URL gets a folder under `measured/` with `fingerprint.json` and `screenshot.png`. A folder whose `fingerprint.json` records the same URL is kept, not measured again; one that records another URL, or cannot be read, fails with a message. Folder names include the port. `measured/batch.json` lists every URL with its status (`measured`, `kept` or `failed`) and error. The command exits 1 if any URL failed; the other URLs are still measured. A symbolic link where a file or folder would be written fails that URL. It refuses the whole list up front on a duplicate URL, two URLs that give the same folder name, or more than 500 URLs.
 
 ## Use with your agent
 

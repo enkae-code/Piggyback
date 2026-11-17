@@ -72,10 +72,10 @@ def run_measure(url, out, viewport, allow_loopback):
 def run_measure_list(list_path, out, viewport, allow_loopback):
     try:
         entries = batch.plan(list_path, out)
-    except (OSError, ValueError) as exc:
-        print(f"measure-list failed: {exc}", file=sys.stderr)
+        return batch.run(entries, out, viewport=viewport, allow_loopback=allow_loopback)
+    except (OSError, ValueError, MeasureError) as exc:
+        print(f"measure-list failed: {batch.shown(exc)}", file=sys.stderr)
         return 1
-    return batch.run(entries, out, viewport=viewport, allow_loopback=allow_loopback)
 
 
 def _write_outputs(text, out, design_path, ref):
