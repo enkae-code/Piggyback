@@ -320,6 +320,16 @@ class Tools(unittest.TestCase):
         self.assertIn("## Defaults detected", reply)
         self.assertIn("Gradient text", reply)
 
+    def test_check_with_references_names_defaults_only_when_the_build_has_hits(self):
+        text = self.text(exchange(self.session, call("check"))[0])
+        self.assertIn("## Defaults detected", text)
+        self.assertIn("Gradient text", text)
+        clear = load("build.json")
+        clear["effects"], clear["motion"] = {"gradient_text": 0, "tinted_icon_squares": 0}, []
+        self.fake.build = clear
+        text = self.text(exchange(self.session, call("check"))[0])
+        self.assertNotIn("efaults detected", text)  # also catches "No generic defaults detected."
+
     def test_measure_errors_are_tool_errors_with_the_framing_line(self):
         def refuse(url, **_):
             raise MeasureError("url is not a public http(s) address")

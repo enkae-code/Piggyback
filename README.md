@@ -37,7 +37,7 @@ v0.1 is one local page with two slots: a **reference** (a URL you admire) and **
 | You give it | You get |
 |---|---|
 | Reference&nbsp;only | A **brief**: the measured type scale, palette and accent share, radius set, spacing rhythm, container width and fonts, plus your own Borrow and Avoid lines. |
-| Reference&nbsp;+&nbsp;build | The same brief as **differences**, with numbered pins on both screenshots: "H1 36/44 → 56/58", "accent on 19% of the first screen (1440×900) → 2%". |
+| Reference&nbsp;+&nbsp;build | The same brief as **differences**, with numbered pins on both screenshots: "H1 36/44 → 56/58", "accent on 19% of the first screen (1440×900) → 2%". Generic defaults found on your build are listed under them, never pinned. |
 | Build&nbsp;only | **Defaults detected**: marks on generic tells such as gradient text, one font with a flat scale, or the same radius everywhere. |
 
 Every pin and brief line names the concept in plain words and says why it matters. For example: *Radius (how rounded the corners of a box are)*, with its reason *Corner radius is one of the shape cues a reader sees across boxes.*
@@ -93,7 +93,7 @@ Add this to your MCP client config (Claude Desktop, or `.mcp.json` for Claude Co
 ```
 
 - `--ref` takes up to three public reference pages; differences use reference 1 (the first one listed). `--build` takes your localhost or a public preview. Give at least one.
-- `get_brief` returns the brief. Its `refresh` flag measures again. `check` measures the build and returns numbered differences, marking the ones now within tolerance as fixed.
+- `get_brief` returns the brief. Its `refresh` flag measures again. `check` measures the build and returns numbered differences, marking the ones now within tolerance as fixed, plus any generic defaults on the build.
 - The Claude Code skill in `skills/piggyback/SKILL.md` tells the agent when to call these tools.
 - This is a config you edit. Your agent does not install or run it. Like the install command above, it works once v0.1 is installable.
 

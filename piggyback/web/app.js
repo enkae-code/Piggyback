@@ -379,14 +379,19 @@ const field = (label, text, strong) => el("p", { class: strong ? "field strong" 
   el("span", { class: "field-label", text: label }), el("span", { text }));
 const plural = (text) => text.replace(/\b(\d+) ([^()]*?\w)\(s\)/g, (all, n, word) => count(Number(n), word)); // "1 icon(s)" -> "1 icon"
 
+// One found default: what the page shows and what to do instead. Shared by the defaults and compare screens.
+function defaultRow(item) {
+  return specRow(item, [el("div", { class: "tell" }, art(item.concept),
+    field("Found on this page", cap(plural(item.detail)), true),
+    DEFAULTS[item.concept] ? field("Do instead", DEFAULTS[item.concept][1]) : null)], item.number, false);
+}
+
 // The defaults found come first, each with what to do instead; the checks the page is clear of share the last row.
 function defaultsView(data) {
   const found = data.items.length;
   const hit = new Set(data.items.map((item) => item.concept));
   const clear = Object.keys(DEFAULTS).filter((key) => !hit.has(key));
-  const rows = data.items.map((item) => specRow(item, [el("div", { class: "tell" }, art(item.concept),
-    field("Found on this page", cap(plural(item.detail)), true),
-    DEFAULTS[item.concept] ? field("Do instead", DEFAULTS[item.concept][1]) : null)], item.number, false));
+  const rows = data.items.map(defaultRow);
   const cleared = clear.length ? specRow({ name: `Checked and clear (${count(clear.length, "default")} looked for, not found on this page)` },
     clear.map((key) => el("div", { class: "tell clear" }, art(key), field(...concept(DEFAULTS[key][0])),
       field("Result", "Not found"))), "✓", false) : null;
@@ -437,6 +442,10 @@ function compareView(data) {
       [el("ul", {}, ...data.not_found.map((text) => el("li", { text })))], "–", false)
     : null;
   if (notFound) notFound.classList.add("notfound");
+  // Page-level defaults sit under the differences in their own group; nothing is shown when the build is clear.
+  const defaults = data.defaults.length ? el("section", { class: "defaults-group" },
+    el("h3", { class: "kicker", text: "Generic defaults on your build" }),
+    el("ol", { class: "sheet", "aria-label": "Generic defaults on your build" }, ...data.defaults.map(defaultRow))) : null;
   const figures = sides.map(([label, view, key], index) => shotFigure(label, view,
     data.pins.filter((pin) => where(pin)[index] === "in").map((pin) => ({ number: pin.number, box: pin[key] })), true));
   const open = data.pins.length;
@@ -448,7 +457,8 @@ function compareView(data) {
       `${bare(data.build.url)} against ${bare(data.reference.url)}. Values read your build → reference.`),
     el("div", { class: "compare" }, ...figures),
     open ? el("p", { class: "note", text: note }) : null,
-    el("ol", { class: "sheet", "aria-label": "Differences" }, ...rows, ...ticked, notFound));
+    el("ol", { class: "sheet", "aria-label": "Differences" }, ...rows, ...ticked, notFound),
+    defaults);
 }
 
 // Screenshots and numbered pins

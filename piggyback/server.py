@@ -174,13 +174,17 @@ def _brief(fps, seen):
     return {"state": "brief", "references": refs}, brief_mod.brief(fps)
 
 
-def _defaults(build_fp, seen):
-    hits = defaults_mod.find(build_fp)
-    items = [
+def _default_lines(hits, seen):
+    """Defaults are numbered from 1 of their own: they are page-level and never pinned."""
+    return [
         {**_line(concept, detail, seen), "number": number}
         for number, (concept, detail) in enumerate(hits, 1)
     ]
-    payload = {"state": "defaults", "build": _view(build_fp), "items": items}
+
+
+def _defaults(build_fp, seen):
+    hits = defaults_mod.find(build_fp)
+    payload = {"state": "defaults", "build": _view(build_fp), "items": _default_lines(hits, seen)}
     return payload, defaults_mod.render(hits)
 
 
@@ -215,6 +219,7 @@ def _compare(fps, build_fp, seen, before):
     now = gap_mod.differing(pins)
     can = gap_mod.compared(fps[0], build_fp)
     done = ({pin["concept"] for pin in prev["pins"]} - now) & can
+    hits = defaults_mod.find(build_fp)
     payload = {
         "state": "compare",
         "reference": _view(fps[0]),
@@ -222,9 +227,11 @@ def _compare(fps, build_fp, seen, before):
         "pins": views,
         "ticked": _ticked(prev, now, can, done),
         "not_found": [_plain(pin.detail) for pin in pins if pin.number is None],
+        "defaults": _default_lines(hits, seen),
         "note": NOTE,
     }
-    return payload, brief_mod.brief(fps) + "\n" + gap_mod.render(pins) + f"\n{NOTE}\n"
+    text = brief_mod.brief(fps) + "\n" + gap_mod.render(pins) + f"\n{NOTE}\n"
+    return payload, text + (defaults_mod.render(hits) if hits else "")
 
 
 def _render(fps, build_fp, before=None):

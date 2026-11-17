@@ -92,7 +92,8 @@ class Session:
         if fixed:
             names = "\n".join(f"- {TERMS[concept][0]}" for concept in sorted(fixed))
             text += f"\n## Fixed since the last check\n\n{names}\n"
-        return text
+        hits = defaults_mod.find(build)
+        return text + (f"\n{defaults_mod.render(hits)}" if hits else "")
 
 
 def _text(text, error=False):

@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from piggyback import defaults as defaults_mod
 from piggyback import fingerprint as fp
 from piggyback import server
 from piggyback.measure import MeasureError
@@ -340,6 +341,44 @@ class ScreenTests(unittest.TestCase):
         whys = [pin["why"] for pin in data["pins"] if pin["why"]]
         self.assertEqual(len(whys), len({pin["concept"] for pin in data["pins"]}))
         self.assertTrue(all(isinstance(text, str) for text in data["not_found"]))
+
+    def clear_build(self):
+        build = fp.load(FIXTURES / "build.json")
+        build["effects"] = {"gradient_text": 0, "tinted_icon_squares": 0}
+        build["motion"] = []
+        return build
+
+    def test_compare_carries_defaults_shaped_like_the_build_only_items(self):
+        body = {"references": ["https://example.com"], "build": "http://localhost:3000"}
+        self.use_build(fp.load(FIXTURES / "build.json"))
+        _, data = self.post_measure(body)
+        _, build_only = self.post_measure({"build": body["build"]})
+        self.assertEqual(data["defaults"], build_only["items"])
+        self.assertEqual([item["number"] for item in data["defaults"]], [1, 2, 3])
+        self.use_build(self.clear_build())
+        _, clear = self.post_measure(body)
+        self.assertEqual(clear["defaults"], [])
+
+    def test_compare_brief_names_defaults_only_when_the_build_has_hits(self):
+        body = {"references": ["https://example.com"], "build": "http://localhost:3000"}
+        self.use_build(fp.load(FIXTURES / "build.json"))
+        self.post_measure(body)
+        self.assertIn("## Defaults detected", self.screen.last_text or "")
+        self.use_build(self.clear_build())
+        self.post_measure(body)
+        self.assertNotIn(
+            "efaults detected", self.screen.last_text or ""
+        )  # also catches "No generic defaults detected."
+
+    def test_build_only_payload_and_text_are_unchanged(self):
+        build = {**fp.load(FIXTURES / "build.json"), "url": "http://127.0.0.1:9/", "shot": "a" * 32}
+        payload, text = server._render([], build)
+        self.assertEqual(set(payload), {"state", "build", "items"})
+        self.assertEqual(
+            [item["concept"] for item in payload["items"]],
+            ["gradient_text", "repeated_motion", "icon_tile"],
+        )
+        self.assertEqual(text, defaults_mod.render(defaults_mod.find(build)))
 
 
 class OpenCommandTests(unittest.TestCase):
