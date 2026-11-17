@@ -215,7 +215,9 @@ def main(argv=None):
     d = sub.add_parser("defaults", help="list generic defaults on one build fingerprint")
     d.add_argument("build", metavar="BUILD.json")
     sub.add_parser("doctor", help="check Python, Playwright and the sandboxed browser")
-    mc = sub.add_parser("mcp", help="read-only MCP server on stdio: get_brief and check")
+    mc = sub.add_parser(
+        "mcp", help="read-only MCP server on stdio: get_brief, get_design_md and check"
+    )
     mc.add_argument("--ref", action="append", metavar="URL", help="public reference (1 to 3)")
     mc.add_argument("--build", metavar="URL", help="your build: localhost, or a public preview")
     args = parser.parse_args(argv)
