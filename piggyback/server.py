@@ -72,16 +72,6 @@ def _plain(text):
     return ESCAPED.sub(r"\1", text)
 
 
-def _loopback(url):
-    """The engine refuses the name `localhost` even with loopback allowed; the build slot means it
-    as 127.0.0.1. Only the exact name is rewritten, so the port and path are kept."""
-    parts = urlsplit(url)
-    if parts.hostname != "localhost":
-        return url
-    port = f":{parts.port}" if parts.port else ""
-    return parts._replace(netloc=f"127.0.0.1{port}").geturl()
-
-
 def _on_this_machine(url):
     """True for a literal loopback address (localhost is already rewritten to 127.0.0.1). Only these
     builds get loopback reach: a hosted preview must not be able to call your local servers."""
@@ -113,7 +103,7 @@ def _slots(body):
     """(references, build) from the request body. Raises ValueError with a user-facing message."""
     refs, build = body.get("references", []), body.get("build") or None
     _shape(refs, build)
-    build = _loopback(build) if build else None
+    build = netpolicy.local_name(build) if build else None
     # Reference: public addresses only. Build: loopback too (your own localhost), still no LAN.
     for url in refs:
         check_url(url)

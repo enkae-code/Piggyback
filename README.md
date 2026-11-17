@@ -106,7 +106,7 @@ impeccable detect src/
 
 Impeccable enforces the fonts in `DESIGN.md` as warnings (exit 2); colour, radius and size drift are advisory. Piggyback makes no Hallmark compatibility claim: Hallmark expects its own `DESIGN.md` format.
 
-These numbers are the target. If you use a design skill such as Impeccable, Hallmark or taste-skill, use it for the method and check its output against these numbers; when they conflict, the user's references win.
+These are measurements of the reference pages, not a target. If you use a design skill such as Impeccable, Hallmark or taste-skill, use it for the method and check its output against these measurements.
 
 Piggyback's wording was edited with [no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT).
 
