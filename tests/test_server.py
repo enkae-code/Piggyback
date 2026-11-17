@@ -264,6 +264,28 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual([pin["concept"] for pin in second["ticked"]], ["heading_type"])
 
+    def test_a_reduced_motion_difference_ticks_once_it_closes(self):
+        ref = fp.load(FIXTURES / "ref.json")
+        ref["reduced_motion"] = {"still_running": 0}
+        build = fp.load(FIXTURES / "build.json")
+        build["reduced_motion"] = {"still_running": 2}
+
+        def use_pages(build):
+            def measure_pages(url, *, allow_loopback=False, screenshot=None, **_):
+                Path(str(screenshot)).write_bytes(PNG)
+                data = build if allow_loopback else ref
+                return {**copy.deepcopy(data), "url": url, "screenshot": str(screenshot)}
+
+            self.measure.side_effect = measure_pages
+
+        body = {"references": ["https://example.com"], "build": "http://localhost:3000"}
+        use_pages(build)
+        _, first = self.post_measure(body)
+        self.assertIn("reduced_motion", {pin["concept"] for pin in first["pins"]})
+        use_pages({**build, "reduced_motion": {"still_running": 0}})
+        _, second = self.post_measure({**body, "rerun": True})
+        self.assertIn("reduced_motion", [pin["concept"] for pin in second["ticked"]])
+
     def test_a_tick_is_dropped_once_its_element_vanishes(self):
         ref = fp.load(FIXTURES / "ref.json")
         build = fp.load(FIXTURES / "build.json")

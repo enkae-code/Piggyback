@@ -20,6 +20,7 @@ ANCHORS = {
 PX_TOLERANCE = 1.0  # the plan's pin gate: a value within 1px is right
 SHARE_TOLERANCE = 0.02  # ... and a share within 2% is right
 TRACKING_TOLERANCE = 0.01  # em
+MOTION_CONCEPTS = {"motion_total", "motion_only_one_page", "motion_reach"}
 
 
 @dataclass(frozen=True)
@@ -165,7 +166,7 @@ def _absent_rows(counts, other, side):
     rows = []
     for identity in sorted(counts.keys() - other.keys(), key=str):
         text = _signature_text(identity, counts[identity])
-        rows.append(("motion", f"motion signature in whole document, {side}: {text}"))
+        rows.append(("motion_only_one_page", f"motion signature in whole document, {side}: {text}"))
     return rows
 
 
@@ -177,7 +178,7 @@ def _count_rows(build_counts, ref_counts):
         if build_n is not None and ref_n is not None and build_n != ref_n:
             rows.append(
                 (
-                    "motion",
+                    "motion_reach",
                     f"motion count differs in whole document: {_signature_base(identity)}, "
                     f"{fp.fmt(build_n)} → {fp.fmt(ref_n)} elements",
                 )
@@ -185,14 +186,17 @@ def _count_rows(build_counts, ref_counts):
     return rows
 
 
+def _still(page):
+    return fp.number(fp.get(page, "reduced_motion", "still_running"))
+
+
 def _still_rows(ref, build):
     """Animations still running under reduced motion, when both pages report a count."""
-    ref_still = fp.number(fp.get(ref, "reduced_motion", "still_running"))
-    build_still = fp.number(fp.get(build, "reduced_motion", "still_running"))
+    ref_still, build_still = _still(ref), _still(build)
     if ref_still is not None and build_still is not None and ref_still != build_still:
         return [
             (
-                "motion",
+                "reduced_motion",
                 "animations still running with reduced motion requested — "
                 f"build: {fp.fmt(build_still)}, reference: {fp.fmt(ref_still)} (whole document)",
             )
@@ -206,7 +210,10 @@ def _motion_rows(ref, build):
     rows = []
     if len(ref_rows) != len(build_rows):
         rows.append(
-            ("motion", f"motion signatures in whole document: {len(build_rows)} → {len(ref_rows)}")
+            (
+                "motion_total",
+                f"motion signatures in whole document: {len(build_rows)} → {len(ref_rows)}",
+            )
         )
     ref_counts, build_counts = _counts(ref_rows), _counts(build_rows)
     rows += _absent_rows(build_counts, ref_counts, "present in build, absent in reference")
@@ -219,7 +226,7 @@ def gap(ref, build):
     """Pins for the differences between a reference and a build fingerprint."""
     anchor_rows, anchor_absent = _anchor_rows(ref, build)
     page_rows, page_absent = _page_rows(ref, build)
-    motion_rows = [("motion", detail, None, None) for _, detail in _motion_rows(ref, build)]
+    motion_rows = [(concept, detail, None, None) for concept, detail in _motion_rows(ref, build)]
     pins = [
         Pin(number, *row) for number, row in enumerate(anchor_rows + page_rows + motion_rows, 1)
     ]
@@ -231,6 +238,20 @@ def _sized(page, name):
     anchor = fp.anchor(page, name)
     size = fp.px(anchor.get("font_size")) if anchor else None
     return size is not None and size > 0
+
+
+def _has_motion(page):
+    """A page with no `motion` list is not comparable; an empty list is."""
+    return isinstance(fp.get(page, "motion"), list)
+
+
+def _motion_compared(ref, build):
+    found = set()
+    if _has_motion(ref) and _has_motion(build):
+        found |= MOTION_CONCEPTS
+    if _still(ref) is not None and _still(build) is not None:
+        found.add("reduced_motion")
+    return found
 
 
 def compared(ref, build):
@@ -246,7 +267,7 @@ def compared(ref, build):
     if fp.number(fp.get(ref, "container_width")) is not None:
         if fp.number(fp.get(build, "container_width")) is not None:
             found.add("container")
-    return found
+    return found | _motion_compared(ref, build)
 
 
 def differing(pins):

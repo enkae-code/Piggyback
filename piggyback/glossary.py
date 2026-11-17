@@ -66,9 +66,23 @@ TERMS = {
         "Uniform radius (every rounded box has the same corners)",
         "Cards, buttons and inputs in the first screen share one corner radius.",
     ),
-    "motion": (
-        "Motion (the animations and transitions measured in the whole document)",
+    "motion_total": (
+        "Motion signatures (how many animation and transition signatures the whole document has)",
         "Each signature records its kind, timing, easing, animated properties, and element count.",
+    ),
+    "motion_only_one_page": (
+        "Motion signature on one page only (an animation or transition missing from one page)",
+        "Signatures are matched on kind, properties, timing and easing, so a signature missing "
+        "from one page is a difference in what animates.",
+    ),
+    "motion_reach": (
+        "Motion count (how many elements run the same signature)",
+        "Element counts are compared only for signatures both pages share, so a different number "
+        "shows how many elements animate differently.",
+    ),
+    "reduced_motion": (
+        "Reduced motion (animations still running when visitors ask for less motion)",
+        "Visitors who ask for less motion still see these animations.",
     ),
     "repeated_motion": (
         "Repeated motion (the same fade-and-move on many blocks)",

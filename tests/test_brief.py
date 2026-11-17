@@ -211,16 +211,63 @@ class GapTests(unittest.TestCase):
         prefix = "cubic-bezier(" + "1" * 40
         ref = {"motion": [{"kind": "animation", "props": ["opacity"], "easing": prefix + "a"}]}
         build = {"motion": [{"kind": "animation", "props": ["opacity"], "easing": prefix + "b"}]}
-        details = [pin.detail for pin in gap_mod.gap(ref, build) if pin.concept == "motion"]
+        details = [
+            pin.detail for pin in gap_mod.gap(ref, build) if pin.concept in gap_mod.MOTION_CONCEPTS
+        ]
         self.assertEqual(sum("motion signature in whole document" in d for d in details), 2)
         for props in (None, 5):
             with self.subTest(props=props):
                 details = [
                     pin.detail
                     for pin in gap_mod.gap({}, {"motion": [{"kind": "animation", "props": props}]})
-                    if pin.concept == "motion"
+                    if pin.concept in gap_mod.MOTION_CONCEPTS
                 ]
                 self.assertTrue(any("properties not measured" in d for d in details))
+
+    def test_each_motion_row_kind_has_its_own_concept_and_name(self):
+        def signature(kind, prop, count):
+            return {
+                "kind": kind,
+                "props": [prop],
+                "duration": 300,
+                "delay": 0,
+                "easing": "ease",
+                "count": count,
+            }
+
+        ref = {
+            "motion": [signature("animation", "opacity", 2), signature("transition", "color", 1)],
+            "reduced_motion": {"still_running": 3},
+        }
+        build = {
+            "motion": [
+                signature("animation", "opacity", 5),
+                signature("animation", "transform", 1),
+                signature("animation", "width", 1),
+            ],
+            "reduced_motion": {"still_running": 1},
+        }
+        pins = gap_mod.gap(ref, build)
+        concepts = {
+            pin.concept
+            for pin in pins
+            if pin.concept in gap_mod.MOTION_CONCEPTS | {"reduced_motion"}
+        }
+        self.assertEqual(
+            concepts,
+            {"motion_total", "motion_only_one_page", "motion_reach", "reduced_motion"},
+        )
+        self.assertEqual(len({glossary.TERMS[concept][0] for concept in concepts}), 4)
+        self.assertEqual(sum(pin.concept == "motion_only_one_page" for pin in pins), 3)
+
+    def test_motion_and_reduced_motion_compare_only_when_both_pages_carry_them(self):
+        both = {"motion": [], "reduced_motion": {"still_running": 0}}
+        self.assertTrue(
+            gap_mod.MOTION_CONCEPTS | {"reduced_motion"} <= gap_mod.compared(both, both)
+        )
+        no_motion = {"reduced_motion": {"still_running": 0}}
+        self.assertFalse(gap_mod.MOTION_CONCEPTS & gap_mod.compared(both, no_motion))
+        self.assertNotIn("reduced_motion", gap_mod.compared(both, {"motion": []}))
 
     def test_pins_only_on_anchors_both_pages_have(self):
         pins = gap_mod.gap(self.ref, self.build)
@@ -476,7 +523,9 @@ class ReceiptScopeMotionTests(unittest.TestCase):
                 ]
             }
 
-        pins = [p for p in gap_mod.gap(motion(5), motion(6)) if p.concept == "motion"]
+        pins = [
+            p for p in gap_mod.gap(motion(5), motion(6)) if p.concept in gap_mod.MOTION_CONCEPTS
+        ]
         self.assertEqual(len(pins), 1)
         self.assertEqual(
             pins[0].detail,
@@ -488,7 +537,7 @@ class ReceiptScopeMotionTests(unittest.TestCase):
         pins = gap_mod.gap(
             {"reduced_motion": {"still_running": 3}}, {"reduced_motion": {"still_running": 1}}
         )
-        details = [p.detail for p in pins if p.concept == "motion"]
+        details = [p.detail for p in pins if p.concept == "reduced_motion"]
         self.assertIn(
             "animations still running with reduced motion requested — "
             "build: 1, reference: 3 (whole document)",

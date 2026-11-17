@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 
 from piggyback import fingerprint as fp
-from piggyback import mcp
+from piggyback import glossary, mcp
 from piggyback.measure import MeasureError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -288,6 +288,29 @@ class Tools(unittest.TestCase):
         exchange(self.session, call("check"))  # heading differs
         build = copy.deepcopy(self.fake.build)
         del build["anchors"]["heading"]
+        self.fake.build = build
+        second = self.text(exchange(self.session, call("check"))[0])
+        self.assertNotIn("## Fixed since", second)
+
+    def test_a_closed_reduced_motion_difference_is_named_as_fixed(self):
+        ref, build = load("ref.json"), load("build.json")
+        ref["reduced_motion"], build["reduced_motion"] = {"still_running": 0}, {"still_running": 2}
+        self.fake.ref, self.fake.build = ref, build
+        first = self.text(exchange(self.session, call("check"))[0])
+        self.assertIn(glossary.TERMS["reduced_motion"][0], first)
+        self.fake.build = {**build, "reduced_motion": {"still_running": 0}}
+        second = self.text(exchange(self.session, call("check"))[0])
+        self.assertIn("## Fixed since the last check", second)
+        self.assertIn(f"- {glossary.TERMS['reduced_motion'][0]}", second)
+
+    def test_a_motion_difference_is_not_fixed_when_its_page_loses_its_motion_list(self):
+        ref = load("ref.json")
+        ref["motion"] = []  # the build's one signature is an open difference
+        self.fake.ref = ref
+        first = self.text(exchange(self.session, call("check"))[0])
+        self.assertIn(glossary.TERMS["motion_total"][0], first)
+        build = copy.deepcopy(self.fake.build)
+        del build["motion"]  # no list: nothing to compare, so the difference must not read as fixed
         self.fake.build = build
         second = self.text(exchange(self.session, call("check"))[0])
         self.assertNotIn("## Fixed since", second)
