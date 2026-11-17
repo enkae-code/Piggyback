@@ -16,6 +16,8 @@ measure = ["playwright>=1.47"]
 
 [project.scripts]
 piggyback = "piggyback.cli:main"
+# uvx runs the script named after the package
+piggyback-design = "piggyback.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["piggyback"]

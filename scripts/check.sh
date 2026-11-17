@@ -12,5 +12,8 @@ ruff check .
 }
 ~/.venvs/neuroos-gates/bin/vulture piggyback --min-confidence 80
 git diff --check
-PYTHONPATH=. python3 -m unittest discover -s tests -t .
+# The browser tests skip at import without Playwright, which would pass silently.
+PY="${PIGGYBACK_PYTHON:-$HOME/.venvs/taste-vault/bin/python}"
+"$PY" -c "import playwright" || { echo "check.sh: $PY has no Playwright; set PIGGYBACK_PYTHON" >&2; exit 1; }
+PYTHONPATH=. "$PY" -m unittest discover -s tests -t .
 echo "ALL GATES OK"
