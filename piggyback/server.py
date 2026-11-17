@@ -262,6 +262,8 @@ class Screen(ThreadingHTTPServer):
         self.last_text = None  # BRIEF.md text of the last run
         # Every reference fingerprint of the last run; empty when that run had no reference.
         self.last_refs = []
+        # (last_refs, compare-state text after the reference brief), set together by run().
+        self.last_run = ([], "")
 
     def _shoot(self, url, allow_loopback, shown=None):
         shot_id = secrets.token_hex(16)
@@ -274,6 +276,7 @@ class Screen(ThreadingHTTPServer):
         self.refs_key = None  # a failed capture leaves no half-kept list behind
         self.last_compare = None  # a re-measured reference is not a fix: no ticks carry over
         self.last_refs = []
+        self.last_run = ([], "")
         self.ref_fps = [self._shoot(url, False) for url in refs]
         self.refs_key = tuple(refs)
 
@@ -295,7 +298,11 @@ class Screen(ThreadingHTTPServer):
         self._forget_shots(build_fp)
         self.last_text = text
         self.last_refs = list(self.ref_fps)
-        self.last_compare = payload if payload["state"] == "compare" else None
+        is_compare = payload["state"] == "compare"
+        suffix = text[len(brief_mod.brief(self.ref_fps)) :] if is_compare else ""
+        # One assignment: a copy reads the references and their suffix from the same run.
+        self.last_run = (self.last_refs, suffix)
+        self.last_compare = payload if is_compare else None
         return payload
 
 
@@ -390,10 +397,12 @@ class Handler(BaseHTTPRequestHandler):
             if text is None:
                 return self._error(409, "measure first, then copy the brief")
             return self._write("BRIEF.md", text)
-        if not self.server.last_refs:
-            return self._error(409, "measure a reference first, then copy the brief")
+        last, suffix = self.server.last_run
+        refusal = _note_refusal(body.get("refs"), last)
+        if refusal:
+            return self._error(*refusal)
         try:
-            text = brief_mod.brief(self.server.last_refs, notes)
+            text = brief_mod.brief(last, notes) + suffix
         except ValueError as exc:
             return self._error(400, str(exc))
         return self._write("BRIEF.md", text)
@@ -433,6 +442,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def _error(self, status, message):
         return self._json(status, {"error": message})
+
+
+def _note_refusal(refs, last):
+    """(status, message) when notes cannot attach to the last run, else None.
+
+    A note names a reference by its place, so the page sends the URLs it made the notes on.
+    """
+    if not isinstance(refs, list) or not refs or not all(isinstance(url, str) for url in refs):
+        return 400, "notes need the references they were made on: send refs"
+    if not last:
+        return 409, "measure a reference first, then copy the brief"
+    if [fp["url"] for fp in last] != refs:
+        return 409, "the references changed since you added notes: measure again"
+    return None
 
 
 def redirect_file(folder, url):

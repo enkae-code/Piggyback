@@ -221,9 +221,9 @@ def sections(refs):
 
 
 def _note_text(text):
-    if text is not None and not isinstance(text, str):
+    if not isinstance(text, str):
         raise ValueError("a note's text must be a string")
-    text = (text or "").strip()
+    text = text.strip()
     if len(text) > NOTE_CHARS:
         raise ValueError(f"a note's text is at most {NOTE_CHARS} characters")
     return text
@@ -240,7 +240,7 @@ def _one_note(item, count):
         raise ValueError("a note must name one measured row of the reference")
     if verdict not in VERDICTS:
         raise ValueError("a note's verdict must be borrow or avoid")
-    return (number, concept), (verdict, _note_text(item.get("text")))
+    return (number, concept), (verdict, _note_text(item.get("text", "")))
 
 
 def _checked(refs, notes):

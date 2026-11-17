@@ -621,7 +621,8 @@ $("slots").addEventListener("submit", (event) => {
   measure(false);
 });
 $("rerun").addEventListener("click", () => measure(true));
-$("copy").addEventListener("click", () => copyFile("/api/brief", "BRIEF.md", { notes: briefNotes() }));
+$("copy").addEventListener("click", () => copyFile("/api/brief", "BRIEF.md",
+  { notes: briefNotes(), refs: state.lastRequest.references }));
 $("copy-design").addEventListener("click", () => copyFile("/api/design-md", "DESIGN.md"));
 $("zoom-close").addEventListener("click", () => $("zoom").close());
 window.addEventListener("resize", relayoutAll);

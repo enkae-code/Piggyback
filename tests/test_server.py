@@ -444,7 +444,9 @@ class ScreenTests(unittest.TestCase):
     def test_notes_reach_the_file_and_the_text(self):
         self.post_measure({"references": ["https://example.com"]})
         notes = [{"ref": 1, "concept": "radius", "verdict": "avoid", "text": "Too round"}]
-        status, _, data = self.call("POST", "/api/brief", {"notes": notes})
+        status, _, data = self.call(
+            "POST", "/api/brief", {"notes": notes, "refs": ["https://example.com"]}
+        )
         body = json.loads(data)
         self.assertEqual(status, 200)
         self.assertIn(
@@ -458,15 +460,54 @@ class ScreenTests(unittest.TestCase):
         self.post_measure({"references": ["https://example.com", "https://example.org"]})
         self.assertEqual(len(self.screen.last_refs), 2)
         notes = [{"ref": 2, "concept": "palette", "verdict": "borrow"}]
-        _, _, data = self.call("POST", "/api/brief", {"notes": notes})
+        refs = ["https://example.com", "https://example.org"]
+        _, _, data = self.call("POST", "/api/brief", {"notes": notes, "refs": refs})
         first, second = json.loads(data)["text"].split("## Reference 2:")
         self.assertNotIn("### Borrow", first)
         self.assertIn("### Borrow", second)
 
+    def test_a_note_keeps_the_compare_differences_and_defaults(self):
+        body = {"references": ["https://example.com"], "build": "http://localhost:3000"}
+        self.use_build(fp.load(FIXTURES / "build.json"))
+        self.post_measure(body)
+        plain = self.screen.last_text or ""
+        notes = [{"ref": 1, "concept": "radius", "verdict": "avoid", "text": "Too round"}]
+        _, _, data = self.call("POST", "/api/brief", {"notes": notes, "refs": body["references"]})
+        text = json.loads(data)["text"]
+        self.assertIn("— Too round", text)
+        self.assertIn("## Differences", text)
+        self.assertIn("## Defaults detected", text)
+        suffix = plain[len(brief_mod.brief(self.screen.last_refs)) :]
+        self.assertTrue(text.endswith(suffix), "the compare suffix must survive a note")
+
+    def test_two_clients_a_copy_after_the_references_changed_is_refused(self):
+        self.post_measure({"references": ["https://example.com"]})
+        notes = [{"ref": 1, "concept": "radius", "verdict": "avoid", "text": "Too round"}]
+        self.post_measure({"references": ["https://example.org"]})
+        status, _, data = self.call(
+            "POST", "/api/brief", {"notes": notes, "refs": ["https://example.com"]}
+        )
+        self.assertEqual(status, 409)
+        self.assertEqual(
+            json.loads(data)["error"],
+            "the references changed since you added notes: measure again",
+        )
+        self.assertFalse(Path(self.tmp.name, "BRIEF.md").exists())
+
+    def test_notes_without_their_references_are_a_400(self):
+        self.post_measure({"references": ["https://example.com"]})
+        notes = [{"ref": 1, "concept": "radius", "verdict": "avoid"}]
+        status, _, data = self.call("POST", "/api/brief", {"notes": notes})
+        self.assertEqual(status, 400)
+        self.assertIn("send refs", json.loads(data)["error"])
+        self.assertFalse(Path(self.tmp.name, "BRIEF.md").exists())
+
     def test_a_bad_note_is_a_400_and_writes_nothing(self):
         self.post_measure({"references": ["https://example.com"]})
         notes = [{"ref": 1, "concept": "nope", "verdict": "borrow"}]
-        status, _, data = self.call("POST", "/api/brief", {"notes": notes})
+        status, _, data = self.call(
+            "POST", "/api/brief", {"notes": notes, "refs": ["https://example.com"]}
+        )
         self.assertEqual(status, 400)
         self.assertEqual(
             json.loads(data)["error"], "a note must name one measured row of the reference"
@@ -476,7 +517,8 @@ class ScreenTests(unittest.TestCase):
     def test_notes_need_a_reference_measured_first(self):
         self.post_measure({"build": "http://localhost:3000"})
         notes = [{"ref": 1, "concept": "radius", "verdict": "borrow"}]
-        status, _, data = self.call("POST", "/api/brief", {"notes": notes})
+        refs = ["https://example.com"]
+        status, _, data = self.call("POST", "/api/brief", {"notes": notes, "refs": refs})
         self.assertEqual(status, 409)
         self.assertIn("measure a reference first", json.loads(data)["error"])
         self.assertFalse(Path(self.tmp.name, "BRIEF.md").exists())

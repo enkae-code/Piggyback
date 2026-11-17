@@ -177,6 +177,10 @@ class BriefTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             brief_mod.brief(refs, [*notes, extra])
 
+    def test_concepts_are_the_rows_the_brief_prints_in_order(self):
+        rows = brief_mod._rows({})[1]
+        self.assertEqual(tuple(concept for concept, _ in rows), brief_mod.CONCEPTS)
+
     def test_bad_notes_are_refused_with_a_message(self):
         ref = load("ref.json")
         good = {"ref": 1, "concept": "radius", "verdict": "borrow"}
@@ -189,6 +193,7 @@ class BriefTests(unittest.TestCase):
             [{**good, "concept": "heading_type"}],
             [{**good, "verdict": "maybe"}],
             [{**good, "text": 5}],
+            [{**good, "text": None}],
             [{**good, "text": "x" * 201}],
             [good, dict(good)],
         ]
