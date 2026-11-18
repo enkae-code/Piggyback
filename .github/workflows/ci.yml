@@ -42,3 +42,95 @@ jobs:
       - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: python -m piggyback doctor
       - run: python -m unittest -v tests.test_measure_integration tests.test_server_integration tests.test_mcp_integration
+
+  package:
+    name: package smoke (${{ matrix.os }}, py 3.12)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      # build runs in the checkout; every later step runs outside it, against the installed wheel.
+      # build is installed here only, because pip cannot build an sdist.
+      - name: build wheel and sdist
+        run: |
+          python -m pip install build==1.6.1
+          python -m pip wheel . --no-deps -w "$RUNNER_TEMP/dist"
+          python -m build --sdist --outdir "$RUNNER_TEMP/dist" .
+          ls "$RUNNER_TEMP/dist"
+      - name: fresh venv with the wheel and [measure]
+        run: |
+          mkdir -p "$RUNNER_TEMP/smoke"
+          python -m venv "$RUNNER_TEMP/venv"
+          if [ "$RUNNER_OS" = Windows ]; then bin="$RUNNER_TEMP/venv/Scripts"; else bin="$RUNNER_TEMP/venv/bin"; fi
+          wheel=$(python -c "import glob, os, sys; found = glob.glob(os.path.join(sys.argv[1], '*.whl')); assert len(found) == 1, found; print(found[0])" "$RUNNER_TEMP/dist")
+          "$bin/python" -m pip install "$wheel[measure]"
+          echo "$bin" >> "$GITHUB_PATH"
+      - name: install chromium
+        if: runner.os == 'Linux'
+        working-directory: ${{ runner.temp }}/smoke
+        run: python -m playwright install --with-deps chromium
+      - if: runner.os != 'Linux'
+        working-directory: ${{ runner.temp }}/smoke
+        run: python -m playwright install chromium
+      # Ubuntu 23.10+ AppArmor blocks the unprivileged user namespaces Chromium's sandbox needs.
+      # CI runners only; never on a developer machine.
+      - if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: entry points and doctor
+        working-directory: ${{ runner.temp }}/smoke
+        run: |
+          piggyback --help
+          piggyback-design --help
+          piggyback doctor
+      - name: installed package, starters and screen assets
+        working-directory: ${{ runner.temp }}/smoke
+        env:
+          CHECKOUT: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import sys
+
+          import piggyback
+
+          installed = pathlib.Path(piggyback.__file__).resolve().parent
+          checkout = pathlib.Path(os.environ["CHECKOUT"]).resolve()
+          assert pathlib.Path(sys.prefix).resolve() in installed.parents, installed
+          assert checkout not in installed.parents, installed
+          print("piggyback imported from", installed)
+
+          def files(root):
+              return sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+
+          for sub in ("starters", "web"):
+              packaged = files(installed / sub)
+              source = files(checkout / "piggyback" / sub)
+              assert packaged and packaged == source, (sub, len(packaged), len(source))
+              print(sub, len(packaged), "files, same as the checkout")
+          PY
+      - name: measure a public page and brief it
+        working-directory: ${{ runner.temp }}/smoke
+        run: |
+          piggyback measure https://example.com/ --out measured
+          test -s measured/fingerprint.json
+          test -s measured/screenshot.png
+          piggyback brief measured/fingerprint.json --out measured/BRIEF.md
+          test -s measured/BRIEF.md
+      - name: brief a packaged starter offline
+        working-directory: ${{ runner.temp }}/smoke
+        run: |
+          starter=$(python -c "import pathlib, piggyback; print(pathlib.Path(piggyback.__file__).parent / 'starters' / 'ink-and-rule' / 'fingerprint.json')")
+          piggyback brief "$starter" --out starter-brief.md
+          test -s starter-brief.md
