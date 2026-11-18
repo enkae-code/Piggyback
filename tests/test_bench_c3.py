@@ -282,6 +282,33 @@ class Checks(unittest.TestCase):
         self.assertEqual(report["detail"], "checklist timed out")
         self.assertIsNone(report["correction_message"])
 
+    def test_interrupt_kills_the_worker_group_and_reraises(self):
+        from unittest import mock
+
+        worker = mock.MagicMock(pid=4343)
+        worker.communicate.side_effect = KeyboardInterrupt()
+        with (
+            mock.patch.object(checklist.subprocess, "Popen", return_value=worker),
+            mock.patch.object(checklist.os, "killpg") as killpg,
+            self.assertRaises(KeyboardInterrupt),
+        ):
+            checklist.run_bounded("page.html", "T01", total_s=1)
+        killpg.assert_called_once_with(4343, signal.SIGKILL)
+
+    def test_relative_file_target_is_resolved_in_the_callers_directory(self):
+        import os
+
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "page.html").write_text("<p>x</p>", encoding="utf-8")
+            old = os.getcwd()
+            os.chdir(tmp)
+            try:
+                report = checklist.run_bounded("page.html", "T01", total_s=60)
+            finally:
+                os.chdir(old)
+        self.assertEqual(report["target"], str(Path(tmp, "page.html").resolve()))
+        self.assertNotIn("refusing non-loopback target", report.get("detail") or "")
+
     def test_message_template_lists_items_verbatim(self):
         message = checklist.correction_message(["a item", "b item"])
         self.assertEqual(

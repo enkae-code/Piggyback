@@ -61,8 +61,8 @@ def _nearest_table(nodes, path):
 def count_matches(pred, nodes):
     """Visible elements matching any alternative, outside the excluded ancestors.
 
-    A match inside another match is part of that item, so only outermost matches count. With
-    per_table, the count is the most matches held by one table: rows must share a table.
+    A match that wraps another match is a container of that item, so only innermost matches count.
+    With per_table, the count is the most matches held by one table: rows must share a table.
     """
     excluded = pred.get("exclude_within", [])
     matched = {
@@ -76,7 +76,7 @@ def count_matches(pred, nodes):
         groups = Counter(_nearest_table(nodes, nodes[i]["path"]) for i in matched)
         groups.pop(None, None)
         return max(groups.values(), default=0)
-    return sum(1 for i in matched if not any(j in matched for j in nodes[i]["path"]))
+    return sum(1 for i in matched if not any(i in nodes[k]["path"] for k in matched))
 
 
 def _scope_of_headline(nodes, first):

@@ -101,8 +101,10 @@ OVERFLOW_JS = """async () => {
   await Promise.race([finished, new Promise((done) => setTimeout(done, 1000))]);
   await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
   const width = window.innerWidth;
-  // A fixed element is never clipped by an ancestor. An absolute element is clipped only by an
-  // overflow ancestor at or above its containing block, the nearest positioned ancestor.
+  // A fixed element is never clipped by an ancestor, and a fixed ancestor ends the walk: its own
+  // overflow still clips its subtree, nothing above it does. An absolute ancestor ends the clip
+  // chain too: an absolute element is clipped only by overflow ancestors at or above its containing
+  // block, the nearest positioned ancestor.
   // ponytail: transform and filter ancestors make a fixed containing block; not modelled, so a
   // fixed element counts as unclipped there too.
   const clips = (s) => [s.overflowX, s.overflowY].some((v) => v === "hidden" || v === "clip");
@@ -114,6 +116,8 @@ OVERFLOW_JS = """async () => {
       const s = getComputedStyle(p);
       if (!inside && s.position !== "static") inside = true;
       if (inside && clips(s)) return true;
+      if (s.position === "fixed") return false;
+      if (s.position === "absolute") inside = false;
     }
     return false;
   };
@@ -441,6 +445,9 @@ def run_bounded(target, task_id, total_s=TOTAL_S):
 
     The worker leads its own process group, so the kill also reaches Chromium and its renderer.
     """
+    if Path(target).is_file():
+        # The worker runs in REPO: resolve a relative file path in the caller's cwd first.
+        target = str(Path(target).resolve())
     worker = subprocess.Popen(
         [sys.executable, "-m", "bench.c3.checklist", "--worker", target, "--task", task_id],
         cwd=REPO,
@@ -456,6 +463,10 @@ def run_bounded(target, task_id, total_s=TOTAL_S):
         os.killpg(worker.pid, signal.SIGKILL)
         worker.communicate()
         return report_for(target, task_id, NO_RUNNABLE, detail="checklist timed out")
+    except BaseException:  # Ctrl-C or SIGTERM: never leave Chromium orphaned
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(worker.pid, signal.SIGKILL)
+        raise
     try:
         return json.loads(out)
     except json.JSONDecodeError:

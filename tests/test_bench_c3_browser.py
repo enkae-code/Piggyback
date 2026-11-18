@@ -136,6 +136,11 @@ class ChecklistBrowser(unittest.TestCase):
         self.assertIn(checklist.OVERFLOW_ITEM.format(width=1440), report["failed"])
         self.assertIn(checklist.OVERFLOW_ITEM.format(width=390), report["failed"])
 
+    def test_static_child_of_fixed_element_escapes_an_outer_overflow_hidden(self):
+        report = self.run_on(page("t01-fixed-in-clipped.html"))
+        self.assertIn(checklist.OVERFLOW_ITEM.format(width=1440), report["failed"])
+        self.assertIn(checklist.OVERFLOW_ITEM.format(width=390), report["failed"])
+
     def test_absolute_element_clipped_by_its_containing_block_passes(self):
         report = self.run_on(page("t01-absolute-clipped.html"))
         self.assertTrue(report["pass"], report["failed"])

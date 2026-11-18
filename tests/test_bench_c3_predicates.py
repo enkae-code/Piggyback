@@ -381,6 +381,36 @@ class CountsAndDates(unittest.TestCase):
         html += "</article>"
         self.assertFalse(passes("T02", "three selected projects", html))
 
+    def test_wrapper_whose_class_matches_does_not_swallow_its_items(self):
+        wrappers = {
+            "T02": (
+                '<div class="project-list">{}</div>',
+                '<article class="project">P</article>',
+                3,
+            ),
+            "T04": ('<div class="card-grid">{}</div>', '<div class="card">P</div>', 3),
+            "T08": ('<section class="case-studies">{}</section>', "<article>P</article>", 3),
+            "T06": ('<ul class="activity-list">{}</ul>', "<li>P</li>", 3),
+            "T09": (
+                '<aside class="related"><div class="card-row">{}</div></aside>',
+                '<div class="card">P</div>',
+                2,
+            ),
+        }
+        items = {"T02": "three selected projects", "T04": "three subscription options"}
+        items.update(
+            {"T08": "three case studies", "T06": "three activities", "T09": "related cards"}
+        )
+        for task, (wrapper, leaf, count) in wrappers.items():
+            with self.subTest(task=task):
+                self.assertTrue(passes(task, items[task], wrapper.format(leaf * count)))
+
+    def test_article_with_heading_and_list_counts_its_items(self):
+        html = "<article><h1>Skills swap</h1><ul>"
+        html += "".join(f"<li>{name}</li>" for name in ("Bike repair", "Seed swap", "Knitting"))
+        html += "</ul></article>"
+        self.assertTrue(passes("T06", "three activities", html))
+
     def test_one_row_tables_do_not_add_up_to_a_table(self):
         html = "".join(f"<table><tr><td>{n}</td></tr></table>" for n in "ABC")
         self.assertFalse(passes("T01", "vessel/asset table", html))
@@ -398,6 +428,12 @@ class CountsAndDates(unittest.TestCase):
         html = '<p class="byline">By Ann Lee</p><p>Rated 5/5</p>'
         self.assertFalse(passes("T09", "author/date", html))
         self.assertTrue(passes("T06", "event details", "<p>Saturday 5/5/2026</p>"))
+
+    def test_slash_dates_take_either_order_with_a_year(self):
+        for date in ("12/25/2026", "3/14/26", "14/3/2026"):
+            with self.subTest(date=date):
+                self.assertTrue(passes("T06", "event details", f"<p>{date}</p>"))
+        self.assertFalse(passes("T06", "event details", "<p>13/45/2026</p>"))
 
 
 if __name__ == "__main__":
