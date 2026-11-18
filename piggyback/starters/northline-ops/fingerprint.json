@@ -328,7 +328,7 @@
   "url": "starter:northline-ops",
   "captured_with": "piggyback 0.1.0.dev0",
   "browser": "bundled chromium",
-  "captured_at": "2026-11-18T20:48:32+00:00",
+  "captured_at": "2026-11-18T21:18:47+00:00",
   "capture": {
     "status": 200,
     "final_url": "starter:northline-ops",
@@ -339,7 +339,7 @@
       "width": 1440,
       "height": 900
     },
-    "captured_at": "2026-11-18T20:48:32+00:00"
+    "captured_at": "2026-11-18T21:18:47+00:00"
   },
   "blocked_requests": [],
   "screenshot": "screenshot.png"

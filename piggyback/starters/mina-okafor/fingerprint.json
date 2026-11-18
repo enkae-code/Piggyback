@@ -364,7 +364,7 @@
   "url": "starter:mina-okafor",
   "captured_with": "piggyback 0.1.0.dev0",
   "browser": "bundled chromium",
-  "captured_at": "2026-11-18T20:48:31+00:00",
+  "captured_at": "2026-11-18T21:18:46+00:00",
   "capture": {
     "status": 200,
     "final_url": "starter:mina-okafor",
@@ -375,7 +375,7 @@
       "width": 1440,
       "height": 900
     },
-    "captured_at": "2026-11-18T20:48:31+00:00"
+    "captured_at": "2026-11-18T21:18:46+00:00"
   },
   "blocked_requests": [],
   "screenshot": "screenshot.png"
