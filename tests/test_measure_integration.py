@@ -190,6 +190,44 @@ class MeasureIntegration(unittest.TestCase):
         palette = measure(f"{self.base}/accent-chroma-60.html", allow_loopback=True)["palette"]
         self.assertGreater(palette["accent_share"], 0.1)
 
+    def test_body_over_html_canvas_counts_only_its_exposed_area(self):
+        # Blue covers 696px; the white body shows through the 204px below it (about 0.2 of the
+        # viewport). A full-box body weight made white lead.
+        background = measure(f"{self.base}/body-over-html-canvas.html", allow_loopback=True)[
+            "palette"
+        ]["background"]
+        self.assertEqual(background[0]["value"], "rgb(47, 107, 255)")
+        white = sum(r["share"] for r in background if r["value"] == "rgb(255, 255, 255)")
+        self.assertLess(white, 0.3)
+        self.assertNotIn("rgb(244, 178, 35)", [r["value"] for r in background])
+
+    def test_body_over_html_canvas_accent_is_the_exposed_body(self):
+        # White hero covers 396px; amber body shows through the other 504px (grid share 8/15).
+        # The old full-box body weight reported an accent share of 1.
+        palette = measure(f"{self.base}/body-amber-over-html-white.html", allow_loopback=True)[
+            "palette"
+        ]
+        self.assertEqual(palette["background"][0]["value"], "rgb(244, 178, 35)")
+        self.assertGreater(palette["accent_share"], 0.45)
+        self.assertLess(palette["accent_share"], 0.65)
+
+    def test_opacity_zero_overlay_does_not_hide_the_canvas(self):
+        palette = measure(f"{self.base}/opaque-overlay-opacity-zero.html", allow_loopback=True)[
+            "palette"
+        ]
+        self.assertEqual(palette["background"][0]["value"], "rgb(244, 178, 35)")
+        self.assertGreater(palette["accent_share"], 0.8)
+
+    def test_near_transparent_scrim_does_not_hide_the_canvas(self):
+        # rgba(0,0,0,0.02) is not paint; the amber body still shows the whole viewport.
+        palette = measure(f"{self.base}/scrim-over-amber.html", allow_loopback=True)["palette"]
+        self.assertGreater(palette["accent_share"], 0.8)
+
+    def test_full_viewport_image_covers_the_canvas(self):
+        # An opaque image covers the amber body; its pixels add no colour, so no accent.
+        palette = measure(f"{self.base}/img-over-amber.html", allow_loopback=True)["palette"]
+        self.assertLess(palette["accent_share"], 0.05)
+
     def test_http_404_is_refused_with_its_status(self):
         with self.assertRaisesRegex(MeasureError, "HTTP 404"):
             measure(f"{self.base}/no-such-page.html", allow_loopback=True)
@@ -229,6 +267,12 @@ class MeasureIntegration(unittest.TestCase):
         result = measure(f"{self.base}/icon-tiles.html", allow_loopback=True)
         # The square and the 25%-radius tile count; not the circle or the button.
         self.assertEqual(result["effects"]["tinted_icon_squares"], 2)
+
+    def test_tile_matching_the_body_colour_is_not_tinted(self):
+        # White html, amber body, amber 48px tile: the tile matches the page it sits on, so it is
+        # not tinted. Measured against the canvas (white) it was counted.
+        result = measure(f"{self.base}/tinted-tile-on-amber-body.html", allow_loopback=True)
+        self.assertEqual(result["effects"]["tinted_icon_squares"], 0)
 
     def test_container_is_the_inner_wrapper_and_hidden_text_is_dropped(self):
         result = measure(f"{self.base}/container-sections.html", allow_loopback=True)

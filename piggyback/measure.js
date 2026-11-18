@@ -114,28 +114,40 @@
   const canvasEl = document.body && !hasBg(getComputedStyle(root)) ? document.body : root;
   const canvasCs = getComputedStyle(canvasEl);
   const canvas = hasBg(canvasCs) ? rgba(canvasCs.backgroundColor) : null;
-  const paintsEl = (el) => hasBg(getComputedStyle(el));
+  // A painter hides the canvas when its background is opaque enough, or when it is a replaced
+  // element. Body is not in `boxes`, so it is looked up on its own.
+  const REPLACED = ["img", "video", "canvas", "iframe", "svg"];
+  const opaque = (cs) => {
+    const c = rgba(cs.backgroundColor);
+    return c !== null && c[3] >= 0.5;
+  };
+  const paintsEl = (el) => {
+    const b = byEl.get(el);
+    if (b) return REPLACED.includes(el.localName) || opaque(b.cs);
+    return el === document.body && opaque(getComputedStyle(el));
+  };
   const GRID_X = 24;
   const GRID_Y = 15;
   let canvasCells = 0;
+  let bodyCells = 0;
   for (let i = 0; i < GRID_X; i++) {
     for (let j = 0; j < GRID_Y; j++) {
       const x = ((i + 0.5) * VW) / GRID_X;
       const y = ((j + 0.5) * VH) / GRID_Y;
-      const stack = document.elementsFromPoint(x, y);
-      if (canvas && stack.every((el) => el === canvasEl || !paintsEl(el))) canvasCells++;
+      // ponytail: elementsFromPoint skips pointer-events:none, so such an overlay cannot hide the canvas here. Upgrade path: coverage from `boxes` rects.
+      const top = document.elementsFromPoint(x, y).find((el) => el !== canvasEl && paintsEl(el));
+      if (top === undefined) canvasCells++;
+      else if (top === document.body) bodyCells++;
     }
   }
+  const cells = GRID_X * GRID_Y;
   const paints = [
     ...bgs.map((b) => [b.cs.backgroundColor, b.area]),
-    ...(canvas ? [[canvasCs.backgroundColor, (VW * VH * canvasCells) / (GRID_X * GRID_Y)]] : []),
+    ...(canvas ? [[canvasCs.backgroundColor, (VW * VH * canvasCells) / cells]] : []),
   ];
-  // Body is not in `boxes`: when html owns the canvas, body's own background is a normal paint.
-  if (canvasEl === root && document.body && paintsEl(document.body)) {
-    paints.push([
-      getComputedStyle(document.body).backgroundColor,
-      clipArea(document.body.getBoundingClientRect()),
-    ]);
+  // When html owns the canvas, body's background paints the cells where it is the topmost painter.
+  if (canvasEl === root && bodyCells > 0) {
+    paints.push([getComputedStyle(document.body).backgroundColor, (VW * VH * bodyCells) / cells]);
   }
   const accents = new Map();
   for (const [paint, area] of paints) {
@@ -209,7 +221,8 @@
   );
   // Tinted: translucent, or an opaque pastel that differs from the page background. Squares
   // only: circles (avatars) and buttons are not icon tiles.
-  const pageBg = canvas || [255, 255, 255, 1];
+  const bodyCs = document.body ? getComputedStyle(document.body) : null;
+  const pageBg = (bodyCs && hasBg(bodyCs) ? rgba(bodyCs.backgroundColor) : canvas) || [255, 255, 255, 1];
   const tinted = (c) =>
     c[3] < 1 ||
     (Math.max(...c.slice(0, 3)) >= 200 &&
