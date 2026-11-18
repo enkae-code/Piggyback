@@ -562,6 +562,23 @@ ROUND8_PROBES = [
 ]
 
 
+# Related links in page chrome are navigation, not related cards (Opus round-8 LOW).
+ROUND8_PROBES += [
+    (
+        "T09",
+        "related cards",
+        '<nav class="related-nav"><ul><li>Prev</li><li>Next</li></ul></nav>',
+        False,
+    ),
+    (
+        "T09",
+        "related cards",
+        '<footer><ul class="related-links"><li>a</li><li>b</li></ul></footer>',
+        False,
+    ),
+]
+
+
 class RoundEightProbes(unittest.TestCase):
     def test_probe_table(self):
         for task, item, markup, expected in ROUND8_PROBES:

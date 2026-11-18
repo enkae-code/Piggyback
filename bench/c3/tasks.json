@@ -560,7 +560,12 @@
             }
           ],
           "min": 2,
-          "rule": "at least two visible related cards or items"
+          "rule": "at least two visible related cards or items",
+          "exclude_within": [
+            "nav",
+            "header",
+            "footer"
+          ]
         },
         {
           "item": "membership CTA",
