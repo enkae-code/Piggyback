@@ -148,15 +148,19 @@
     ],
     "background": [
       {
+        "value": "rgb(18, 17, 16)",
+        "share": 0.9
+      },
+      {
         "value": "rgb(39, 63, 43)",
-        "share": 0.93
+        "share": 0.09
       },
       {
         "value": "rgb(236, 230, 218)",
-        "share": 0.07
+        "share": 0.01
       }
     ],
-    "accent_share": 0.09
+    "accent_share": 0
   },
   "radius": [],
   "rounded_boxes": 0,
@@ -368,7 +372,7 @@
   "url": "starter:mina-okafor",
   "captured_with": "piggyback 0.1.0.dev0",
   "browser": "bundled chromium",
-  "captured_at": "2026-11-18T00:56:07+00:00",
+  "captured_at": "2026-11-18T02:12:43+00:00",
   "capture": {
     "status": 200,
     "final_url": "starter:mina-okafor",
@@ -379,7 +383,7 @@
       "width": 1440,
       "height": 900
     },
-    "captured_at": "2026-11-18T00:56:07+00:00"
+    "captured_at": "2026-11-18T02:12:43+00:00"
   },
   "blocked_requests": [],
   "screenshot": "screenshot.png"

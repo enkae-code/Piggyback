@@ -136,11 +136,15 @@
     ],
     "background": [
       {
+        "value": "rgb(244, 178, 35)",
+        "share": 0.83
+      },
+      {
         "value": "rgb(18, 18, 18)",
-        "share": 1
+        "share": 0.17
       }
     ],
-    "accent_share": 0
+    "accent_share": 0.86
   },
   "radius": [],
   "rounded_boxes": 0,
@@ -344,7 +348,7 @@
   "url": "starter:ink-and-rule",
   "captured_with": "piggyback 0.1.0.dev0",
   "browser": "bundled chromium",
-  "captured_at": "2026-11-18T00:56:04+00:00",
+  "captured_at": "2026-11-18T02:12:41+00:00",
   "capture": {
     "status": 200,
     "final_url": "starter:ink-and-rule",
@@ -355,7 +359,7 @@
       "width": 1440,
       "height": 900
     },
-    "captured_at": "2026-11-18T00:56:04+00:00"
+    "captured_at": "2026-11-18T02:12:41+00:00"
   },
   "blocked_requests": [],
   "screenshot": "screenshot.png"

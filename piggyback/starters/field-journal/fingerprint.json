@@ -124,8 +124,12 @@
     ],
     "background": [
       {
+        "value": "rgb(243, 244, 241)",
+        "share": 0.99
+      },
+      {
         "value": "rgb(25, 27, 24)",
-        "share": 1
+        "share": 0.01
       }
     ],
     "accent_share": 0
@@ -340,7 +344,7 @@
   "url": "starter:field-journal",
   "captured_with": "piggyback 0.1.0.dev0",
   "browser": "bundled chromium",
-  "captured_at": "2026-11-18T00:56:01+00:00",
+  "captured_at": "2026-11-18T02:12:39+00:00",
   "capture": {
     "status": 200,
     "final_url": "starter:field-journal",
@@ -351,7 +355,7 @@
       "width": 1440,
       "height": 900
     },
-    "captured_at": "2026-11-18T00:56:01+00:00"
+    "captured_at": "2026-11-18T02:12:39+00:00"
   },
   "blocked_requests": [],
   "screenshot": "screenshot.png"
