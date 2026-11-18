@@ -63,8 +63,13 @@ def exists_message(path):
 def write_new(path, text):
     """Create a file that must not exist yet: BRIEF.md and DESIGN.md are never overwritten.
 
-    O_EXCL also refuses a symlink, even a dangling one.
+    lexists also refuses a symlink, even a dangling one. O_EXCL alone does not: Windows follows
+    a dangling link and creates its target.
     """
+    # ponytail: lexists then O_EXCL leaves a race if a link appears between them; a single-user
+    # local folder makes that unlikely. Upgrade path: a directory fd with O_NOFOLLOW where present.
+    if os.path.lexists(path):
+        raise FileExistsError(exists_message(path))
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
     except FileExistsError:
@@ -472,6 +477,7 @@ def redirect_file(folder, url):
         f'<a href="{target}">Open Piggyback</a>'
     )
     path = Path(folder) / "open.html"
+    # ponytail: Windows O_EXCL follows dangling links; this folder is fresh and private.
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as out:
         out.write(page)
