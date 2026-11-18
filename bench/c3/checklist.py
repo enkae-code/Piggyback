@@ -1,14 +1,21 @@
 """Frozen C3 acceptance checklist: four checks, run in this order, on one page.
 
-1. render: passes when the body has rendered text (innerText, trimmed, non-empty) AND no
-   uncaught pageerror occurred. Console errors (e.g. a 404 image) are recorded and never fail.
-2. content: each predicate of the task, read from the DOM after load (see tasks.json).
-3. overflow: scrollWidth must not exceed clientWidth at 1440 px, then at 390 px.
+1. render: passes when the body has non-empty rendered text. Uncaught page errors and console
+   errors are recorded and never fail on their own; a failed render names the first page error.
+2. content: each predicate of the task, read from the rendered DOM (see tasks.json, predicates.py).
+3. overflow: at 1440 px, then 390 px, after the page settles: scrollWidth must not exceed the
+   viewport, and no rendered element may end more than 1 px past the viewport edge unless an
+   ancestor with overflow hidden or clip clips it.
 4. axe: axe-core, tags wcag2a and wcag2aa, run at 1440 px. Violations fail. Incomplete results
    are recorded and never fail.
 
-Only file paths and loopback http(s) URLs are loaded, and the page may request only loopback
-http(s), file, data or blob URLs.
+Outcomes: pass (exit 0), fail (exit 1, one correction message), no_runnable_output (exit 1, no
+correction message: the page never reached a state we can check), checker_fault (exit 2: a bad
+target or task, no bundled Chromium, or a bug here). Every outcome prints the JSON report.
+
+Only file paths and loopback http(s) URLs are loaded. The browser goes through TargetProxy, which
+connects only to the target's own origin; route() checks the page's requests as a second layer.
+A file target has no origin, so it reaches no http(s) host at all.
 
 Usage: PYTHONPATH=. python bench/c3/checklist.py PAGE --task T01
 """
@@ -17,13 +24,17 @@ import argparse
 import contextlib
 import ipaddress
 import json
-import re
+import os
 import sys
+from contextlib import closing
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from bench.c3.predicates import evaluate_predicate
 from piggyback import netpolicy
-from piggyback.browser import NO_WEBRTC, launch
+from piggyback.browser import ARGS, NO_WEBRTC
+from piggyback.measure import BYPASS_ENV
+from piggyback.proxy import FORBIDDEN, EgressProxy
 
 HERE = Path(__file__).resolve().parent
 TASKS_PATH = HERE / "tasks.json"
@@ -34,6 +45,8 @@ OVERFLOW_WIDTHS = (1440, 390)
 HEIGHT = 900
 NAV_MS = 30_000
 SETTLE_MS = 5_000
+PASS, FAIL, NO_RUNNABLE, FAULT = "pass", "fail", "no_runnable_output", "checker_fault"
+EXIT_CODES = {PASS: 0, FAIL: 1, NO_RUNNABLE: 1, FAULT: 2}
 CONTROL_ROLES = (
     "button",
     "link",
@@ -45,16 +58,62 @@ CONTROL_ROLES = (
     "tab",
     "menuitem",
 )
-RENDER_ITEM = "page renders: body has no rendered text, or an uncaught page error occurred"
+RENDER_ITEM = "page renders: body has no rendered text"
 MESSAGE = (
     "The page failed these checklist items:\n{items}\n"
     "Fix each listed item and return the complete page."
 )
-SNAPSHOT_JS = """(selectors) => ({
-  text: document.body ? document.body.innerText : "",
-  counts: Object.fromEntries(selectors.map((s) => [s, document.querySelectorAll(s).length])),
-})"""
-OVERFLOW_JS = "() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]"
+SNAPSHOT_JS = """() => {
+  const nodes = [];
+  const visible = (el) => {
+    const s = getComputedStyle(el);
+    return s.display !== "none" && s.visibility !== "hidden" && el.getClientRects().length > 0;
+  };
+  const walk = (el, path) => {
+    const index = nodes.length;
+    const attrs = {};
+    for (const a of el.attributes) attrs[a.name] = a.value;
+    nodes.push({
+      tag: el.tagName.toLowerCase(),
+      attrs,
+      visible: visible(el),
+      path,
+      text: (el.innerText || "").trim(),
+    });
+    for (const child of el.children) walk(child, [...path, index]);
+  };
+  walk(document.body, []);
+  return { text: document.body.innerText, nodes };
+}"""
+OVERFLOW_JS = """async () => {
+  // Settle: animations finish, or 1000 ms for pages that never go idle; then two frames.
+  const finished = Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null)));
+  await Promise.race([finished, new Promise((done) => setTimeout(done, 1000))]);
+  await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+  const width = window.innerWidth;
+  const clipped = (el) => {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const s = getComputedStyle(p);
+      if ([s.overflowX, s.overflowY].some((v) => v === "hidden" || v === "clip")) return true;
+    }
+    return false;
+  };
+  const offenders = [];
+  for (const el of document.body.querySelectorAll("*")) {
+    const s = getComputedStyle(el);
+    if (s.display === "none" || s.visibility === "hidden") continue;
+    if (el.getClientRects().length === 0) continue;
+    if (el.getBoundingClientRect().right > width + 1 && !clipped(el)) {
+      offenders.push(el.tagName.toLowerCase());
+    }
+  }
+  return {
+    scroll_width: document.documentElement.scrollWidth,
+    client_width: document.documentElement.clientWidth,
+    offenders: offenders.slice(0, 5),
+    offender_count: offenders.length,
+  };
+}"""
 AXE_RUN_JS = """async (tags) => {
   const r = await axe.run(document, { runOnly: { type: "tag", values: tags } });
   const brief = (v) => ({ id: v.id, help: v.help, impact: v.impact, nodes: v.nodes.length });
@@ -70,6 +129,35 @@ def is_loopback_host(host):
         return False
 
 
+def origin_of(url):
+    """(host, port) of an http or https URL, or None for anything else (file, data, ...)."""
+    try:
+        parts = urlsplit(url)
+        if parts.scheme not in netpolicy.SCHEMES or not parts.hostname:
+            return None
+        return parts.hostname, parts.port or (443 if parts.scheme == "https" else 80)
+    except ValueError:
+        return None
+
+
+class TargetProxy(EgressProxy):
+    """The enforcement point for every connection Chromium makes (http, ws, CONNECT, preconnect).
+
+    Only the target's own (host, port) is connected to. A file target has no origin, so nothing
+    is connected to at all. `shown` is the request target for the record, never parsed here."""
+
+    def __init__(self, origin):
+        self.origin = origin
+        super().__init__(allow_loopback=origin is not None)
+
+    def _open(self, client, host, port, shown):
+        if self.origin is None or (host.lower(), port) != self.origin:
+            self.record(shown)
+            client.sendall(FORBIDDEN)
+            return None
+        return super()._open(client, host, port, shown)
+
+
 def target_url(target):
     if Path(target).is_file():
         return Path(target).resolve().as_uri()
@@ -80,27 +168,21 @@ def target_url(target):
     return url
 
 
-def allowed_request(url):
-    parts = urlsplit(netpolicy.local_name(url))
-    if parts.scheme in ("file", "data", "blob"):
+def allowed_request(url, origin):
+    if urlsplit(url).scheme in ("file", "data", "blob"):
         return True
-    return parts.scheme in netpolicy.SCHEMES and is_loopback_host(parts.hostname)
+    return origin is not None and origin_of(url) == origin
 
 
-def evaluate_predicate(pred, snap):
-    kind = pred["kind"]
-    if kind == "text":
-        observed = bool(re.search(pred["pattern"], snap["text"], re.IGNORECASE))
-        ok = observed
-    elif kind == "count":
-        observed = snap["counts"][pred["selector"]]
-        ok = observed >= pred["min"]
-    elif kind == "control_name":
-        observed = [n for n in snap["controls"] if re.search(pred["pattern"], n, re.IGNORECASE)]
-        ok = bool(observed)
-    else:
-        raise ValueError(f"unknown predicate kind: {kind}")
-    return {"item": pred["item"], "kind": kind, "pass": ok, "observed": observed}
+def first_line(text):
+    lines = str(text).strip().splitlines()
+    return lines[0] if lines else repr(text)
+
+
+def render_item(page_errors):
+    if not page_errors:
+        return RENDER_ITEM
+    return f"{RENDER_ITEM}; first page error: {first_line(page_errors[0])}"
 
 
 def has_horizontal_overflow(scroll_width, client_width):
@@ -110,8 +192,12 @@ def has_horizontal_overflow(scroll_width, client_width):
 def failed_items(checks):
     items = []
     if not checks["render"]["pass"]:
-        items.append(RENDER_ITEM)
-    items += [f"content item missing: {c['item']}" for c in checks["content"] if not c["pass"]]
+        items.append(render_item(checks["render"]["page_errors"]))
+    items += [
+        f"content item missing: {c['item']} ({c['rule']})"
+        for c in checks["content"]
+        if not c["pass"]
+    ]
     items += [
         f"horizontal overflow at {o['width']} px" for o in checks["overflow"] if not o["pass"]
     ]
@@ -153,13 +239,12 @@ def run_axe(page):
         page.add_script_tag(path=str(AXE_PATH))
         result = page.evaluate(AXE_RUN_JS, AXE_TAGS)
     except Exception as exc:  # fails closed; keep the first line of the error
-        lines = str(exc).strip().splitlines()
         return {
             "version": AXE_VERSION,
             "tags": AXE_TAGS,
             "violations": [],
             "incomplete": [],
-            "error": lines[0] if lines else repr(exc),
+            "error": first_line(exc),
             "pass": False,
         }
     return {
@@ -171,84 +256,131 @@ def run_axe(page):
     }
 
 
-def run_page_checks(page, predicates, selectors, page_errors, console_errors):
-    snap = page.evaluate(SNAPSHOT_JS, selectors)
+def observe(page, url):
+    """Everything that touches the page. Any exception raised here means no runnable output."""
+    page.goto(url, wait_until="load", timeout=NAV_MS)
+    with contextlib.suppress(Exception):
+        page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
+    snap = page.evaluate(SNAPSHOT_JS)
     snap["controls"] = control_names(page)
-    content = [evaluate_predicate(pred, snap) for pred in predicates]
     overflow = []
     for width in OVERFLOW_WIDTHS:
         page.set_viewport_size({"width": width, "height": HEIGHT})
-        scroll, client = page.evaluate(OVERFLOW_JS)
-        overflow.append(
-            {
-                "width": width,
-                "scroll_width": scroll,
-                "client_width": client,
-                "pass": not has_horizontal_overflow(scroll, client),
-            }
-        )
+        overflow.append({"width": width, **page.evaluate(OVERFLOW_JS)})
     page.set_viewport_size({"width": 1440, "height": HEIGHT})
+    return snap, overflow, run_axe(page)
+
+
+def build_checks(snap, overflow, axe, predicates, page_errors, console_errors):
     return {
         "render": {
-            "pass": bool(snap["text"].strip()) and not page_errors,
+            "pass": bool(snap["text"].strip()),
             "page_errors": page_errors,
             "console_errors": console_errors,
         },
-        "content": content,
-        "overflow": overflow,
-        "axe": run_axe(page),
+        "content": [evaluate_predicate(pred, snap) for pred in predicates],
+        "overflow": [
+            {
+                **o,
+                "pass": not has_horizontal_overflow(o["scroll_width"], o["client_width"])
+                and o["offender_count"] == 0,
+            }
+            for o in overflow
+        ],
+        "axe": axe,
     }
 
 
-def guard_request(route):
-    if allowed_request(route.request.url):
-        route.continue_()
-    else:
-        route.abort("blockedbyclient")
+def report_for(url, task_id, outcome, failed=(), **fields):
+    failed = list(failed)
+    return {
+        "target": url,
+        "task": task_id,
+        "outcome": outcome,
+        "pass": outcome == PASS,
+        "failed": failed,
+        "correction_message": correction_message(failed) if outcome == FAIL else None,
+        **fields,
+    }
 
 
 def run_checklist(target, task_id):
     url = target_url(target)
     predicates = predicates_for(task_id)
-    selectors = sorted({p["selector"] for p in predicates if p["kind"] == "count"})
+    origin = origin_of(url)
     # Imported here so this module loads, and its pure checks run, without Playwright.
     from playwright.sync_api import sync_playwright
 
-    with sync_playwright() as p:
-        browser, label = launch(p)
-        try:
-            ctx = browser.new_context(
-                viewport={"width": 1440, "height": HEIGHT},
-                service_workers="block",
-                accept_downloads=False,
+    # Playwright's bypass switch would let Chromium skip the proxy for loopback.
+    saved_bypass = os.environ.pop(BYPASS_ENV, None)
+    try:
+        with sync_playwright() as p, closing(TargetProxy(origin)) as egress:
+            # Only the bundled Chromium, with no channel fallback: one pinned build.
+            browser = p.chromium.launch(
+                chromium_sandbox=True,
+                args=ARGS,
+                proxy={"server": f"http://127.0.0.1:{egress.port}"},
             )
-            ctx.route("**/*", guard_request)
-            ctx.add_init_script(NO_WEBRTC)
-            page = ctx.new_page()
-            page_errors, console_errors = [], []
-            page.on("pageerror", lambda exc: page_errors.append(str(exc)))
-            page.on(
-                "console",
-                lambda msg: console_errors.append(msg.text) if msg.type == "error" else None,
-            )
-            page.goto(url, wait_until="load", timeout=NAV_MS)
-            with contextlib.suppress(Exception):
-                page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
-            checks = run_page_checks(page, predicates, selectors, page_errors, console_errors)
             version = browser.version
-        finally:
-            browser.close()
-    failed = failed_items(checks)
-    return {
-        "target": url,
-        "task": task_id,
-        "browser": label,
-        "browser_version": version,
-        "checks": checks,
-        "failed": failed,
-        "pass": not failed,
-        "correction_message": correction_message(failed),
-    }
+            browser_info = {
+                "browser": "bundled chromium",
+                "browser_version": version,
+                "browser_executable": p.chromium.executable_path,
+            }
+            try:
+                ctx = browser.new_context(
+                    viewport={"width": 1440, "height": HEIGHT},
+                    service_workers="block",
+                    accept_downloads=False,
+                    bypass_csp=True,
+                )
+                ctx.route(
+                    "**/*",
+                    lambda route: (
+                        route.continue_()
+                        if allowed_request(route.request.url, origin)
+                        else route.abort("blockedbyclient")
+                    ),
+                )
+                ctx.add_init_script(NO_WEBRTC)
+                page = ctx.new_page()
+                page_errors, console_errors = [], []
+                page.on("pageerror", lambda exc: page_errors.append(str(exc)))
+                page.on(
+                    "console",
+                    lambda msg: console_errors.append(msg.text) if msg.type == "error" else None,
+                )
+                try:
+                    snap, overflow, axe = observe(page, url)
+                except Exception as exc:  # navigation timeout, load failure, context destroyed
+                    return report_for(
+                        url,
+                        task_id,
+                        NO_RUNNABLE,
+                        detail=first_line(exc),
+                        blocked_requests=egress.blocked,
+                        **browser_info,
+                    )
+                checks = build_checks(snap, overflow, axe, predicates, page_errors, console_errors)
+            finally:
+                browser.close()
+            failed = failed_items(checks)
+            return report_for(
+                url,
+                task_id,
+                FAIL if failed else PASS,
+                failed=failed,
+                checks=checks,
+                blocked_requests=egress.blocked,
+                **browser_info,
+            )
+    finally:
+        if saved_bypass is not None:
+            os.environ[BYPASS_ENV] = saved_bypass
+
+
+def fault_report(target, task_id, exc):
+    return report_for(target, task_id, FAULT, detail=first_line(exc))
 
 
 def main(argv=None):
@@ -256,10 +388,13 @@ def main(argv=None):
     parser.add_argument("target", help="file path or loopback http(s) URL")
     parser.add_argument("--task", required=True, help="task id, T01 to T10")
     args = parser.parse_args(argv)
-    report = run_checklist(args.target, args.task)
+    try:
+        report = run_checklist(args.target, args.task)
+    except Exception as exc:  # a checker fault: bad target or task, no Chromium, or a bug here
+        report = fault_report(args.target, args.task, exc)
     json.dump(report, sys.stdout, indent=2)
     sys.stdout.write("\n")
-    return 0 if report["pass"] else 1
+    return EXIT_CODES[report["outcome"]]
 
 
 if __name__ == "__main__":

@@ -1,12 +1,22 @@
 """C3 checklist and prompt assembly, without a browser. Browser checks: test_bench_c3_browser.py."""
 
+import contextlib
 import hashlib
+import io
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 from bench.c3 import checklist, prompts
+from piggyback.proxy import FORBIDDEN
+
+# Hermes ruling, not spec text: the default runtime line that fills the runtime placeholder.
+RUNTIME_RULING = (
+    "The page is checked offline: requests to any other host are blocked, so keep "
+    "every script, font and image inside the project."
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "tests" / "fixtures" / "c3" / "spec_text.json"
@@ -43,24 +53,36 @@ class SpecFreeze(unittest.TestCase):
         self.assertEqual(prompts.SHARED_INSTRUCTION, frozen["shared_instruction"])
         self.assertEqual(prompts.ARM_BLOCKS, frozen["arms"])
 
-    def test_expanded_prompt_has_one_arm_block_and_the_placeholder(self):
+    def test_prompt_is_the_ordered_assembly_of_its_parts(self):
         frozen = spec_text()
-        task = prompts.load_tasks()[0]
-        for arm in ARM_IDS:
-            text = prompts.expand(task, arm)
-            self.assertIn(frozen["shared_instruction"], text)
-            self.assertIn(task["build_request"], text)
-            self.assertIn(frozen["arms"][arm], text)
-            self.assertEqual(text.count(prompts.RUNTIME_PLACEHOLDER), 1)
-            for other in ARM_IDS:
-                if other != arm:
-                    self.assertNotIn(frozen["arms"][other], text)
+        for task in prompts.load_tasks():
+            for arm in ARM_IDS:
+                expected = "\n\n".join(
+                    [
+                        frozen["shared_instruction"],
+                        task["build_request"],
+                        f"Reference direction: {task['reference']}",
+                        frozen["arms"][arm],
+                        RUNTIME_RULING,
+                    ]
+                )
+                with self.subTest(task=task["id"], arm=arm):
+                    self.assertEqual(prompts.expand(task, arm), expected)
 
-    def test_write_all_writes_fifty_prompts(self):
+    def test_runtime_default_is_the_hermes_ruling(self):
+        self.assertEqual(prompts.RUNTIME_DEFAULT, RUNTIME_RULING)
+
+    def test_write_all_writes_fifty_prompts_in_full(self):
         with tempfile.TemporaryDirectory() as tmp:
             written = prompts.write_all(tmp)
             self.assertEqual(len(written), 50)
             self.assertEqual(len(list(Path(tmp).glob("*.txt"))), 50)
+            task = prompts.load_tasks()[0]
+            text = (Path(tmp) / "T01-screenshot.txt").read_text(encoding="utf-8")
+            self.assertEqual(text, prompts.expand(task, "screenshot") + "\n")
+
+    def test_readme_states_the_runtime_default_rule(self):
+        self.assertIn("runtime_default", README.read_text(encoding="utf-8"))
 
     def test_axe_hash_matches_readme(self):
         digest = hashlib.sha256(AXE.read_bytes()).hexdigest()
@@ -72,24 +94,35 @@ class Predicates(unittest.TestCase):
         return {"text": text, "counts": counts or {}, "controls": list(controls)}
 
     def test_text_is_case_insensitive_search(self):
-        pred = {"item": "x", "kind": "text", "pattern": "status|summary"}
+        pred = {"item": "x", "kind": "text", "pattern": "status|summary", "rule": "r"}
         self.assertTrue(checklist.evaluate_predicate(pred, self.snap("Status Board"))["pass"])
         self.assertFalse(checklist.evaluate_predicate(pred, self.snap("hello"))["pass"])
 
     def test_count_needs_min(self):
-        pred = {"item": "x", "kind": "count", "selector": "tr", "min": 3}
-        self.assertTrue(checklist.evaluate_predicate(pred, self.snap(counts={"tr": 3}))["pass"])
-        self.assertFalse(checklist.evaluate_predicate(pred, self.snap(counts={"tr": 2}))["pass"])
+        pred = {"item": "x", "kind": "count", "any": [{"tag": "tr"}], "min": 3, "rule": "r"}
+
+        def rows(n, visible=True):
+            return [
+                {"tag": "tr", "attrs": {}, "visible": visible, "path": [], "text": ""}
+                for _ in range(n)
+            ]
+
+        def snap_of(nodes):
+            return {"text": "", "nodes": nodes, "controls": []}
+
+        self.assertTrue(checklist.evaluate_predicate(pred, snap_of(rows(3)))["pass"])
+        self.assertFalse(checklist.evaluate_predicate(pred, snap_of(rows(2)))["pass"])
+        self.assertFalse(checklist.evaluate_predicate(pred, snap_of(rows(3, False)))["pass"])
 
     def test_control_name_matches_an_accessible_name(self):
-        pred = {"item": "x", "kind": "control_name", "pattern": "acknowledg"}
+        pred = {"item": "x", "kind": "control_name", "pattern": "acknowledg", "rule": "r"}
         ok = self.snap(controls=["Acknowledge alert"])
         self.assertTrue(checklist.evaluate_predicate(pred, ok)["pass"])
         self.assertFalse(checklist.evaluate_predicate(pred, self.snap(controls=["Close"]))["pass"])
 
     def test_unknown_kind_is_an_error(self):
         with self.assertRaises(ValueError):
-            checklist.evaluate_predicate({"item": "x", "kind": "vibe"}, self.snap())
+            checklist.evaluate_predicate({"item": "x", "kind": "vibe", "rule": "r"}, self.snap())
 
 
 class Checks(unittest.TestCase):
@@ -115,10 +148,73 @@ class Checks(unittest.TestCase):
     def test_incomplete_results_never_fail(self):
         self.assertEqual(checklist.failed_items(self.checks()), [])
 
+    def test_render_failure_names_the_first_page_error(self):
+        checks = self.checks(
+            render={"pass": False, "page_errors": ["Error: boom\nat x.js:1", "later"]}
+        )
+        self.assertEqual(
+            checklist.failed_items(checks),
+            [f"{checklist.RENDER_ITEM}; first page error: Error: boom"],
+        )
+
+    def test_page_error_alone_does_not_fail_a_rendered_page(self):
+        checks = self.checks(
+            render={"pass": True, "page_errors": ["late"], "console_errors": ["404"]}
+        )
+        self.assertEqual(checklist.failed_items(checks), [])
+
+    def test_content_item_message_carries_the_frozen_rule(self):
+        checks = self.checks(
+            content=[
+                {
+                    "item": "standfirst",
+                    "rule": "a paragraph directly after the main headline",
+                    "pass": False,
+                }
+            ]
+        )
+        self.assertEqual(
+            checklist.failed_items(checks),
+            ["content item missing: standfirst (a paragraph directly after the main headline)"],
+        )
+
+    def test_geometry_offender_fails_overflow_even_when_scroll_width_fits(self):
+        overflow = [
+            {"width": 1440, "scroll_width": 1440, "client_width": 1440, "offender_count": 1},
+            {"width": 390, "scroll_width": 390, "client_width": 390, "offender_count": 0},
+        ]
+        built = checklist.build_checks(
+            {"text": "x", "nodes": [], "controls": []},
+            [dict(o) for o in overflow],
+            {"error": None, "violations": [], "incomplete": []},
+            [],
+            [],
+            [],
+        )
+        self.assertEqual([o["pass"] for o in built["overflow"]], [False, True])
+
+    def test_empty_body_fails_render_with_no_page_error(self):
+        built = checklist.build_checks(
+            {"text": "   ", "nodes": [], "controls": []},
+            [],
+            {"error": None, "violations": [], "incomplete": []},
+            [],
+            [],
+            [],
+        )
+        self.assertFalse(built["render"]["pass"])
+        self.assertEqual(checklist.failed_items(built), [checklist.RENDER_ITEM])
+
     def test_each_failed_check_adds_one_verbatim_item(self):
         checks = self.checks(
-            render={"pass": False},
-            content=[{"item": "vessel/asset table", "pass": False}],
+            render={"pass": False, "page_errors": []},
+            content=[
+                {
+                    "item": "vessel/asset table",
+                    "rule": "a visible table with at least 3 rows that hold data cells",
+                    "pass": False,
+                }
+            ],
             overflow=[{"width": 1440, "pass": False}, {"width": 390, "pass": True}],
             axe={
                 "error": None,
@@ -131,7 +227,8 @@ class Checks(unittest.TestCase):
             checklist.failed_items(checks),
             [
                 checklist.RENDER_ITEM,
-                "content item missing: vessel/asset table",
+                "content item missing: vessel/asset table "
+                "(a visible table with at least 3 rows that hold data cells)",
                 "horizontal overflow at 1440 px",
                 "axe-core violation image-alt: Images must have alternate text",
             ],
@@ -171,16 +268,128 @@ class TargetPolicy(unittest.TestCase):
             with self.subTest(target=target), self.assertRaises(ValueError):
                 checklist.target_url(target)
 
-    def test_page_requests_are_limited_to_loopback_and_local_schemes(self):
-        self.assertTrue(checklist.allowed_request("file:///x.html"))
-        self.assertTrue(checklist.allowed_request("data:text/plain,a"))
-        self.assertTrue(checklist.allowed_request("http://127.0.0.1:9/x.js"))
-        self.assertFalse(checklist.allowed_request("https://cdn.example.com/x.js"))
-        self.assertFalse(checklist.allowed_request("http://192.168.1.2/"))
+    def test_page_requests_are_limited_to_the_target_origin(self):
+        origin = ("127.0.0.1", 8123)
+        self.assertTrue(checklist.allowed_request("file:///x.html", origin))
+        self.assertTrue(checklist.allowed_request("data:text/plain,a", None))
+        self.assertTrue(checklist.allowed_request("http://127.0.0.1:8123/x.js", origin))
+        self.assertFalse(checklist.allowed_request("http://127.0.0.1:9/x.js", origin))
+        self.assertFalse(checklist.allowed_request("https://cdn.example.com/x.js", origin))
+
+    def test_file_target_allows_no_http_request(self):
+        self.assertFalse(checklist.allowed_request("http://127.0.0.1:8123/", None))
 
     def test_unknown_task_is_an_error(self):
         with self.assertRaises(ValueError):
             checklist.predicates_for("T99")
+
+
+class EgressPolicy(unittest.TestCase):
+    class FakeClient:
+        def __init__(self):
+            self.sent = []
+
+        def sendall(self, data):
+            self.sent.append(data)
+
+    def proxy(self, origin):
+        return checklist.TargetProxy(origin)
+
+    def test_only_the_target_origin_is_connected_to(self):
+        with contextlib.closing(self.proxy(("127.0.0.1", 8123))) as egress:
+            for host, port in [("203.0.113.7", 9), ("127.0.0.1", 9), ("localhost", 8123)]:
+                client = self.FakeClient()
+                with self.subTest(host=host, port=port):
+                    self.assertIsNone(egress._open(client, host, port, f"{host}:{port}"))
+                    self.assertEqual(client.sent, [FORBIDDEN])
+            self.assertEqual(len(egress.blocked), 3)
+
+    def test_file_target_has_no_origin_and_connects_nowhere(self):
+        with contextlib.closing(self.proxy(None)) as egress:
+            client = self.FakeClient()
+            self.assertIsNone(egress._open(client, "127.0.0.1", 8123, "127.0.0.1:8123"))
+            self.assertEqual(client.sent, [FORBIDDEN])
+
+    def test_origin_of_reads_scheme_host_and_default_port(self):
+        self.assertEqual(checklist.origin_of("http://127.0.0.1:8123/a?b"), ("127.0.0.1", 8123))
+        self.assertEqual(checklist.origin_of("http://127.0.0.1/"), ("127.0.0.1", 80))
+        self.assertIsNone(checklist.origin_of("file:///x.html"))
+
+
+class CheckerFaults(unittest.TestCase):
+    """The page-side and checker-side failure paths, with Playwright replaced by a mock."""
+
+    def fake_playwright(self, goto_error=None, launch_error=None):
+        from unittest import mock
+
+        module = mock.MagicMock()
+        p = module.sync_playwright.return_value.__enter__.return_value
+        p.chromium.executable_path = "/bundled/chromium"
+        if launch_error is not None:
+            p.chromium.launch.side_effect = launch_error
+        browser = p.chromium.launch.return_value
+        browser.version = "1.0.0"
+        page = browser.new_context.return_value.new_page.return_value
+        if goto_error is not None:
+            page.goto.side_effect = goto_error
+        return mock.patch.dict(sys.modules, {"playwright.sync_api": module}), browser
+
+    def run_main(self, argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = checklist.main(argv)
+        return code, json.loads(out.getvalue())
+
+    def test_navigation_failure_is_no_runnable_output_with_json_and_no_correction(self):
+        patcher, browser = self.fake_playwright(goto_error=RuntimeError("net::ERR_TIMED_OUT\nat x"))
+        with patcher:
+            code, report = self.run_main(["http://127.0.0.1:9/", "--task", "T01"])
+        self.assertEqual(code, 1)
+        self.assertEqual(report["outcome"], "no_runnable_output")
+        self.assertEqual(report["detail"], "net::ERR_TIMED_OUT")
+        self.assertIsNone(report["correction_message"])
+        self.assertEqual(report["failed"], [])
+        browser.close.assert_called_once()
+
+    def test_browser_launch_failure_is_a_checker_fault_with_json(self):
+        patcher, _ = self.fake_playwright(launch_error=RuntimeError("Executable doesn't exist"))
+        with patcher:
+            code, report = self.run_main(["http://127.0.0.1:9/", "--task", "T01"])
+        self.assertEqual(code, 2)
+        self.assertEqual(report["outcome"], "checker_fault")
+        self.assertEqual(report["detail"], "Executable doesn't exist")
+        self.assertIsNone(report["correction_message"])
+
+    def test_unknown_task_is_a_checker_fault_with_json(self):
+        code, report = self.run_main(["http://127.0.0.1:9/", "--task", "T99"])
+        self.assertEqual(code, 2)
+        self.assertEqual(report["outcome"], "checker_fault")
+
+    def test_refused_target_is_a_checker_fault_with_json(self):
+        code, report = self.run_main(["https://example.com/", "--task", "T01"])
+        self.assertEqual(code, 2)
+        self.assertIn("refusing non-loopback target", report["detail"])
+
+    def test_checklist_failure_exits_one_with_exactly_one_correction(self):
+        failed = {
+            "target": "file:///x.html",
+            "task": "T01",
+            "outcome": "fail",
+            "pass": False,
+            "failed": [
+                "content item missing: acknowledge CTA (a button or link named acknowledge)"
+            ],
+        }
+        from unittest import mock
+
+        report = checklist.report_for(
+            failed["target"], "T01", checklist.FAIL, failed=failed["failed"]
+        )
+        self.assertEqual(report["correction_message"].count("- content item missing"), 1)
+        with mock.patch.object(checklist, "run_checklist", return_value=report):
+            code, printed = self.run_main(["x.html", "--task", "T01"])
+        self.assertEqual(code, 1)
+        self.assertEqual(printed["correction_message"], report["correction_message"])
 
 
 if __name__ == "__main__":

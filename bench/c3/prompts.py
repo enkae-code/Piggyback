@@ -14,10 +14,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 TASKS_PATH = HERE / "tasks.json"
 TEXT_PATH = HERE / "prompt_text.json"
-RUNTIME_PLACEHOLDER = "[[RUNTIME_AND_TOOL_INSTRUCTIONS: filled at manifest time]]"
 _TEXT = json.loads(TEXT_PATH.read_text(encoding="utf-8"))
 SHARED_INSTRUCTION = _TEXT["shared_instruction"]
 ARM_BLOCKS = _TEXT["arms"]
+RUNTIME_DEFAULT = _TEXT["runtime_default"]
 
 
 def load_tasks():
@@ -25,14 +25,14 @@ def load_tasks():
 
 
 def expand(task, arm_id):
-    # ponytail: the reference line is an assembler addition, so each arm block can say "the named
-    # CC0 starter" and the prompt still names it. The spec gives no literal wording for it.
+    # The "Reference direction:" line is not in the spec's wording. The arm blocks say "the named
+    # CC0 starter", so this line supplies the name. Hermes ruled that it stays.
     parts = [
         SHARED_INSTRUCTION,
         task["build_request"],
         f"Reference direction: {task['reference']}",
         ARM_BLOCKS[arm_id],
-        RUNTIME_PLACEHOLDER,
+        RUNTIME_DEFAULT,
     ]
     return "\n\n".join(parts)
 

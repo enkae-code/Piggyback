@@ -7,10 +7,56 @@
       "starter_id": "northline-ops",
       "build_request": "Build a fleet-operations dashboard for a coastal research team: status summary, one prominent signal, vessel/asset table, and acknowledge CTA.",
       "predicates": [
-        {"item": "status summary", "kind": "text", "pattern": "status|summary"},
-        {"item": "one prominent signal", "kind": "count", "selector": "[role=alert], [role=status], [aria-live], .alert, .signal, .banner", "min": 1},
-        {"item": "vessel/asset table", "kind": "count", "selector": "table tr:has(td)", "min": 3},
-        {"item": "acknowledge CTA", "kind": "control_name", "pattern": "acknowledg"}
+        {
+          "item": "status summary",
+          "kind": "text",
+          "pattern": "\\bstatus\\b|\\bsummary\\b",
+          "rule": "the words status or summary appear in the page text"
+        },
+        {
+          "item": "one prominent signal",
+          "kind": "count",
+          "any": [
+            {
+              "attr": "role=alert"
+            },
+            {
+              "attr": "role=status"
+            },
+            {
+              "attr": "aria-live"
+            },
+            {
+              "class": "alert"
+            },
+            {
+              "class": "signal"
+            },
+            {
+              "class": "banner"
+            }
+          ],
+          "min": 1,
+          "rule": "one visible alert, status, live region, signal or banner element"
+        },
+        {
+          "item": "vessel/asset table",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "tr",
+              "has": "td"
+            }
+          ],
+          "min": 3,
+          "rule": "a visible table with at least 3 rows that hold data cells"
+        },
+        {
+          "item": "acknowledge CTA",
+          "kind": "control_name",
+          "pattern": "acknowledg",
+          "rule": "a button or link named acknowledge"
+        }
       ]
     },
     {
@@ -19,9 +65,43 @@
       "starter_id": "mina-okafor",
       "build_request": "Build a portfolio homepage for an independent book designer: concise introduction, three selected projects, and contact CTA.",
       "predicates": [
-        {"item": "concise introduction", "kind": "count", "selector": "p", "min": 1},
-        {"item": "three selected projects", "kind": "count", "selector": "article, .card, .project, figure", "min": 3},
-        {"item": "contact CTA", "kind": "control_name", "pattern": "contact|email|get in touch|inquir|hello"}
+        {
+          "item": "concise introduction",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "p"
+            }
+          ],
+          "min": 1,
+          "rule": "a visible introduction paragraph"
+        },
+        {
+          "item": "three selected projects",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "article"
+            },
+            {
+              "class": "card"
+            },
+            {
+              "class": "project"
+            },
+            {
+              "tag": "figure"
+            }
+          ],
+          "min": 3,
+          "rule": "at least three visible project items (article, card, project or figure)"
+        },
+        {
+          "item": "contact CTA",
+          "kind": "control_name",
+          "pattern": "contact|email|get in touch|inquir|hello",
+          "rule": "a link or button named contact, email, get in touch, inquiry or hello"
+        }
       ]
     },
     {
@@ -30,12 +110,107 @@
       "starter_id": "field-journal",
       "build_request": "Build the lead story page for an independent architecture journal: feature headline, standfirst, byline, article opening, related stories, subscribe CTA.",
       "predicates": [
-        {"item": "feature headline", "kind": "count", "selector": "h1", "min": 1},
-        {"item": "standfirst", "kind": "count", "selector": "[class*=standfirst], [class*=deck], [class*=dek], [class*=lede], [class*=subhead]", "min": 1},
-        {"item": "byline", "kind": "count", "selector": "[class*=byline], [class*=author], [rel=author], [itemprop=author], address", "min": 1},
-        {"item": "article opening", "kind": "count", "selector": "p", "min": 2},
-        {"item": "related stories", "kind": "text", "pattern": "related"},
-        {"item": "subscribe CTA", "kind": "control_name", "pattern": "subscribe"}
+        {
+          "item": "feature headline",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "h1"
+            }
+          ],
+          "min": 1,
+          "rule": "one visible h1 headline"
+        },
+        {
+          "item": "standfirst",
+          "kind": "follows_headline",
+          "any": [
+            {
+              "tag": "p"
+            },
+            {
+              "class": "standfirst"
+            },
+            {
+              "class": "deck"
+            },
+            {
+              "class": "dek"
+            },
+            {
+              "class": "lede"
+            },
+            {
+              "class": "subhead"
+            }
+          ],
+          "exclude_class": [
+            "byline",
+            "author",
+            "meta",
+            "date"
+          ],
+          "rule": "a paragraph directly after the main headline"
+        },
+        {
+          "kind": "any",
+          "of": [
+            {
+              "kind": "count",
+              "any": [
+                {
+                  "tag": "time"
+                },
+                {
+                  "tag": "address"
+                },
+                {
+                  "attr": "rel=author"
+                },
+                {
+                  "attr": "itemprop=author"
+                },
+                {
+                  "class": "byline"
+                },
+                {
+                  "class": "author"
+                }
+              ],
+              "min": 1
+            },
+            {
+              "kind": "text",
+              "pattern": "\\bBy [A-Z][a-z]+(?:\\s[A-Z][a-z]+)+",
+              "case_sensitive": true
+            }
+          ],
+          "item": "byline",
+          "rule": "a byline: a time, address, author element, or a 'By Firstname Lastname' line"
+        },
+        {
+          "item": "article opening",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "p"
+            }
+          ],
+          "min": 2,
+          "rule": "at least two visible body paragraphs"
+        },
+        {
+          "item": "related stories",
+          "kind": "text",
+          "pattern": "\\brelated\\b",
+          "rule": "the word related appears in the page text"
+        },
+        {
+          "item": "subscribe CTA",
+          "kind": "control_name",
+          "pattern": "subscribe",
+          "rule": "a button or link named subscribe"
+        }
       ]
     },
     {
@@ -44,9 +219,48 @@
       "starter_id": "ink-and-rule",
       "build_request": "Build a pricing page for an independent print magazine: three subscription options, clear differences, and one subscribe CTA.",
       "predicates": [
-        {"item": "three subscription options", "kind": "count", "selector": "article, .card, .plan, .tier, [class*=plan], [class*=tier], [class*=pricing] > *", "min": 3},
-        {"item": "clear differences", "kind": "count", "selector": "li", "min": 3},
-        {"item": "one subscribe CTA", "kind": "control_name", "pattern": "subscribe"}
+        {
+          "item": "three subscription options",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "article"
+            },
+            {
+              "class": "card"
+            },
+            {
+              "class": "plan"
+            },
+            {
+              "class": "tier"
+            }
+          ],
+          "min": 3,
+          "rule": "three visible plan, tier, card or article items"
+        },
+        {
+          "item": "clear differences",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "li"
+            }
+          ],
+          "min": 3,
+          "rule": "at least three list items of differences outside nav, header and footer",
+          "exclude_within": [
+            "nav",
+            "header",
+            "footer"
+          ]
+        },
+        {
+          "item": "one subscribe CTA",
+          "kind": "control_name",
+          "pattern": "subscribe",
+          "rule": "a button or link named subscribe"
+        }
       ]
     },
     {
@@ -55,10 +269,30 @@
       "starter_id": "little-plot",
       "build_request": "Build a small urban farm's homepage: seasonal produce, growing approach, weekly market details, and visit/order CTA.",
       "predicates": [
-        {"item": "seasonal produce", "kind": "text", "pattern": "season|produce|harvest"},
-        {"item": "growing approach", "kind": "text", "pattern": "approach|growing|grow|method"},
-        {"item": "weekly market details", "kind": "text", "pattern": "market|weekly|every week"},
-        {"item": "visit/order CTA", "kind": "control_name", "pattern": "visit|order|shop|buy|book"}
+        {
+          "item": "seasonal produce",
+          "kind": "text",
+          "pattern": "\\bseason|\\bproduce|\\bharvest",
+          "rule": "text about seasonal produce or a harvest"
+        },
+        {
+          "item": "growing approach",
+          "kind": "text",
+          "pattern": "\\bapproach|\\bgrowing|\\bgrow|\\bmethod",
+          "rule": "text about the growing approach or method"
+        },
+        {
+          "item": "weekly market details",
+          "kind": "text",
+          "pattern": "\\bmarket|\\bweekly|\\bevery week",
+          "rule": "text about the market or weekly details"
+        },
+        {
+          "item": "visit/order CTA",
+          "kind": "control_name",
+          "pattern": "visit|order|shop|buy|book",
+          "rule": "a button or link named visit, order, shop, buy or book"
+        }
       ]
     },
     {
@@ -67,10 +301,49 @@
       "starter_id": "good-day-assembly",
       "build_request": "Build a neighborhood skills-swap event page: event details, three activities, access information, and save-your-place CTA.",
       "predicates": [
-        {"item": "event details", "kind": "text", "pattern": "\\b\\d{1,2}(:\\d{2})?\\s?(am|pm)\\b|\\b\\d{1,2}:\\d{2}\\b|\\b\\d{1,2}/\\d{1,2}\\b|\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}\\b"},
-        {"item": "three activities", "kind": "count", "selector": "article, .card, .activity, li", "min": 3},
-        {"item": "access information", "kind": "text", "pattern": "access|wheelchair|step-free|entrance"},
-        {"item": "save-your-place CTA", "kind": "control_name", "pattern": "save|reserve|rsvp|register|sign ?up|join"}
+        {
+          "item": "event details",
+          "kind": "text",
+          "pattern": "\\b\\d{1,2}(?::\\d{2})?\\s?(?:a\\.?m\\.?|p\\.?m\\.?)(?![a-z])|\\b(?:[01]?\\d|2[0-3]):[0-5]\\d\\b|\\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b|\\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\b|\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b\\d{1,2}/\\d{1,2}(?:/\\d{2,4})?\\b|\\b\\d{1,2}(?:st|nd|rd|th)\\b",
+          "rule": "a visible date or time: a weekday, a month with a day, an ordinal, a.m./p.m., a 24-hour time, or an ISO date"
+        },
+        {
+          "item": "three activities",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "article"
+            },
+            {
+              "class": "card"
+            },
+            {
+              "class": "activity"
+            },
+            {
+              "tag": "li"
+            }
+          ],
+          "min": 3,
+          "rule": "at least three activity items outside nav, header and footer",
+          "exclude_within": [
+            "nav",
+            "header",
+            "footer"
+          ]
+        },
+        {
+          "item": "access information",
+          "kind": "text",
+          "pattern": "\\baccess|\\bwheelchair|\\bstep-free|\\bentrance",
+          "rule": "text about access, wheelchair, step-free or entrance"
+        },
+        {
+          "item": "save-your-place CTA",
+          "kind": "control_name",
+          "pattern": "save|reserve|rsvp|register|sign ?up|join",
+          "rule": "a button or link named save, reserve, RSVP, register, sign up or join"
+        }
       ]
     },
     {
@@ -79,10 +352,36 @@
       "starter_id": "northline-ops",
       "build_request": "Build a maintenance overview for a small public-transport operator: service status, urgent alert, route table, and report-issue CTA.",
       "predicates": [
-        {"item": "service status", "kind": "text", "pattern": "status|operat|service"},
-        {"item": "urgent alert", "kind": "text", "pattern": "urgent|alert"},
-        {"item": "route table", "kind": "count", "selector": "table tr:has(td)", "min": 3},
-        {"item": "report-issue CTA", "kind": "control_name", "pattern": "report"}
+        {
+          "item": "service status",
+          "kind": "text",
+          "pattern": "\\bstatus\\b|\\boperat|\\bservice",
+          "rule": "text about the service status or operation"
+        },
+        {
+          "item": "urgent alert",
+          "kind": "text",
+          "pattern": "\\burgent|\\balert",
+          "rule": "the words urgent or alert appear in the page text"
+        },
+        {
+          "item": "route table",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "tr",
+              "has": "td"
+            }
+          ],
+          "min": 3,
+          "rule": "a visible table with at least 3 rows that hold data cells"
+        },
+        {
+          "item": "report-issue CTA",
+          "kind": "control_name",
+          "pattern": "report",
+          "rule": "a button or link named report"
+        }
       ]
     },
     {
@@ -91,9 +390,43 @@
       "starter_id": "mina-okafor",
       "build_request": "Build a consultant's portfolio for an independent accessibility researcher: introduction, three case studies, and inquiry CTA.",
       "predicates": [
-        {"item": "introduction", "kind": "count", "selector": "p", "min": 1},
-        {"item": "three case studies", "kind": "count", "selector": "article, .card, .case, [class*=case], figure", "min": 3},
-        {"item": "inquiry CTA", "kind": "control_name", "pattern": "inquir|enquir|contact|get in touch|email|book"}
+        {
+          "item": "introduction",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "p"
+            }
+          ],
+          "min": 1,
+          "rule": "a visible introduction paragraph"
+        },
+        {
+          "item": "three case studies",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "article"
+            },
+            {
+              "class": "card"
+            },
+            {
+              "class": "case"
+            },
+            {
+              "tag": "figure"
+            }
+          ],
+          "min": 3,
+          "rule": "at least three visible case-study items (article, card, case or figure)"
+        },
+        {
+          "item": "inquiry CTA",
+          "kind": "control_name",
+          "pattern": "inquir|enquir|contact|get in touch|email|book",
+          "rule": "a link or button named inquire, enquire, contact, get in touch, email or book"
+        }
       ]
     },
     {
@@ -102,12 +435,140 @@
       "starter_id": "field-journal",
       "build_request": "Build an editorial story page for a local history publication: headline, deck, author/date, body opening, related cards, and membership CTA.",
       "predicates": [
-        {"item": "headline", "kind": "count", "selector": "h1", "min": 1},
-        {"item": "deck", "kind": "count", "selector": "[class*=deck], [class*=standfirst], [class*=dek], [class*=lede], [class*=subhead]", "min": 1},
-        {"item": "author/date", "kind": "count", "selector": "time, [class*=byline], [class*=author], [rel=author], [itemprop=author], address", "min": 1},
-        {"item": "body opening", "kind": "count", "selector": "p", "min": 2},
-        {"item": "related cards", "kind": "count", "selector": "[class*=card], [class*=related] article, [class*=related] li", "min": 2},
-        {"item": "membership CTA", "kind": "control_name", "pattern": "member|join|subscribe|support|donate"}
+        {
+          "item": "headline",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "h1"
+            }
+          ],
+          "min": 1,
+          "rule": "one visible h1 headline"
+        },
+        {
+          "item": "deck",
+          "kind": "follows_headline",
+          "any": [
+            {
+              "tag": "p"
+            },
+            {
+              "class": "standfirst"
+            },
+            {
+              "class": "deck"
+            },
+            {
+              "class": "dek"
+            },
+            {
+              "class": "lede"
+            },
+            {
+              "class": "subhead"
+            }
+          ],
+          "exclude_class": [
+            "byline",
+            "author",
+            "meta",
+            "date"
+          ],
+          "rule": "a deck paragraph directly after the headline"
+        },
+        {
+          "item": "author/date",
+          "kind": "all",
+          "rule": "an author (a byline, author element, or 'By Firstname Lastname') and a date (a time element or a visible date)",
+          "of": [
+            {
+              "kind": "any",
+              "of": [
+                {
+                  "kind": "count",
+                  "any": [
+                    {
+                      "tag": "address"
+                    },
+                    {
+                      "attr": "rel=author"
+                    },
+                    {
+                      "attr": "itemprop=author"
+                    },
+                    {
+                      "class": "byline"
+                    },
+                    {
+                      "class": "author"
+                    }
+                  ],
+                  "min": 1
+                },
+                {
+                  "kind": "text",
+                  "pattern": "\\bBy [A-Z][a-z]+(?:\\s[A-Z][a-z]+)+",
+                  "case_sensitive": true
+                }
+              ]
+            },
+            {
+              "kind": "any",
+              "of": [
+                {
+                  "kind": "count",
+                  "any": [
+                    {
+                      "tag": "time"
+                    }
+                  ],
+                  "min": 1
+                },
+                {
+                  "kind": "text",
+                  "pattern": "\\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b|\\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\b|\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b\\d{1,2}/\\d{1,2}(?:/\\d{2,4})?\\b"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "item": "body opening",
+          "kind": "count",
+          "any": [
+            {
+              "tag": "p"
+            }
+          ],
+          "min": 2,
+          "rule": "at least two visible body paragraphs"
+        },
+        {
+          "item": "related cards",
+          "kind": "count",
+          "any": [
+            {
+              "class": "card"
+            },
+            {
+              "tag": "article",
+              "in_class": "related"
+            },
+            {
+              "tag": "li",
+              "in_class": "related"
+            }
+          ],
+          "min": 2,
+          "rule": "at least two visible related cards or items"
+        },
+        {
+          "item": "membership CTA",
+          "kind": "control_name",
+          "pattern": "member|join|subscribe|support|donate",
+          "rule": "a button or link named member, join, subscribe, support or donate"
+        }
       ]
     },
     {
@@ -116,10 +577,40 @@
       "starter_id": "little-plot",
       "build_request": "Build a nonprofit community-garden homepage: mission, volunteer schedule, produce share, and volunteer CTA.",
       "predicates": [
-        {"item": "mission", "kind": "text", "pattern": "mission|our purpose|who we are|about us"},
-        {"item": "volunteer schedule", "kind": "text", "pattern": "schedule|shift|hours|\\d{1,2}(:\\d{2})?\\s?(am|pm)"},
-        {"item": "produce share", "kind": "text", "pattern": "produce share|share|harvest|csa|pantry"},
-        {"item": "volunteer CTA", "kind": "control_name", "pattern": "volunteer|join|sign up|get involved"}
+        {
+          "item": "mission",
+          "kind": "any",
+          "rule": "a short statement (up to 60 words) under a heading about mission, purpose, about or why, or the words mission statement, our purpose, who we are or why we exist",
+          "of": [
+            {
+              "kind": "heading_statement",
+              "heading": "\\b(?:mission|purpose|about|why)\\b",
+              "max_words": 60
+            },
+            {
+              "kind": "text",
+              "pattern": "\\bmission statement\\b|\\bour purpose\\b|\\bwho we are\\b|\\bwhy we exist\\b"
+            }
+          ]
+        },
+        {
+          "item": "volunteer schedule",
+          "kind": "text",
+          "pattern": "\\bschedule\\b|\\bshifts?\\b|\\bhours\\b|\\b\\d{1,2}(?::\\d{2})?\\s?(?:a\\.?m\\.?|p\\.?m\\.?)(?![a-z])|\\b(?:[01]?\\d|2[0-3]):[0-5]\\d\\b",
+          "rule": "text about a schedule, shifts, hours or a time"
+        },
+        {
+          "item": "produce share",
+          "kind": "text",
+          "pattern": "\\bproduce share\\b|\\bshare\\b|\\bharvest\\b|\\bcsa\\b|\\bpantry\\b",
+          "rule": "text about a produce share, harvest or pantry"
+        },
+        {
+          "item": "volunteer CTA",
+          "kind": "control_name",
+          "pattern": "volunteer|join|sign up|get involved",
+          "rule": "a button or link named volunteer, join, sign up or get involved"
+        }
       ]
     }
   ]

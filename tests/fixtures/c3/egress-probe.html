@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Egress probe</title></head>
+<body>
+<main>
+<h1>Egress probe</h1>
+<p>This page opens connections that the checker must block.</p>
+<script>
+  const other = new URLSearchParams(location.search).get("port");
+  const link = document.createElement("link");
+  link.rel = "preconnect";
+  link.href = "http://203.0.113.7:9";
+  document.head.appendChild(link);
+  try { new WebSocket("ws://203.0.113.7:9/"); } catch (e) {}
+  fetch(`http://127.0.0.1:${other}/`, { mode: "no-cors" }).catch(() => {});
+</script>
+</main>
+</body>
+</html>
