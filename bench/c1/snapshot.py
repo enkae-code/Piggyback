@@ -16,11 +16,6 @@ def px(value):
     return float(found.group(1)) if found else None
 
 
-def letter_px(value):
-    """Computed letter-spacing in px; 'normal' is 0. None when the value is not a length."""
-    return 0.0 if value == "normal" else px(value)
-
-
 @dataclass
 class El:
     idx: int
@@ -44,6 +39,9 @@ class Snapshot:
         count = len(nodes["nodeType"])
         self.kind = nodes["nodeType"]
         self.parents = nodes["parentIndex"]
+        self.backend = nodes.get("backendNodeId", [-1] * count)
+        self.pseudo = {int(k) for k in nodes.get("pseudoType", {})}  # ::before/::after nodes
+        self.paragraph_text = evidence.get("inner_text", {})  # opt-in hook: innerText by backend id
         self.children = [[] for _ in range(count)]
         for idx, parent in enumerate(self.parents):
             if parent >= 0:
@@ -67,7 +65,7 @@ class Snapshot:
         flat_attrs = nodes.get("attributes", [[]] * count)
         els = {}
         for idx in range(count):
-            if self.kind[idx] != 1:
+            if self.kind[idx] != 1 or idx in self.pseudo:
                 continue
             flat = flat_attrs[idx]
             attrs = {
@@ -96,6 +94,11 @@ class Snapshot:
 
     def elements(self):
         return [self.els[idx] for idx in sorted(self.els)]
+
+    def paragraph_inner_text(self, idx):
+        """innerText of a <p> as the browser reported it (opt-in hook), else the approximation."""
+        recorded = self.paragraph_text.get(str(self.backend[idx]))
+        return recorded.strip() if recorded is not None else self.inner_text(idx)
 
     def inner_text(self, idx):
         """Approximates innerText: rendered text under idx, whitespace collapsed and trimmed."""

@@ -9,14 +9,14 @@ Usage: python -m bench.c1.targets --store STORE --run RUN_ID
 """
 
 import argparse
-import hashlib
 import json
 import math
 import re
 from datetime import datetime, timezone
-from pathlib import Path
 
+from bench.c1.manifest import run_folder, sha256_file
 from bench.c1.snapshot import Snapshot, px
+from piggyback.measure import publish_json
 
 SLOTS = ("heading", "body", "cta", "nav", "card")
 # Every computed property piggyback.gap can report for an anchor (font size, line height, tracking).
@@ -39,16 +39,19 @@ def _hidden(style):
     )
 
 
-def _on_screen(box, vw, vh):
-    x, y, w, h = box
-    return w > 0 and h > 0 and x < vw and x + w > 0 and y < vh and y + h > 0
+def rendered(el):
+    """Rendered for the captured checks: display, visibility, opacity and nonzero geometry."""
+    if el.style is None or el.box is None or _hidden(el.style):
+        return False
+    return el.box[2] > 0 and el.box[3] > 0
 
 
 def visible(el, vw, vh):
-    """Rendered for the captured checks: display, visibility, opacity, geometry, viewport."""
-    if el.style is None or el.box is None or _hidden(el.style):
+    """Rendered and intersecting the viewport. Cards use rendered() alone: they keep below-fold."""
+    if not rendered(el):
         return False
-    return _on_screen(el.box, vw, vh)
+    x, y, w, h = el.box
+    return x < vw and x + w > 0 and y < vh and y + h > 0
 
 
 def clipped_area(el, vw, vh):
@@ -68,7 +71,7 @@ def has_background(el):
     return len(parts) == 3 or float(parts[3].rstrip("%")) > 0
 
 
-def ink_box(snap, el):
+def ink_box(el):
     """Bounding box of the element's text, clipped to the element; the element box if no text."""
     x, y, w, h = el.box
     if not el.boxes:
@@ -119,12 +122,15 @@ def _heading(snap, els, vw, vh):
     heading = pick_first_best(
         pool, lambda el: (px(el.style["font-size"]) or 0, clipped_area(el, vw, vh))
     )
-    return _target(snap, heading, ink_box(snap, heading)) if heading else None
+    return _target(snap, heading, ink_box(heading)) if heading else None
 
 
 def _body(snap, els):
-    body = next((el for el in els if el.tag == "p" and len(snap.inner_text(el.idx)) >= 40), None)
-    return _target(snap, body, ink_box(snap, body)) if body else None
+    body = next(
+        (el for el in els if el.tag == "p" and len(snap.paragraph_inner_text(el.idx)) >= 40),
+        None,
+    )
+    return _target(snap, body, ink_box(body)) if body else None
 
 
 def _nav(snap, els):
@@ -142,7 +148,7 @@ def lock_targets(evidence):
         "body": _body(snap, els),
         "cta": _cta(snap, els, vw, vh),
         "nav": _nav(snap, els),
-        "card": _card(snap, els, vw),
+        "card": _card(snap, [el for el in snap.elements() if rendered(el)], vw),
     }
     return {slot: targets[slot] or {"absent": True} for slot in SLOTS}
 
@@ -185,7 +191,7 @@ def _sibling_groups(els):
     groups = {}
     for el in els:
         cls = el.attrs.get("class")
-        if cls is None or el.parent < 0:
+        if not cls or el.parent < 0:  # an empty class is no class, as in measure.js
             continue
         groups.setdefault((el.parent, el.tag, cls), []).append(el)
     return groups.values()
@@ -211,13 +217,9 @@ def _card(snap, els, vw):
     return target
 
 
-def sha256_file(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-
-
 def lock(store, run_id):
     """Write targets.json and its lock record once per run. Refuses to overwrite a lock."""
-    run = Path(store) / run_id
+    run = run_folder(store, run_id)
     lock_path = run / "targets.lock.json"
     if lock_path.exists() or lock_path.is_symlink():
         raise SystemExit(f"targets already locked: {lock_path}")
@@ -232,7 +234,7 @@ def lock(store, run_id):
         if sides:
             pairs[pair_dir.name] = sides
     targets_path = run / "targets.json"
-    targets_path.write_text(json.dumps(pairs, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    publish_json(targets_path, pairs)  # replaces a link at the path, never writes through it
     targets_path.chmod(0o600)
     record = {
         "locked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -240,7 +242,7 @@ def lock(store, run_id):
         "pairs": sorted(pairs),
         "source": "evidence.json snapshots only; no fingerprint read",
     }
-    lock_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    publish_json(lock_path, record)
     lock_path.chmod(0o600)
     return record
 

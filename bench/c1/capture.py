@@ -1,7 +1,9 @@
 """Capture the requested C1 pairs at 1440x900 into an evidence store outside the repository.
 
-Only the pair IDs given on the command line are captured. Nothing is substituted automatically:
-a failed pair gets a failure-attempt record and a reserve is chosen by a human under the spec.
+Only the pair IDs given on the command line are captured, and only in a run that has a registered
+manifest (bench.c1.manifest) and a clean worktree at the manifest commit. Every attempt is kept
+in its own attempt-N folder; a pair with attempts is never captured again. Nothing is substituted
+automatically: a failed pair gets a failure record, and a reserve is chosen under the spec.
 
 Usage: python -m bench.c1.capture --run RUN_ID C1-01 C1-02 ... [--store DIR]
 """
@@ -14,19 +16,20 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from bench.c1.manifest import DEFAULT_STORE, HERE, REPO, check_registered, load_manifest, run_folder
 from piggyback.measure import MeasureError, measure, refuse_links
 from piggyback.measure import publish_json as _publish
 
-HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[1]
-DEFAULT_STORE = Path("/home/brodey/projects/piggyback-evidence/c1")
 VIEWPORT = (1440, 900)
 SIDES = ("reference", "build")  # pairs.json keys: each side's URL is pair[side]
 CHALLENGE = re.compile(
     r"just a moment|access denied|your access has been blocked|verify you are human|captcha",
     re.IGNORECASE,
 )
-TIMEOUT = re.compile(r"timed out", re.IGNORECASE)
+TIMEOUT = re.compile(r"timed out|Timeout \d+ms exceeded", re.IGNORECASE)
+REDIRECT = re.compile(r"redirected to")
+# Failure classes that may justify a replacement (spec: Capture and substitution)
+ELIGIBLE = frozenset({"http_status", "cross_host_redirect"})
 
 
 def utc_now():
@@ -62,79 +65,119 @@ def check_store(store):
     return make_private_dir(resolved)
 
 
-def is_challenge(evidence):
-    """A bot wall or access denial: the page title or visible text is a challenge, not the site."""
+def challenge_text(evidence):
+    """The matched text when the page title or visible text is a challenge, else None."""
     page = evidence.get("page", {})
-    return bool(CHALLENGE.search(f"{page.get('title', '')}\n{page.get('text', '')}"))
+    found = CHALLENGE.search(f"{page.get('title', '')}\n{page.get('text', '')}")
+    return found.group(0) if found else None
 
 
-def write_failure(side_dir, requested, error, status=None, final=None):
+def classify(error, status):
+    """Failure class of a measure refusal: timeout, cross_host_redirect, http_status or other."""
+    if TIMEOUT.search(error):
+        return "timeout"
+    if REDIRECT.search(error):
+        return "cross_host_redirect"
+    if (status is not None and not 200 <= status < 300) or "answered HTTP" in error:
+        return "http_status"
+    return "other"
+
+
+def new_attempt(side_dir):
+    """A fresh attempt-N folder: numbered after every existing attempt, never reused."""
+    side_dir = make_private_dir(side_dir)
+    n = 1 + len(list(side_dir.glob("attempt-*")))
+    folder = side_dir / f"attempt-{n}"
+    folder.mkdir(mode=0o700)
+    return folder, n
+
+
+def write_failure(folder, requested, error, status=None, final=None, screenshot=None):
+    shot = Path(screenshot) if screenshot and Path(screenshot).exists() else None
+    if shot:
+        os.chmod(shot, 0o600)
     record = {
         "requested_url": requested,
         "final_url": final,
         "status": status,
         "timestamp_utc": utc_now(),
         "error": error,
-        "screenshot": None,  # measure() takes its screenshot only on success
+        "class": classify(error, status),
+        "screenshot": str(shot) if shot else None,
     }
-    _publish(side_dir / "failure.json", record)
-    os.chmod(side_dir / "failure.json", 0o600)
+    _publish(folder / "failure.json", record)
+    os.chmod(folder / "failure.json", 0o600)
     return record
 
 
 def capture_side(url, side_dir, measure_fn=measure):
-    """One side into side_dir. Returns ('ok', receipt) or ('failed', failure record).
+    """One side, one attempt folder per try. Returns (state, attempt number, detail).
 
-    A timeout is retried once; every other failure is recorded and not retried.
+    detail is the receipt when ok, the failure record otherwise. A timeout is retried once; every
+    other failure is recorded and not retried. A challenge page is a measurement: it is kept and
+    flagged with the matched text, never discarded.
     """
     side_dir = make_private_dir(side_dir)
-    shot, evidence, fp = (
-        side_dir / "screenshot.png",
-        side_dir / "evidence.json",
-        side_dir / "fingerprint.json",
-    )
-    refuse_links(shot, evidence, fp)
-    result = {}
-    for attempt in (1, 2):
+    while True:
+        folder, n = new_attempt(side_dir)
+        shot, evidence, fp = (
+            folder / "screenshot.png",
+            folder / "evidence.json",
+            folder / "fingerprint.json",
+        )
+        refuse_links(shot, evidence, fp)
         try:
             result = measure_fn(url, viewport=VIEWPORT, screenshot=shot, evidence=evidence)
-            break
         except MeasureError as exc:
-            error = str(exc)
-            if attempt == 1 and TIMEOUT.search(error):
+            record = write_failure(
+                folder,
+                url,
+                str(exc),
+                status=exc.status,
+                final=exc.final_url,
+                screenshot=shot,
+            )
+            if record["class"] == "timeout" and n == 1:
                 continue
-            write_failure(side_dir, url, error)
-            return "failed", error
-    capture = result.get("capture", {})
-    snapshot = json.loads(evidence.read_text(encoding="utf-8")) if evidence.exists() else {}
-    if is_challenge(snapshot):
-        record = write_failure(
-            side_dir,
-            url,
-            "bot wall: challenge page instead of the site",
-            status=capture.get("status"),
-            final=capture.get("final_url"),
-        )
-        return "failed", record["error"]
-    _publish(fp, result)
-    for path in (shot, evidence, fp):
-        if path.exists():
-            os.chmod(path, 0o600)
-    return "ok", capture
+            return "failed", n, record
+        capture = result.get("capture", {})
+        snapshot = json.loads(evidence.read_text(encoding="utf-8")) if evidence.exists() else {}
+        flag = challenge_text(snapshot)
+        if flag:
+            result["suspected_challenge"] = flag
+        _publish(fp, result)
+        for path in (shot, evidence, fp):
+            if path.exists():
+                os.chmod(path, 0o600)
+        return "ok", n, {**capture, "suspected_challenge": flag}
 
 
 def capture_pair(pair, run_dir, measure_fn=measure):
-    """Both sides of one pair. Returns the pair record written to pair.json."""
-    pair_dir = make_private_dir(run_dir / pair["id"])
+    """Both sides of one pair. Returns the pair record written to pair.json.
+
+    Refused when the pair already has attempts: a captured pair is never captured again.
+    """
+    pair_dir = Path(run_dir) / pair["id"]
+    if pair_dir.exists() and any(pair_dir.iterdir()):
+        raise SystemExit(f"refusing: {pair['id']} already has attempts in {pair_dir}")
+    pair_dir = make_private_dir(pair_dir)
     record = {"pair_id": pair["id"], "sides": {}}
     for side in SIDES:
-        state, detail = capture_side(pair[side], pair_dir / side, measure_fn)
-        record["sides"][side] = {"state": state, "requested_url": pair[side]}
+        state, attempt, detail = capture_side(pair[side], pair_dir / side, measure_fn)
+        entry = {"state": state, "requested_url": pair[side], "attempt": attempt}
         if state == "ok":
-            record["sides"][side]["receipt"] = detail
-    record["status"] = (
-        "ok" if all(s["state"] == "ok" for s in record["sides"].values()) else "failed"
-    )
+            entry["receipt"] = detail
+            entry["final_url"] = detail.get("final_url")
+        else:
+            entry["final_url"] = detail.get("final_url")
+            entry["class"] = detail["class"]
+        record["sides"][side] = entry
+    if any(s["state"] != "ok" for s in record["sides"].values()):
+        record["status"] = "failed"
+    elif any(s["receipt"]["suspected_challenge"] for s in record["sides"].values()):
+        record["status"] = "suspected_challenge"
+    else:
+        record["status"] = "ok"
     _publish(pair_dir / "pair.json", record)
     os.chmod(pair_dir / "pair.json", 0o600)
     return record
@@ -147,7 +190,10 @@ def main(argv=None):
     parser.add_argument("--store", default=str(DEFAULT_STORE))
     args = parser.parse_args(argv)
     store = check_store(args.store)
-    run_dir = make_private_dir(store / args.run)
+    run_dir = run_folder(store, args.run)
+    if not run_dir.is_dir():
+        raise SystemExit(f"refusing: run {args.run} has no manifest; run bench.c1.manifest first")
+    check_registered(load_manifest(run_dir))
     selected = select_pairs(args.pairs)
     for pair in selected:
         record = capture_pair(pair, run_dir)

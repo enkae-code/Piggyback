@@ -17,6 +17,21 @@ from piggyback.gap import ANCHORS, gap
 from piggyback.measure import EVIDENCE_STYLES, MeasureError
 
 REPO = Path(__file__).resolve().parents[1]
+RECEIPT = "2026-11-17T12:00:00+00:00"
+
+
+def _meta():
+    """Per-side audit meta as capture.py records it, for score.score_pair."""
+    return {
+        side: {
+            "requested_url": "https://x.test/",
+            "final_url": "https://x.test/",
+            "receipt": RECEIPT,
+        }
+        for side in ("reference", "build")
+    }
+
+
 BASE = {
     "display": "block",
     "visibility": "visible",
@@ -58,7 +73,14 @@ def evidence(elements, viewport=(1440, 900), scroll=(0, 0)):
             strings.append(value)
         return strings.index(value)
 
-    nodes = {"nodeType": [], "parentIndex": [], "nodeName": [], "nodeValue": [], "attributes": []}
+    nodes = {
+        "nodeType": [],
+        "parentIndex": [],
+        "nodeName": [],
+        "nodeValue": [],
+        "attributes": [],
+        "backendNodeId": [],
+    }
     layout = {"nodeIndex": [], "styles": [], "bounds": []}
     text_boxes = {"layoutIndex": [], "bounds": []}
 
@@ -68,6 +90,9 @@ def evidence(elements, viewport=(1440, 900), scroll=(0, 0)):
         nodes["nodeName"].append(s(name))
         nodes["nodeValue"].append(s(value))
         nodes["attributes"].append(attrs)
+        nodes["backendNodeId"].append(
+            len(nodes["nodeType"])
+        )  # stable id per node, as Chromium gives
         return len(nodes["nodeType"]) - 1
 
     for spec in elements:
@@ -285,10 +310,12 @@ class ToleranceAndRounding(unittest.TestCase):
         self.assertEqual(score.required_correct(70), 63)  # 0.9*70 is not exact in floats
         self.assertEqual(score.required_correct(0), 0)
 
-    def test_box_match_is_two_px(self):
+    def test_box_match_is_exact_after_math_round(self):
         pin = {"x": 10.4, "y": 20, "width": 100, "height": 40}
-        self.assertTrue(score.box_matches(pin, [12, 20, 100, 40]))
-        self.assertFalse(score.box_matches(pin, [13, 20, 100, 40]))
+        self.assertTrue(score.box_matches(pin, [10, 20, 100, 40]))  # 10.4 rounds to 10
+        self.assertFalse(score.box_matches(pin, [11, 20, 100, 40]))  # no 2px allowance
+        self.assertFalse(score.box_matches(pin, [10, 20, 100, 41]))
+        self.assertFalse(score.box_matches(pin, None))
 
     def test_placement_matches_app_rule(self):
         vp = {"width": 1440, "height": 900}
@@ -365,6 +392,16 @@ class LockCoversReportedProps(unittest.TestCase):
         self.assertEqual(locked["nav"]["style"]["line-height"], "normal")
 
 
+def write_manifest(run, chromium="156.0.1"):
+    """A registered manifest in run, as bench.c1.manifest writes it (fields score reads)."""
+    data = {
+        "piggyback_commit": "c0ffee",
+        "chromium_version": chromium,
+        "spot_check": {"seed": 1, "sample": ["C1-01"]},
+    }
+    (Path(run) / "manifest.json").write_text(json.dumps(data))
+
+
 class LockAndOrdering(unittest.TestCase):
     def make_run(self, root, pair="C1-01", side="reference", status="ok"):
         d = Path(root) / "run1" / pair / side
@@ -372,6 +409,7 @@ class LockAndOrdering(unittest.TestCase):
         (d / "evidence.json").write_text(
             json.dumps(evidence([el("h1", box=(0, 0, 100, 40), text="x", font_size="30px")]))
         )
+        write_manifest(Path(root) / "run1")
         return Path(root) / "run1"
 
     def test_lock_writes_hash_and_refuses_relock(self):
@@ -400,13 +438,21 @@ class LockAndOrdering(unittest.TestCase):
 
     def test_unresolved_pairs_are_not_counted_as_retained(self):
         with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as root:
-            self.make_run(root)  # C1-01 reference only: no pair.json, so it is unresolved
+            run = self.make_run(root)  # C1-01 reference only: no pair.json, so it is unresolved
             targets.lock(root, "run1")
             report = score.run_score(root, "run1")
             self.assertEqual(report["retained_pairs"], 0)
             self.assertIsNone(report["avg_pinned_anchors"])
             self.assertIn("C1-01", report["unresolved"])
             self.assertEqual(report["verdict"], "incomplete")
+            # Unresolved pairs keep their audit rows: a summary row and five anchor rows.
+            summary = (run / "pair_summary.csv").read_text()
+            self.assertIn("C1-01,0,0,0,missing", summary)
+            anchors = (run / "anchors.csv").read_text()
+            self.assertIn("C1-01,heading,not found,", anchors)
+            self.assertEqual(
+                sum(1 for line in anchors.splitlines() if line.startswith("C1-01,")), 5
+            )
 
     def test_fingerprint_is_not_read_by_target_lock(self):
         with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as root:
@@ -442,7 +488,7 @@ class CaptureRecords(unittest.TestCase):
         with self.assertRaises(SystemExit):
             capture.check_store(REPO / "bench")
 
-    def test_timeout_retried_once_then_failure_record(self):
+    def test_timeout_retried_once_and_both_attempts_kept(self):
         calls = []
 
         def fake(url, **_):
@@ -450,12 +496,29 @@ class CaptureRecords(unittest.TestCase):
             raise MeasureError("measure timed out after 90s")
 
         side = self.root / "ref"
-        state, error = capture.capture_side("https://x.test/", side, measure_fn=fake)
-        self.assertEqual((state, len(calls)), ("failed", 2))
-        record = json.loads((side / "failure.json").read_text())
+        state, attempt, record = capture.capture_side("https://x.test/", side, measure_fn=fake)
+        self.assertEqual((state, attempt, len(calls)), ("failed", 2, 2))
         self.assertEqual(record["requested_url"], "https://x.test/")
-        self.assertIn("timed out", record["error"])
-        self.assertEqual(stat.S_IMODE((side / "failure.json").stat().st_mode), 0o600)
+        self.assertEqual(record["class"], "timeout")
+        for n in (1, 2):
+            path = side / f"attempt-{n}" / "failure.json"
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
+    def test_playwright_timeout_message_is_retried(self):
+        calls = []
+
+        def fake(url, **_):
+            calls.append(url)
+            if len(calls) == 1:
+                raise MeasureError("Timeout 30000ms exceeded.")
+            return {"capture": {"status": 200, "final_url": url, "captured_at": RECEIPT}}
+
+        state, attempt, _ = capture.capture_side(
+            "https://x.test/", self.root / "p", measure_fn=fake
+        )
+        self.assertEqual((state, attempt, len(calls)), ("ok", 2, 2))
+        self.assertTrue((self.root / "p" / "attempt-1" / "failure.json").exists())
+        self.assertTrue((self.root / "p" / "attempt-2" / "fingerprint.json").exists())
 
     def test_non_timeout_error_not_retried(self):
         calls = []
@@ -464,20 +527,64 @@ class CaptureRecords(unittest.TestCase):
             calls.append(url)
             raise MeasureError("page answered HTTP 403 from x.test: measure a page that loads")
 
-        state, _ = capture.capture_side("https://x.test/", self.root / "s", measure_fn=fake)
-        self.assertEqual((state, len(calls)), ("failed", 1))
+        state, attempt, record = capture.capture_side(
+            "https://x.test/", self.root / "s", measure_fn=fake
+        )
+        self.assertEqual((state, attempt, len(calls)), ("failed", 1, 1))
+        self.assertEqual(record["class"], "http_status")
 
-    def test_bot_wall_is_a_failure(self):
+    def test_failure_record_keeps_structured_status_and_final_url(self):
+        def fake(url, **_):
+            raise MeasureError(
+                "page redirected to https://y.test/, not the host you gave",
+                status=200,
+                final_url="https://y.test/",
+            )
+
+        _, _, record = capture.capture_side("https://x.test/", self.root / "r", measure_fn=fake)
+        self.assertEqual(record["status"], 200)
+        self.assertEqual(record["final_url"], "https://y.test/")
+        self.assertEqual(record["class"], "cross_host_redirect")
+
+    def test_failure_screenshot_referenced_only_when_it_exists_and_is_0600(self):
+        def fake(url, *, screenshot, **_):
+            Path(screenshot).write_bytes(b"png")
+            os.chmod(screenshot, 0o644)
+            raise MeasureError("page answered HTTP 500", status=500, final_url=url)
+
+        _, _, record = capture.capture_side("https://x.test/", self.root / "s5", measure_fn=fake)
+        shot = Path(record["screenshot"])
+        self.assertTrue(shot.exists())
+        self.assertEqual(stat.S_IMODE(shot.stat().st_mode), 0o600)
+
+    def test_new_attempt_never_reuses_or_overwrites_a_folder(self):
+        side = self.root / "n"
+        first, n1 = capture.new_attempt(side)
+        (first / "failure.json").write_text("kept")
+        second, n2 = capture.new_attempt(side)
+        self.assertEqual((n1, n2), (1, 2))
+        self.assertEqual((first / "failure.json").read_text(), "kept")
+
+    def test_pair_with_attempts_is_never_captured_again(self):
+        run = self.root / "run"
+        (run / "C1-01" / "reference" / "attempt-1").mkdir(parents=True)
+        with self.assertRaises(SystemExit):
+            capture.capture_pair(capture.select_pairs(["C1-01"])[0], run)
+
+    def test_bot_wall_is_kept_and_flagged(self):
         def fake(url, *, screenshot, evidence, **_):
             Path(evidence).write_text(
                 json.dumps({"page": {"title": "Just a moment...", "text": "Checking your browser"}})
             )
-            return {"capture": {"status": 403, "final_url": url}}
+            return {"capture": {"status": 200, "final_url": url, "captured_at": RECEIPT}}
 
-        state, error = capture.capture_side("https://x.test/", self.root / "b", measure_fn=fake)
-        self.assertEqual(state, "failed")
-        self.assertIn("bot wall", error)
-        self.assertFalse((self.root / "b" / "fingerprint.json").exists())
+        state, attempt, receipt = capture.capture_side(
+            "https://x.test/", self.root / "b", measure_fn=fake
+        )
+        self.assertEqual((state, attempt), ("ok", 1))
+        self.assertEqual(receipt["suspected_challenge"], "Just a moment")
+        kept = json.loads((self.root / "b" / "attempt-1" / "fingerprint.json").read_text())
+        self.assertEqual(kept["suspected_challenge"], "Just a moment")
 
     def test_unknown_pair_id_refused(self):
         with self.assertRaises(SystemExit):
@@ -607,7 +714,7 @@ class OffSetPinsFromGap(unittest.TestCase):
         concepts = {pin.concept for pin in gap(self.fps["reference"], self.fps["build"])}
         self.assertTrue({"accent", "container"} <= concepts)  # real gap output, page-level
         targets = {side: _targets_from(self.fps[side]) for side in self.fps}
-        receipts = {side: RECEIPT for side in self.fps}
+        receipts = _meta()
         pin_rows, anchor_rows, shown, correct, pinned, skipped = score.score_pair(
             "D-01", targets, self.fps, receipts
         )
@@ -623,7 +730,7 @@ class OffSetPinsFromGap(unittest.TestCase):
             for slot in score.SLOTS:
                 if not targets[side][slot].get("absent"):
                     targets[side][slot]["style"].pop("line-height")  # hand value never locked
-        receipts = {side: RECEIPT for side in self.fps}
+        receipts = _meta()
         with self.assertRaises(score.HarnessDefect):
             score.score_pair("D-01", targets, self.fps, receipts)
 

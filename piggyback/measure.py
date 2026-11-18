@@ -30,7 +30,12 @@ SETTLE_MS = 5_000  # a page that never goes idle is still measured
 
 
 class MeasureError(RuntimeError):
-    pass
+    """A refused or failed measure. status and final_url are set when the refusal knows them."""
+
+    def __init__(self, message="", *, status=None, final_url=None):
+        super().__init__(message)
+        self.status = status
+        self.final_url = final_url
 
 
 def check_url(url, allow_loopback=False):
@@ -59,7 +64,7 @@ def receipt_refusal(status, requested, final):
 def _refuse_if_moved(status, req, page):
     refusal = receipt_refusal(status, req["url"], page.url)
     if refusal:
-        raise MeasureError(refusal)
+        raise MeasureError(refusal, status=status, final_url=page.url)
 
 
 def refuse_links(*paths):
@@ -151,7 +156,9 @@ def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None,
     except json.JSONDecodeError:
         result = {"error": "worker output was not JSON"}
     if "error" in result:
-        raise MeasureError(result["error"])
+        raise MeasureError(
+            result["error"], status=result.get("status"), final_url=result.get("final_url")
+        )
     return result
 
 
@@ -180,6 +187,28 @@ PAGE_STATE = (
 )
 
 
+def _paragraph_texts(session, snapshot):
+    """innerText of each <p>, keyed by backend node id, read in the same CDP session."""
+    nodes = snapshot["documents"][0]["nodes"]
+    pseudo = nodes.get("pseudoType", {})
+    texts = {}
+    for idx, kind in enumerate(nodes["nodeType"]):
+        if kind != 1 or str(idx) in pseudo or snapshot["strings"][nodes["nodeName"][idx]] != "P":
+            continue
+        backend = nodes["backendNodeId"][idx]
+        node = session.send("DOM.resolveNode", {"backendNodeId": backend})["object"]
+        result = session.send(
+            "Runtime.callFunctionOn",
+            {
+                "objectId": node["objectId"],
+                "functionDeclaration": "function () { return this.innerText; }",
+                "returnByValue": True,
+            },
+        )
+        texts[str(backend)] = result["result"].get("value", "")
+    return texts
+
+
 def _save_evidence(page, path):
     """DOM snapshot with computed styles and rects, from the same session, to a JSON file."""
     refuse_links(path)
@@ -193,9 +222,18 @@ def _save_evidence(page, path):
                 "includePaintOrder": False,
             },
         )
+        inner_text = _paragraph_texts(session, snapshot)
     finally:
         session.detach()
-    publish_json(path, {"styles": EVIDENCE_STYLES, "page": page.evaluate(PAGE_STATE), **snapshot})
+    publish_json(
+        path,
+        {
+            "styles": EVIDENCE_STYLES,
+            "page": page.evaluate(PAGE_STATE),
+            "inner_text": inner_text,
+            **snapshot,
+        },
+    )
 
 
 def _capture_motion(page, screenshot, evidence=None):
@@ -302,7 +340,10 @@ def _worker():
         result = _capture(req)
     except Exception as exc:  # Playwright and launch errors; the first line is enough
         text = str(exc).strip()
-        print(json.dumps({"error": text.splitlines()[0] if text else repr(exc)}))
+        out: dict = {"error": text.splitlines()[0] if text else repr(exc)}
+        if isinstance(exc, MeasureError):
+            out["status"], out["final_url"] = exc.status, exc.final_url
+        print(json.dumps(out))
         return 1
     print(json.dumps(result))
     return 0
