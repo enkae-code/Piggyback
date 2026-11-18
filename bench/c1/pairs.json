@@ -1,0 +1,163 @@
+{
+  "source": "vault Specs/open-source-plan/phase-c-sets.md, section C1 (frozen 2026-11-17)",
+  "primary": [
+    {
+      "id": "C1-01",
+      "reference": "https://stripe.com/",
+      "build": "https://linear.app/",
+      "coverage": "SaaS landing, similar category"
+    },
+    {
+      "id": "C1-02",
+      "reference": "https://linear.app/",
+      "build": "https://vercel.com/",
+      "coverage": "SaaS landing, similar category; dark/light"
+    },
+    {
+      "id": "C1-03",
+      "reference": "https://vercel.com/",
+      "build": "https://docs.python.org/3/",
+      "coverage": "Dev tool to docs; dark/light"
+    },
+    {
+      "id": "C1-04",
+      "reference": "https://docs.python.org/3/",
+      "build": "https://developer.mozilla.org/",
+      "coverage": "Docs, similar category"
+    },
+    {
+      "id": "C1-05",
+      "reference": "https://www.shopify.com/",
+      "build": "https://www.ikea.com/",
+      "coverage": "E-commerce, similar category"
+    },
+    {
+      "id": "C1-06",
+      "reference": "https://www.apple.com/",
+      "build": "https://www.patagonia.com/",
+      "coverage": "E-commerce, cross-category; motion-heavy/static"
+    },
+    {
+      "id": "C1-07",
+      "reference": "https://www.bbc.com/",
+      "build": "https://www.theguardian.com/",
+      "coverage": "News/editorial, similar category; dense"
+    },
+    {
+      "id": "C1-08",
+      "reference": "https://www.npr.org/",
+      "build": "https://www.metmuseum.org/",
+      "coverage": "Editorial to cultural institution"
+    },
+    {
+      "id": "C1-09",
+      "reference": "https://www.gov.uk/",
+      "build": "https://www.usa.gov/",
+      "coverage": "Government, similar category"
+    },
+    {
+      "id": "C1-10",
+      "reference": "https://www.figma.com/",
+      "build": "https://github.com/",
+      "coverage": "Dev tool, cross-category"
+    },
+    {
+      "id": "C1-11",
+      "reference": "https://www.notion.com/",
+      "build": "https://www.mozilla.org/",
+      "coverage": "SaaS to nonprofit/open-source; sparse"
+    },
+    {
+      "id": "C1-12",
+      "reference": "https://www.airbnb.com/",
+      "build": "https://www.ikea.com/",
+      "coverage": "Marketplace to retail; dense"
+    },
+    {
+      "id": "C1-13",
+      "reference": "https://www.nationalgeographic.com/",
+      "build": "https://www.bbc.com/",
+      "coverage": "Editorial, similar category; image-led"
+    },
+    {
+      "id": "C1-14",
+      "reference": "https://www.nasa.gov/",
+      "build": "https://www.gov.uk/",
+      "coverage": "Government, cross-category; light/dense"
+    },
+    {
+      "id": "C1-15",
+      "reference": "https://www.starbucks.com/",
+      "build": "https://www.chipotle.com/",
+      "coverage": "Restaurant, similar category"
+    },
+    {
+      "id": "C1-16",
+      "reference": "https://www.sweetgreen.com/",
+      "build": "https://www.apple.com/",
+      "coverage": "Restaurant to e-commerce; motion-heavy/static"
+    },
+    {
+      "id": "C1-17",
+      "reference": "https://www.mozilla.org/",
+      "build": "https://vercel.com/",
+      "coverage": "Open-source to SaaS; dark/light"
+    },
+    {
+      "id": "C1-18",
+      "reference": "https://www.metmuseum.org/",
+      "build": "https://www.airbnb.com/",
+      "coverage": "Cultural institution to marketplace"
+    },
+    {
+      "id": "C1-19",
+      "reference": "https://www.usa.gov/",
+      "build": "https://www.npr.org/",
+      "coverage": "Government to editorial; dense/sparse"
+    },
+    {
+      "id": "C1-20",
+      "reference": "https://www.patagonia.com/",
+      "build": "https://www.figma.com/",
+      "coverage": "E-commerce to dev tool; motion-heavy/static"
+    }
+  ],
+  "reserves": [
+    {
+      "id": "R1",
+      "reference": "https://www.w3.org/",
+      "build": "https://www.gov.uk/",
+      "coverage": "Standards/docs to government"
+    },
+    {
+      "id": "R2",
+      "reference": "https://www.loc.gov/",
+      "build": "https://www.metmuseum.org/",
+      "coverage": "Public institutions"
+    },
+    {
+      "id": "R3",
+      "reference": "https://www.dropbox.com/",
+      "build": "https://www.shopify.com/",
+      "coverage": "SaaS to e-commerce"
+    },
+    {
+      "id": "R4",
+      "reference": "https://www.starbucks.com/",
+      "build": "https://www.bbc.com/",
+      "coverage": "Restaurant to editorial"
+    },
+    {
+      "id": "R5",
+      "reference": "https://www.nasa.gov/",
+      "build": "https://www.nationalgeographic.com/",
+      "coverage": "Science/editorial"
+    },
+    {
+      "id": "R6",
+      "reference": "https://www.ikea.com/",
+      "build": "https://linear.app/",
+      "coverage": "Retail to SaaS; light/dark"
+    }
+  ]
+}

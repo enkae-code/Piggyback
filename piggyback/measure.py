@@ -118,13 +118,15 @@ def write_measure(url, out_dir, *, viewport=(1440, 900), allow_loopback=False):
     return fingerprint, shot
 
 
-def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None):
+def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None, evidence=None):
+    """Fingerprint one page. evidence: optional path for a DOM snapshot (Python API only)."""
     url = check_url(url, allow_loopback)
     request = {
         "url": url,
         "viewport": list(viewport),
         "allow_loopback": allow_loopback,
         "screenshot": str(screenshot) if screenshot else None,
+        "evidence": str(evidence) if evidence else None,
     }
     # Playwright's bypass switch would let Chromium skip the proxy for loopback.
     env = {k: v for k, v in os.environ.items() if k != BYPASS_ENV}
@@ -153,8 +155,53 @@ def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None)
     return result
 
 
-def _capture_motion(page, screenshot):
+EVIDENCE_STYLES = [
+    "display",
+    "visibility",
+    "opacity",
+    "font-size",
+    "line-height",
+    "letter-spacing",
+    "font-weight",
+    "font-family",
+    "color",
+    "background-color",
+    "border-top-left-radius",
+    "box-shadow",
+    "padding-top",
+    "padding-right",
+    "padding-bottom",
+    "padding-left",
+]
+PAGE_STATE = (
+    "() => ({url: location.href, title: document.title, scroll: [scrollX, scrollY],"
+    " viewport: [innerWidth, innerHeight],"
+    " text: (document.body ? document.body.innerText : '').slice(0, 4000)})"
+)
+
+
+def _save_evidence(page, path):
+    """DOM snapshot with computed styles and rects, from the same session, to a JSON file."""
+    refuse_links(path)
+    session = page.context.new_cdp_session(page)
+    try:
+        snapshot = session.send(
+            "DOMSnapshot.captureSnapshot",
+            {
+                "computedStyles": EVIDENCE_STYLES,
+                "includeDOMRects": True,
+                "includePaintOrder": False,
+            },
+        )
+    finally:
+        session.detach()
+    publish_json(path, {"styles": EVIDENCE_STYLES, "page": page.evaluate(PAGE_STATE), **snapshot})
+
+
+def _capture_motion(page, screenshot, evidence=None):
     fingerprint = page.evaluate(f"({SCRIPT})()")
+    if evidence:  # opt-in: before the screenshot and reduced-motion emulation, same session
+        _save_evidence(page, evidence)
     if screenshot:
         page.screenshot(path=screenshot, type="png")
     page.emulate_media(reduced_motion="reduce")
@@ -218,7 +265,7 @@ def _capture_page(req, tmp):
             page.evaluate("() => document.fonts.ready")
             with contextlib.suppress(Exception):
                 page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
-            fingerprint = _capture_motion(page, tmp)
+            fingerprint = _capture_motion(page, tmp, req.get("evidence"))
             try:
                 _refuse_if_moved(status, req, page)  # a script may redirect while the page settles
             except MeasureError:
