@@ -106,29 +106,30 @@
   };
   const chroma = ([r, g, b]) => Math.max(r, g, b) - Math.min(r, g, b);
   const bgs = boxes.filter((b) => b.area > 0 && hasBg(b));
-  const accents = new Map();
-  for (const b of bgs) {
-    const c = rgba(b.cs.backgroundColor);
-    const s = sat(c);
-    if (s < SATURATED || chroma(c) < ACCENT_CHROMA) continue;
-    const entry = accents.get(b.cs.backgroundColor) || { sat: s, area: 0 };
-    entry.area += b.area;
-    accents.set(b.cs.backgroundColor, entry);
-  }
   // ponytail: overlapping boxes double count; the share is capped at 1. The canvas is one more
   // overlap: html and body are not boxes, so the canvas (html's background, else body's, as CSS
-  // propagates it) is counted once at viewport weight. Accent ignores it.
+  // propagates it) is counted once at viewport weight, in background and accent alike.
   const canvas = [document.documentElement, document.body]
     .filter(Boolean)
     .map((el) => getComputedStyle(el).backgroundColor)
     .find((c) => rgba(c)?.[3] > 0);
+  const paints = [
+    ...bgs.map((b) => [b.cs.backgroundColor, b.area]),
+    ...(canvas ? [[canvas, VW * VH]] : []),
+  ];
+  const accents = new Map();
+  for (const [paint, area] of paints) {
+    const c = rgba(paint);
+    const s = sat(c);
+    if (s < SATURATED || chroma(c) < ACCENT_CHROMA) continue;
+    const entry = accents.get(paint) || { sat: s, area: 0 };
+    entry.area += area;
+    accents.set(paint, entry);
+  }
   const accent = [...accents.values()].sort((a, b) => b.sat - a.sat)[0];
   const palette = {
     text: hist(texts.map((b) => [b.cs.color, b.area])),
-    background: hist([
-      ...bgs.map((b) => [b.cs.backgroundColor, b.area]),
-      ...(canvas ? [[canvas, VW * VH]] : []),
-    ]),
+    background: hist(paints),
     accent_share: accent ? round(Math.min(1, accent.area / (VW * VH))) : 0,
   };
 

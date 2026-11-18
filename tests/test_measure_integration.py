@@ -147,6 +147,11 @@ class MeasureIntegration(unittest.TestCase):
         palette = measure(f"{self.base}/accent-hero.html", allow_loopback=True)["palette"]
         self.assertGreater(palette["accent_share"], 0.5)
 
+    def test_saturated_page_canvas_is_the_accent(self):
+        # The amber body paints the canvas; no box has a background, so only the canvas can count.
+        palette = measure(f"{self.base}/accent-canvas-amber.html", allow_loopback=True)["palette"]
+        self.assertGreater(palette["accent_share"], 0.8)
+
     def test_http_404_is_refused_with_its_status(self):
         with self.assertRaisesRegex(MeasureError, "HTTP 404"):
             measure(f"{self.base}/no-such-page.html", allow_loopback=True)
