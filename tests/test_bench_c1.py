@@ -403,14 +403,22 @@ def write_manifest(run, chromium="156.0.1"):
 
 
 class LockAndOrdering(unittest.TestCase):
-    def make_run(self, root, pair="C1-01", side="reference", status="ok"):
-        d = Path(root) / "run1" / pair / side
-        d.mkdir(parents=True)
-        (d / "evidence.json").write_text(
-            json.dumps(evidence([el("h1", box=(0, 0, 100, 40), text="x", font_size="30px")]))
-        )
-        write_manifest(Path(root) / "run1")
-        return Path(root) / "run1"
+    def make_run(self, root, pair="C1-01", status="ok"):
+        run = Path(root) / "run1"
+        record = {"pair_id": pair, "status": status, "sides": {}}
+        for side in ("reference", "build"):
+            d = run / pair / side / "attempt-1"
+            d.mkdir(parents=True)
+            snapshot = evidence([el("h1", box=(0, 0, 100, 40), text="x", font_size="30px")])
+            (d / "evidence.json").write_text(json.dumps(snapshot))
+            record["sides"][side] = {
+                "state": "ok",
+                "requested_url": "https://x.test/",
+                "attempt": 1,
+            }
+        (run / pair / "pair.json").write_text(json.dumps(record))
+        write_manifest(run)
+        return run
 
     def test_lock_writes_hash_and_refuses_relock(self):
         with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as root:
@@ -438,7 +446,7 @@ class LockAndOrdering(unittest.TestCase):
 
     def test_unresolved_pairs_are_not_counted_as_retained(self):
         with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as root:
-            run = self.make_run(root)  # C1-01 reference only: no pair.json, so it is unresolved
+            run = self.make_run(root, status="failed")  # failed capture: no snapshot to lock
             targets.lock(root, "run1")
             report = score.run_score(root, "run1")
             self.assertEqual(report["retained_pairs"], 0)
@@ -447,7 +455,7 @@ class LockAndOrdering(unittest.TestCase):
             self.assertEqual(report["verdict"], "incomplete")
             # Unresolved pairs keep their audit rows: a summary row and five anchor rows.
             summary = (run / "pair_summary.csv").read_text()
-            self.assertIn("C1-01,0,0,0,missing", summary)
+            self.assertIn("C1-01,0,0,0,failed", summary)
             anchors = (run / "anchors.csv").read_text()
             self.assertIn("C1-01,heading,not found,", anchors)
             self.assertEqual(

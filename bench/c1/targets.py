@@ -14,6 +14,7 @@ import math
 import re
 from datetime import datetime, timezone
 
+from bench.c1.capture import SIDES
 from bench.c1.manifest import run_folder, sha256_file
 from bench.c1.snapshot import Snapshot, px
 from piggyback.measure import publish_json
@@ -225,14 +226,18 @@ def lock(store, run_id):
         raise SystemExit(f"targets already locked: {lock_path}")
     pairs = {}
     for pair_dir in sorted(p for p in run.iterdir() if p.is_dir()):
-        sides = {}
-        for side in ("reference", "build"):
-            evidence = pair_dir / side / "evidence.json"
-            if evidence.exists():
-                data = json.loads(evidence.read_text(encoding="utf-8"))
-                sides[side] = lock_targets(data)
-        if sides:
-            pairs[pair_dir.name] = sides
+        pair_file = pair_dir / "pair.json"
+        if not pair_file.is_file():
+            continue
+        pair = json.loads(pair_file.read_text(encoding="utf-8"))
+        if pair["status"] not in ("ok", "suspected_challenge"):
+            continue  # a failed pair has no snapshot to lock; it is reported unresolved
+        pairs[pair_dir.name] = {}
+        for side in SIDES:
+            attempt = pair["sides"][side]["attempt"]
+            evidence = pair_dir / side / f"attempt-{attempt}" / "evidence.json"
+            data = json.loads(evidence.read_text(encoding="utf-8"))
+            pairs[pair_dir.name][side] = lock_targets(data)
     targets_path = run / "targets.json"
     publish_json(targets_path, pairs)  # replaces a link at the path, never writes through it
     targets_path.chmod(0o600)
