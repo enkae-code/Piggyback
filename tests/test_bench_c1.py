@@ -497,6 +497,31 @@ class LockAndOrdering(unittest.TestCase):
             self.assertIn("C1-01", targets.lock(root, "run1")["pairs"])
 
 
+class PrivateWrite(unittest.TestCase):
+    """score._private_write (verdict.json, CSVs): exact bytes, owner-only, never via a link."""
+
+    def test_writes_exact_bytes_owner_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "verdict.json"
+            score._private_write(path, "a\nb\n")
+            self.assertEqual(path.read_bytes(), b"a\nb\n")
+            if os.name != "nt":  # Windows keeps no POSIX mode bits
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
+    def test_refuses_a_symbolic_link(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            victim = Path(tmp) / "victim"
+            victim.write_text("keep")
+            link = Path(tmp) / "verdict.json"
+            try:
+                link.symlink_to(victim)
+            except OSError:
+                self.skipTest("symlinks need privileges here")
+            with self.assertRaises((OSError, SystemExit)):
+                score._private_write(link, "overwritten")
+            self.assertEqual(victim.read_text(), "keep")
+
+
 class PairsFile(unittest.TestCase):
     def test_counts_ids_and_urls(self):
         data = json.loads((REPO / "bench/c1/pairs.json").read_text(encoding="utf-8"))
