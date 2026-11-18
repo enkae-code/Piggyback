@@ -59,23 +59,11 @@
     "letter_spacing": [
       {
         "value": "normal",
-        "share": 0.97
-      },
-      {
-        "value": "0.96px",
-        "share": 0.02
+        "share": 0.99
       },
       {
         "value": "-0.68px",
         "share": 0.01
-      },
-      {
-        "value": "0.52px",
-        "share": 0
-      },
-      {
-        "value": "1.04px",
-        "share": 0
       }
     ],
     "font_weight": [
@@ -265,7 +253,7 @@
       "text": "Acknowledge 2 signals",
       "font_size": "13px",
       "line_height": "15.6px",
-      "letter_spacing": "0.52px",
+      "letter_spacing": "normal",
       "font_weight": "700",
       "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
       "color": "rgb(15, 23, 25)",
@@ -278,9 +266,9 @@
         "18px"
       ],
       "box": {
-        "x": 1201,
+        "x": 1212,
         "y": 206,
-        "width": 215,
+        "width": 204,
         "height": 42
       }
     },
@@ -302,7 +290,7 @@
         "0px"
       ],
       "box": {
-        "x": 259,
+        "x": 236,
         "y": 0,
         "width": 260,
         "height": 47
@@ -340,7 +328,7 @@
   "url": "starter:northline-ops",
   "captured_with": "piggyback 0.1.0.dev0",
   "browser": "bundled chromium",
-  "captured_at": "2026-11-18T02:12:45+00:00",
+  "captured_at": "2026-11-18T20:48:32+00:00",
   "capture": {
     "status": 200,
     "final_url": "starter:northline-ops",
@@ -351,7 +339,7 @@
       "width": 1440,
       "height": 900
     },
-    "captured_at": "2026-11-18T02:12:45+00:00"
+    "captured_at": "2026-11-18T20:48:32+00:00"
   },
   "blocked_requests": [],
   "screenshot": "screenshot.png"

@@ -7,97 +7,93 @@
     "font_size": [
       {
         "value": "19px",
-        "share": 0.9
+        "share": 0.92
       },
       {
-        "value": "103.68px",
+        "value": "17px",
         "share": 0.04
       },
       {
-        "value": "14px",
-        "share": 0.02
+        "value": "103.68px",
+        "share": 0.03
       },
       {
-        "value": "31px",
-        "share": 0.01
+        "value": "18px",
+        "share": 0
       },
       {
         "value": "28px",
-        "share": 0.01
-      },
-      {
-        "value": "16px",
-        "share": 0.01
+        "share": 0
       },
       {
         "value": "26px",
         "share": 0
       },
       {
-        "value": "40px",
+        "value": "32px",
+        "share": 0
+      },
+      {
+        "value": "12.92px",
         "share": 0
       }
     ],
     "line_height": [
       {
         "value": "28.5px",
-        "share": 0.9
+        "share": 0.92
       },
       {
-        "value": "99.5328px",
+        "value": "23.8px",
         "share": 0.04
       },
       {
-        "value": "19.6px",
-        "share": 0.02
+        "value": "99.5328px",
+        "share": 0.03
       },
       {
-        "value": "40.3px",
-        "share": 0.01
-      },
-      {
-        "value": "35px",
-        "share": 0.01
-      },
-      {
-        "value": "22.4px",
-        "share": 0.01
-      },
-      {
-        "value": "28.6px",
+        "value": "25.2px",
         "share": 0
       },
       {
-        "value": "16.8px",
+        "value": "35px",
+        "share": 0
+      },
+      {
+        "value": "31.2px",
+        "share": 0
+      },
+      {
+        "value": "32px",
+        "share": 0
+      },
+      {
+        "value": "0px",
         "share": 0
       }
     ],
     "letter_spacing": [
       {
         "value": "normal",
-        "share": 0.93
+        "share": 0.97
       },
       {
         "value": "-1.86624px",
-        "share": 0.04
+        "share": 0.03
       },
       {
-        "value": "1.26px",
-        "share": 0.02
-      },
-      {
-        "value": "-0.4px",
+        "value": "-0.32px",
         "share": 0
       }
     ],
     "font_weight": [
       {
         "value": "400",
-        "share": 0.95
+        "share": 0.96
       },
       {
         "value": "700",
-        "share": 0.05
+        "share": 0.04
       }
     ],
     "families": [
@@ -110,26 +106,22 @@
   "palette": {
     "text": [
       {
-        "value": "rgb(25, 27, 24)",
+        "value": "rgb(19, 26, 33)",
         "share": 0.98
       },
       {
-        "value": "rgb(71, 75, 68)",
+        "value": "rgb(65, 76, 85)",
         "share": 0.02
       },
       {
-        "value": "rgb(243, 244, 241)",
+        "value": "rgb(168, 48, 26)",
         "share": 0
       }
     ],
     "background": [
       {
-        "value": "rgb(243, 244, 241)",
-        "share": 0.99
-      },
-      {
-        "value": "rgb(25, 27, 24)",
-        "share": 0.01
+        "value": "rgb(225, 230, 233)",
+        "share": 1
       }
     ],
     "accent_share": 0
@@ -141,69 +133,69 @@
     "gaps": [
       {
         "value": 0,
-        "share": 0.33
+        "share": 0.52
       },
       {
-        "value": 20,
-        "share": 0.2
+        "value": 3,
+        "share": 0.14
       },
       {
-        "value": 40,
-        "share": 0.13
-      },
-      {
-        "value": 24,
-        "share": 0.07
+        "value": 22,
+        "share": 0.1
       },
       {
         "value": 14,
-        "share": 0.07
+        "share": 0.05
       },
       {
-        "value": 1,
-        "share": 0.07
+        "value": 20,
+        "share": 0.05
       },
       {
-        "value": 13,
-        "share": 0.07
+        "value": 26,
+        "share": 0.05
       },
       {
         "value": 8,
-        "share": 0.07
+        "share": 0.05
+      },
+      {
+        "value": 4,
+        "share": 0.05
       }
     ],
     "padding": [
       {
-        "value": "6px",
+        "value": "16px",
         "share": 0.19
+      },
+      {
+        "value": "6px",
+        "share": 0.12
+      },
+      {
+        "value": "11px",
+        "share": 0.1
+      },
+      {
+        "value": "13px",
+        "share": 0.1
+      },
+      {
+        "value": "1px",
+        "share": 0.08
+      },
+      {
+        "value": "5.1px",
+        "share": 0.08
       },
       {
         "value": "24px",
-        "share": 0.19
+        "share": 0.08
       },
       {
         "value": "26px",
-        "share": 0.16
-      },
-      {
-        "value": "44px",
-        "share": 0.06
-      },
-      {
-        "value": "15px",
-        "share": 0.06
-      },
-      {
-        "value": "28px",
-        "share": 0.03
-      },
-      {
-        "value": "18px",
-        "share": 0.03
-      },
-      {
-        "value": "60px",
-        "share": 0.03
+        "share": 0.08
       }
     ]
   },
@@ -224,7 +216,7 @@
       "letter_spacing": "-1.86624px",
       "font_weight": "700",
       "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
-      "color": "rgb(25, 27, 24)",
+      "color": "rgb(19, 26, 33)",
       "background": "rgba(0, 0, 0, 0)",
       "radius": "0px",
       "padding": [
@@ -235,9 +227,9 @@
       ],
       "box": {
         "x": 130,
-        "y": 141,
-        "width": 516,
-        "height": 199
+        "y": 101,
+        "width": 1024,
+        "height": 100
       }
     },
     "body": {
@@ -248,7 +240,7 @@
       "letter_spacing": "normal",
       "font_weight": "400",
       "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
-      "color": "rgb(25, 27, 24)",
+      "color": "rgb(19, 26, 33)",
       "background": "rgba(0, 0, 0, 0)",
       "radius": "0px",
       "padding": [
@@ -259,44 +251,44 @@
       ],
       "box": {
         "x": 130,
-        "y": 475,
-        "width": 369,
-        "height": 197
+        "y": 565,
+        "width": 364,
+        "height": 168
       }
     },
     "cta": {
       "tag": "a",
       "text": "Subscribe for $38",
-      "font_size": "14px",
-      "line_height": "16.8px",
-      "letter_spacing": "1.26px",
+      "font_size": "26px",
+      "line_height": "31.2px",
+      "letter_spacing": "normal",
       "font_weight": "700",
       "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
-      "color": "rgb(243, 244, 241)",
-      "background": "rgb(25, 27, 24)",
+      "color": "rgb(19, 26, 33)",
+      "background": "rgba(0, 0, 0, 0)",
       "radius": "0px",
       "padding": [
-        "15px",
-        "24px",
-        "15px",
-        "24px"
+        "8px",
+        "0px",
+        "8px",
+        "0px"
       ],
       "box": {
-        "x": 971,
-        "y": 766,
-        "width": 201,
+        "x": 938,
+        "y": 790,
+        "width": 189,
         "height": 47
       }
     },
     "nav": {
       "tag": "nav",
       "text": "Feature Dispatches About",
-      "font_size": "14px",
-      "line_height": "19.6px",
-      "letter_spacing": "1.26px",
+      "font_size": "18px",
+      "line_height": "25.2px",
+      "letter_spacing": "normal",
       "font_weight": "400",
       "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
-      "color": "rgb(25, 27, 24)",
+      "color": "rgb(19, 26, 33)",
       "background": "rgba(0, 0, 0, 0)",
       "radius": "0px",
       "padding": [
@@ -306,35 +298,35 @@
         "0px"
       ],
       "box": {
-        "x": 826,
-        "y": 42,
-        "width": 484,
-        "height": 33
+        "x": 1084,
+        "y": 22,
+        "width": 226,
+        "height": 38
       }
     },
     "card": {
       "count": 4,
       "tag": "a",
-      "text": "Houses What a window remembers Forty winters of weather, read from one sill on t",
+      "text": "14 What a window remembers Forty winters of weather, read from one sill on the r",
       "font_size": "19px",
       "line_height": "28.5px",
       "letter_spacing": "normal",
       "font_weight": "400",
       "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
-      "color": "rgb(25, 27, 24)",
+      "color": "rgb(19, 26, 33)",
       "background": "rgba(0, 0, 0, 0)",
       "radius": "0px",
       "padding": [
-        "26px",
-        "0px",
         "24px",
+        "0px",
+        "26px",
         "0px"
       ],
       "box": {
         "x": 130,
-        "y": 991,
+        "y": 1079,
         "width": 1180,
-        "height": 110
+        "height": 111
       }
     }
   },
@@ -344,7 +336,7 @@
   "url": "starter:field-journal",
   "captured_with": "piggyback 0.1.0.dev0",
   "browser": "bundled chromium",
-  "captured_at": "2026-11-18T02:12:39+00:00",
+  "captured_at": "2026-11-18T20:48:26+00:00",
   "capture": {
     "status": 200,
     "final_url": "starter:field-journal",
@@ -355,7 +347,7 @@
       "width": 1440,
       "height": 900
     },
-    "captured_at": "2026-11-18T02:12:39+00:00"
+    "captured_at": "2026-11-18T20:48:26+00:00"
   },
   "blocked_requests": [],
   "screenshot": "screenshot.png"

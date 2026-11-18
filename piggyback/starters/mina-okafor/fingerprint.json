@@ -75,7 +75,7 @@
     "letter_spacing": [
       {
         "value": "normal",
-        "share": 0.8
+        "share": 0.82
       },
       {
         "value": "-5.49504px",
@@ -94,15 +94,7 @@
         "share": 0.02
       },
       {
-        "value": "0.28px",
-        "share": 0.01
-      },
-      {
         "value": "-0.24px",
-        "share": 0
-      },
-      {
-        "value": "0.52px",
         "share": 0
       }
     ],
@@ -297,7 +289,7 @@
       "text": "Start a project",
       "font_size": "13px",
       "line_height": "15.6px",
-      "letter_spacing": "0.52px",
+      "letter_spacing": "normal",
       "font_weight": "400",
       "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
       "color": "rgb(18, 17, 16)",
@@ -310,9 +302,9 @@
         "24px"
       ],
       "box": {
-        "x": 1204,
+        "x": 1212,
         "y": 484,
-        "width": 176,
+        "width": 168,
         "height": 50
       }
     },
@@ -321,7 +313,7 @@
       "text": "Work Notes Contact",
       "font_size": "14px",
       "line_height": "21px",
-      "letter_spacing": "0.28px",
+      "letter_spacing": "normal",
       "font_weight": "400",
       "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
       "color": "rgb(168, 161, 147)",
@@ -334,9 +326,9 @@
         "0px"
       ],
       "box": {
-        "x": 624,
+        "x": 626,
         "y": 26,
-        "width": 193,
+        "width": 188,
         "height": 34
       }
     },
@@ -372,7 +364,7 @@
   "url": "starter:mina-okafor",
   "captured_with": "piggyback 0.1.0.dev0",
   "browser": "bundled chromium",
-  "captured_at": "2026-11-18T02:12:43+00:00",
+  "captured_at": "2026-11-18T20:48:31+00:00",
   "capture": {
     "status": 200,
     "final_url": "starter:mina-okafor",
@@ -383,7 +375,7 @@
       "width": 1440,
       "height": 900
     },
-    "captured_at": "2026-11-18T02:12:43+00:00"
+    "captured_at": "2026-11-18T20:48:31+00:00"
   },
   "blocked_requests": [],
   "screenshot": "screenshot.png"

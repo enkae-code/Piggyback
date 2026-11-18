@@ -75,7 +75,7 @@
     "letter_spacing": [
       {
         "value": "normal",
-        "share": 0.78
+        "share": 0.8
       },
       {
         "value": "-7.1424px",
@@ -84,10 +84,6 @@
       {
         "value": "-2.88px",
         "share": 0.03
-      },
-      {
-        "value": "0.78px",
-        "share": 0.01
       },
       {
         "value": "-1.32px",
@@ -99,10 +95,6 @@
       },
       {
         "value": "-0.4px",
-        "share": 0
-      },
-      {
-        "value": "0.7px",
         "share": 0
       }
     ],
@@ -273,7 +265,7 @@
       "text": "Ask for a paper sample",
       "font_size": "14px",
       "line_height": "16.8px",
-      "letter_spacing": "0.7px",
+      "letter_spacing": "normal",
       "font_weight": "700",
       "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
       "color": "rgb(244, 178, 35)",
@@ -286,9 +278,9 @@
         "26px"
       ],
       "box": {
-        "x": 773,
+        "x": 788,
         "y": 658,
-        "width": 249,
+        "width": 234,
         "height": 59
       }
     },
@@ -297,7 +289,7 @@
       "text": "What we print Turnaround Visit",
       "font_size": "13px",
       "line_height": "18.2px",
-      "letter_spacing": "0.78px",
+      "letter_spacing": "normal",
       "font_weight": "700",
       "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
       "color": "rgb(18, 18, 18)",
@@ -310,9 +302,9 @@
         "0px"
       ],
       "box": {
-        "x": 565,
+        "x": 576,
         "y": 17,
-        "width": 310,
+        "width": 288,
         "height": 29
       }
     },
@@ -348,7 +340,7 @@
   "url": "starter:ink-and-rule",
   "captured_with": "piggyback 0.1.0.dev0",
   "browser": "bundled chromium",
-  "captured_at": "2026-11-18T02:12:41+00:00",
+  "captured_at": "2026-11-18T20:48:29+00:00",
   "capture": {
     "status": 200,
     "final_url": "starter:ink-and-rule",
@@ -359,7 +351,7 @@
       "width": 1440,
       "height": 900
     },
-    "captured_at": "2026-11-18T02:12:41+00:00"
+    "captured_at": "2026-11-18T20:48:29+00:00"
   },
   "blocked_requests": [],
   "screenshot": "screenshot.png"
