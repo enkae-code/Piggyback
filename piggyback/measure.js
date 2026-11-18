@@ -30,8 +30,8 @@
     const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
     return p.length >= 3 ? [p[0], p[1], p[2], p.length > 3 ? p[3] : 1] : null;
   };
-  const hasBg = (b) => {
-    const c = rgba(b.cs.backgroundColor);
+  const hasBg = (cs) => {
+    const c = rgba(cs.backgroundColor);
     return c !== null && c[3] > 0;
   };
   const clipArea = (r) => {
@@ -95,28 +95,48 @@
     families: hist(texts.map((b) => [b.cs.fontFamily, b.area])),
   };
 
-  // Palette: background colours by area; accent = most saturated non-neutral background.
+  // Palette: background colours by painted area; accent = the saturated background with the most
+  // painted area (ties: more saturated).
   const SATURATED = 0.25;
-  // Chroma (max - min, 0-255) floor: a dark navy, teal or slate panel has a high ratio on a small
-  // range (rgb(21,32,35) is 0.40) but no hue an eye can pick out; real accents clear 50 easily.
+  // ponytail: absolute RGB chroma under-counts deep hues: wine #3d0c11 is 49, navy #12263f is 45.
+  // Upgrade path: OKLCH chroma. Real accents clear 50; a dark slate panel (rgb(21,32,35)) does not.
   const ACCENT_CHROMA = 50;
   const sat = ([r, g, b]) => {
     const max = Math.max(r, g, b);
     return max === 0 ? 0 : (max - Math.min(r, g, b)) / max;
   };
   const chroma = ([r, g, b]) => Math.max(r, g, b) - Math.min(r, g, b);
-  const bgs = boxes.filter((b) => b.area > 0 && hasBg(b));
-  // ponytail: overlapping boxes double count; the share is capped at 1. The canvas is one more
-  // overlap: html and body are not boxes, so the canvas (html's background, else body's, as CSS
-  // propagates it) is counted once at viewport weight, in background and accent alike.
-  const canvas = [document.documentElement, document.body]
-    .filter(Boolean)
-    .map((el) => getComputedStyle(el).backgroundColor)
-    .find((c) => rgba(c)?.[3] > 0);
+  const bgs = boxes.filter((b) => b.area > 0 && hasBg(b.cs));
+  // The canvas: html's background if it has one, else body's (CSS propagates it). No box paints it.
+  // ponytail: a 24x15 sample grid decides how much of the viewport it shows; a cell counts when
+  // nothing hit-tested there paints except the canvas element. Upgrade path: exact box coverage.
+  const root = document.documentElement;
+  const canvasEl = document.body && !hasBg(getComputedStyle(root)) ? document.body : root;
+  const canvasCs = getComputedStyle(canvasEl);
+  const canvas = hasBg(canvasCs) ? rgba(canvasCs.backgroundColor) : null;
+  const paintsEl = (el) => hasBg(getComputedStyle(el));
+  const GRID_X = 24;
+  const GRID_Y = 15;
+  let canvasCells = 0;
+  for (let i = 0; i < GRID_X; i++) {
+    for (let j = 0; j < GRID_Y; j++) {
+      const x = ((i + 0.5) * VW) / GRID_X;
+      const y = ((j + 0.5) * VH) / GRID_Y;
+      const stack = document.elementsFromPoint(x, y);
+      if (canvas && stack.every((el) => el === canvasEl || !paintsEl(el))) canvasCells++;
+    }
+  }
   const paints = [
     ...bgs.map((b) => [b.cs.backgroundColor, b.area]),
-    ...(canvas ? [[canvas, VW * VH]] : []),
+    ...(canvas ? [[canvasCs.backgroundColor, (VW * VH * canvasCells) / (GRID_X * GRID_Y)]] : []),
   ];
+  // Body is not in `boxes`: when html owns the canvas, body's own background is a normal paint.
+  if (canvasEl === root && document.body && paintsEl(document.body)) {
+    paints.push([
+      getComputedStyle(document.body).backgroundColor,
+      clipArea(document.body.getBoundingClientRect()),
+    ]);
+  }
   const accents = new Map();
   for (const [paint, area] of paints) {
     const c = rgba(paint);
@@ -126,7 +146,7 @@
     entry.area += area;
     accents.set(paint, entry);
   }
-  const accent = [...accents.values()].sort((a, b) => b.sat - a.sat)[0];
+  const accent = [...accents.values()].sort((a, b) => b.area - a.area || b.sat - a.sat)[0];
   const palette = {
     text: hist(texts.map((b) => [b.cs.color, b.area])),
     background: hist(paints),
@@ -189,14 +209,7 @@
   );
   // Tinted: translucent, or an opaque pastel that differs from the page background. Squares
   // only: circles (avatars) and buttons are not icon tiles.
-  const paint = (cs) => {
-    const c = rgba(cs.backgroundColor);
-    return c && c[3] > 0 ? c : null;
-  };
-  const pageBg =
-    paint(getComputedStyle(document.body)) ||
-    paint(getComputedStyle(document.documentElement)) ||
-    [255, 255, 255, 1];
+  const pageBg = canvas || [255, 255, 255, 1];
   const tinted = (c) =>
     c[3] < 1 ||
     (Math.max(...c.slice(0, 3)) >= 200 &&
@@ -210,7 +223,7 @@
   };
   const tintedIconSquares = boxes.filter(
     (b) =>
-      hasBg(b) &&
+      hasBg(b.cs) &&
       tinted(rgba(b.cs.backgroundColor)) &&
       Math.abs(b.r.width - b.r.height) <= 1 &&
       b.r.width >= 24 &&
@@ -259,7 +272,7 @@
     'button, input[type=button], input[type=submit], a[role=button], a[class*="btn" i], a[class*="button" i]';
   const cta = best(
     boxes.filter((b) => b.area > 0 && b.el.matches(ctaSelector)),
-    (b) => (hasBg(b) ? 1e9 : 0) + b.area,
+    (b) => (hasBg(b.cs) ? 1e9 : 0) + b.area,
   );
   const nav = boxes.find((b) => b.area > 0 && b.el.matches('nav, [role="navigation"]'));
 

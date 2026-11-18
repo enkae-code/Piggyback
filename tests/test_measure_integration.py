@@ -152,6 +152,44 @@ class MeasureIntegration(unittest.TestCase):
         palette = measure(f"{self.base}/accent-canvas-amber.html", allow_loopback=True)["palette"]
         self.assertGreater(palette["accent_share"], 0.8)
 
+    def test_small_red_button_does_not_beat_the_amber_canvas(self):
+        # The red button is the most saturated paint but the smaller area; the canvas is the accent.
+        palette = measure(f"{self.base}/accent-canvas-red-button.html", allow_loopback=True)[
+            "palette"
+        ]
+        self.assertGreater(palette["accent_share"], 0.8)
+
+    def test_saturated_body_under_a_full_height_neutral_wrapper_is_not_the_accent(self):
+        # The wrapper covers the viewport, so the amber body paints no visible canvas.
+        palette = measure(f"{self.base}/accent-under-wrapper.html", allow_loopback=True)["palette"]
+        self.assertLess(palette["accent_share"], 0.05)
+        self.assertEqual(palette["background"][0]["value"], "rgb(245, 240, 228)")
+
+    def test_saturated_hero_leads_the_background(self):
+        # The 600px blue section out-areas the white canvas below it; the canvas must not win.
+        background = measure(f"{self.base}/accent-hero.html", allow_loopback=True)["palette"][
+            "background"
+        ]
+        self.assertEqual(background[0]["value"], "rgb(47, 107, 255)")
+
+    def test_dark_html_canvas_and_light_body_box_both_appear(self):
+        background = measure(f"{self.base}/html-dark-body-light.html", allow_loopback=True)[
+            "palette"
+        ]["background"]
+        values = [row["value"] for row in background]
+        self.assertIn("rgb(25, 27, 24)", values)
+        self.assertIn("rgb(245, 240, 228)", values)
+
+    def test_dark_tint_under_the_chroma_floor_is_not_the_accent(self):
+        # Chroma 40 (rgb(30,60,70)) is a large panel; a chroma floor of 30 would make it the accent.
+        palette = measure(f"{self.base}/accent-chroma-40.html", allow_loopback=True)["palette"]
+        self.assertEqual(palette["accent_share"], 0)
+
+    def test_dark_tint_over_the_chroma_floor_is_the_accent(self):
+        # Chroma 60 (rgb(20,70,80)) is a large panel; a chroma floor of 66 would drop it.
+        palette = measure(f"{self.base}/accent-chroma-60.html", allow_loopback=True)["palette"]
+        self.assertGreater(palette["accent_share"], 0.1)
+
     def test_http_404_is_refused_with_its_status(self):
         with self.assertRaisesRegex(MeasureError, "HTTP 404"):
             measure(f"{self.base}/no-such-page.html", allow_loopback=True)
