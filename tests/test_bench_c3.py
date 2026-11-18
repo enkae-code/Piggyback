@@ -2,6 +2,7 @@
 
 import contextlib
 import hashlib
+import importlib.util
 import io
 import json
 import signal
@@ -298,6 +299,8 @@ class Checks(unittest.TestCase):
     def test_relative_file_target_is_resolved_in_the_callers_directory(self):
         import os
 
+        if importlib.util.find_spec("playwright") is None:
+            self.skipTest("playwright not installed; run with the measure extra")
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "page.html").write_text("<p>x</p>", encoding="utf-8")
             old = os.getcwd()
@@ -307,6 +310,7 @@ class Checks(unittest.TestCase):
             finally:
                 os.chdir(old)
         # The worker reports a file:// URL once a browser has loaded the page.
+        self.assertNotEqual(report["outcome"], "checker_fault", report.get("detail"))
         self.assertIn(str(Path(tmp, "page.html").resolve()), report["target"])
         self.assertNotIn("refusing non-loopback target", report.get("detail") or "")
 

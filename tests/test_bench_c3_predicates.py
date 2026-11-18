@@ -107,7 +107,7 @@ CASES = [
     (
         "T01",
         "one prominent signal",
-        ['<div role="alert">Engine due</div>', '<div class="signal-strip">Engine due</div>'],
+        ['<div role="alert">Engine due</div>', '<div class="strip signal">Engine due</div>'],
         ['<div class="showcase">Engine due</div>'],
     ),
     (
@@ -434,6 +434,90 @@ class CountsAndDates(unittest.TestCase):
             with self.subTest(date=date):
                 self.assertTrue(passes("T06", "event details", f"<p>{date}</p>"))
         self.assertFalse(passes("T06", "event details", "<p>13/45/2026</p>"))
+
+
+# Repeated-item probes from the WO-20 round 6 ruling: (task, item, markup, expected pass).
+PROBES = [
+    (
+        "T02",
+        "three selected projects",
+        '<div class="project-list">' + '<article class="project">P</article>' * 3 + "</div>",
+        True,
+    ),
+    (
+        "T04",
+        "three subscription options",
+        '<div class="card-grid">' + '<div class="card">P</div>' * 3 + "</div>",
+        True,
+    ),
+    (
+        "T08",
+        "three case studies",
+        '<section class="case-studies">' + "<article>P</article>" * 3 + "</section>",
+        True,
+    ),
+    (
+        "T06",
+        "three activities",
+        '<ul class="activity-list">' + "<li>P</li>" * 3 + "</ul>",
+        True,
+    ),
+    (
+        "T06",
+        "three activities",
+        "<article><h1>Skills swap</h1><ul><li>Bike repair</li><li>Seed swap</li>"
+        "<li>Knitting</li></ul></article>",
+        True,
+    ),
+    (
+        "T09",
+        "related cards",
+        '<aside class="related"><div class="card-row">'
+        + '<div class="card">P</div>' * 2
+        + "</div></aside>",
+        True,
+    ),
+    (
+        "T04",
+        "three subscription options",
+        '<div class="card"><div class="card-header">H</div>'
+        '<div class="card-body">B</div><div class="card-footer">F</div></div>',
+        False,
+    ),
+    (
+        "T04",
+        "three subscription options",
+        '<div class="card"><div class="card-body">B</div><div class="card-footer">F</div></div>'
+        * 2,
+        False,
+    ),
+    (
+        "T09",
+        "related cards",
+        '<aside class="related"><div class="card"><div class="card-title">T</div>'
+        '<div class="card-text">X</div></div></aside>',
+        False,
+    ),
+    (
+        "T06",
+        "three activities",
+        '<article class="activity"><ul><li>a</li><li>b</li></ul></article>' * 2,
+        False,
+    ),
+    (
+        "T04",
+        "three subscription options",
+        '<div class="row">' + '<div class="col"><div class="card">P</div></div>' * 3 + "</div>",
+        True,
+    ),
+]
+
+
+class RepeatedItemProbes(unittest.TestCase):
+    def test_probe_table(self):
+        for task, item, markup, expected in PROBES:
+            with self.subTest(task=task, item=item, markup=markup[:70]):
+                self.assertEqual(passes(task, item, markup), expected)
 
 
 if __name__ == "__main__":

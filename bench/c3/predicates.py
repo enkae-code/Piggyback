@@ -22,6 +22,11 @@ def class_words(attrs):
     return words
 
 
+def class_names(attrs):
+    """Last word of each class token, so 'plan-card' is a card but 'card-body' is not."""
+    return {re.split(r"[-_]", token)[-1] for token in attrs.get("class", "").lower().split()}
+
+
 def _attr_matches(spec, attrs):
     name, _, value = spec.partition("=")
     if name not in attrs:
@@ -36,13 +41,13 @@ def _has_visible_child(tag, index, nodes):
 
 
 def _in_class(alt, node, nodes):
-    return any(alt["in_class"] in class_words(nodes[j]["attrs"]) for j in node["path"])
+    return any(alt["in_class"] in class_names(nodes[j]["attrs"]) for j in node["path"])
 
 
 # Each check reads one key of an alternative. An alternative matches when every key it sets holds.
 _ALT_CHECKS = {
     "tag": lambda alt, node, index, nodes: alt["tag"] == node["tag"],
-    "class": lambda alt, node, index, nodes: alt["class"] in class_words(node["attrs"]),
+    "class": lambda alt, node, index, nodes: alt["class"] in class_names(node["attrs"]),
     "attr": lambda alt, node, index, nodes: _attr_matches(alt["attr"], node["attrs"]),
     "in_class": lambda alt, node, index, nodes: _in_class(alt, node, nodes),
     "has": lambda alt, node, index, nodes: _has_visible_child(alt["has"], index, nodes),
@@ -58,20 +63,38 @@ def _nearest_table(nodes, path):
     return next((j for j in reversed(path) if nodes[j]["tag"] == "table"), None)
 
 
-def count_matches(pred, nodes):
-    """Visible elements matching any alternative, outside the excluded ancestors.
+def _is_tag_alt(alt):
+    return "tag" in alt and not {"class", "in_class", "attr"} & alt.keys()
 
-    A match that wraps another match is a container of that item, so only innermost matches count.
-    With per_table, the count is the most matches held by one table: rows must share a table.
+
+# ponytail: a bare tag item (<article> with no class) holding several tag-matched children
+# (3 figures) still over-counts; add a class to the item when a task needs the exact count.
+def _matched_items(pred, nodes):
+    """Visible elements matching an alternative, outside the excluded ancestors.
+
+    A tag-only match inside a class-matched element is that item's content, not another item.
     """
     excluded = pred.get("exclude_within", [])
-    matched = {
+    eligible = [
         index
         for index, node in enumerate(nodes)
-        if node["visible"]
-        and not any(nodes[j]["tag"] in excluded for j in node["path"])
-        and any(_alt_matches(alt, index, nodes) for alt in pred["any"])
+        if node["visible"] and not any(nodes[j]["tag"] in excluded for j in node["path"])
+    ]
+    by_class = {
+        i
+        for i in eligible
+        if any(not _is_tag_alt(alt) and _alt_matches(alt, i, nodes) for alt in pred["any"])
     }
+    by_tag = {i for i in eligible if any(_alt_matches(alt, i, nodes) for alt in pred["any"])}
+    return {i for i in by_tag if i in by_class or not any(j in by_class for j in nodes[i]["path"])}
+
+
+def count_matches(pred, nodes):
+    """Items matching any alternative. A match that wraps another match is a container of that
+    item, so only innermost matches count. With per_table, the count is the most matches held by
+    one table: rows must share a table.
+    """
+    matched = _matched_items(pred, nodes)
     if pred.get("per_table"):
         groups = Counter(_nearest_table(nodes, nodes[i]["path"]) for i in matched)
         groups.pop(None, None)
