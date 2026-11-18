@@ -27,7 +27,10 @@ CHALLENGE = re.compile(
     re.IGNORECASE,
 )
 TIMEOUT = re.compile(r"timed out|Timeout \d+ms exceeded", re.IGNORECASE)
+NETWORK = re.compile(r"net::ERR_")  # Chromium transport failure, e.g. ERR_SOCKET_NOT_CONNECTED
 REDIRECT = re.compile(r"redirected to")
+# Failure classes retried once inside the capture window (spec: Capture and substitution)
+TRANSIENT = frozenset({"timeout", "network"})
 # Failure classes that may justify a replacement (spec: Capture and substitution)
 ELIGIBLE = frozenset({"http_status", "cross_host_redirect"})
 DECISIONS = ("keep", "replace")
@@ -75,9 +78,12 @@ def challenge_text(evidence):
 
 
 def classify(error, status):
-    """Failure class of a measure refusal: timeout, cross_host_redirect, http_status or other."""
+    """Failure class of a measure refusal: timeout, network, cross_host_redirect,
+    http_status or other."""
     if TIMEOUT.search(error):
         return "timeout"
+    if NETWORK.search(error):
+        return "network"
     if REDIRECT.search(error):
         return "cross_host_redirect"
     if (status is not None and not 200 <= status < 300) or "answered HTTP" in error:
@@ -115,9 +121,9 @@ def write_failure(folder, requested, error, status=None, final=None, screenshot=
 def capture_side(url, side_dir, measure_fn=measure):
     """One side, one attempt folder per try. Returns (state, attempt number, detail).
 
-    detail is the receipt when ok, the failure record otherwise. A timeout is retried once; every
-    other failure is recorded and not retried. A challenge page is a measurement: it is kept and
-    flagged with the matched text, never discarded.
+    detail is the receipt when ok, the failure record otherwise. A timeout or network error is
+    retried once; every other failure is recorded and not retried. A challenge page is a
+    measurement: it is kept and flagged with the matched text, never discarded.
     """
     side_dir = make_private_dir(side_dir)
     while True:
@@ -141,7 +147,7 @@ def capture_side(url, side_dir, measure_fn=measure):
                 final=exc.final_url,
                 screenshot=shot,
             )
-            if record["class"] == "timeout" and n == 1:
+            if record["class"] in TRANSIENT and n == 1:
                 continue
             return "failed", n, record
         capture = result.get("capture", {})
@@ -231,12 +237,14 @@ def _failure_classes(run, pid):
 
 
 def plan_retained(run, data):
-    """[(primary, scored)] in row order: a kept primary scores itself, a replaced one its reserve.
+    """[chain] per primary in row order: [primary] when kept, else [primary, reserve, ...].
 
-    Reserves are assigned one-to-one in order, so each replacement gets the next unused reserve.
-    scored is None when a replacement is needed but no reserve is left: the gate is incomplete.
-    Refuses before anything is written, until every failed or suspected_challenge pair has a
-    decision (keep or replace) and every replacement has a captured reserve.
+    A replace decision takes the next unused reserve in row order. A reserve taken as a
+    replacement that failed or was flagged needs its own decision, and may be replaced in turn.
+    A chain ends at a pair that needs no replacement (ok, or kept). It ends with None when a
+    replacement is needed but no reserve is left: the gate is incomplete. Refuses before anything
+    is written, until every failed or suspected_challenge primary and every suspected_challenge
+    reserve has a decision.
     """
     primaries = [p["id"] for p in data["primary"]]
     reserves = [r["id"] for r in data["reserves"]]
@@ -249,8 +257,8 @@ def plan_retained(run, data):
         for pid, s in status.items()
         if s == "suspected_challenge" or (s == "failed" and pid in primaries)
     }
-    _check_decision_targets(decisions, needs, status, reserves)
-    return _assign_reserves(run, primaries, reserves, needs, decisions, status)
+    _check_decision_targets(decisions, needs, status)
+    return _assign_chains(run, primaries, reserves, needs, decisions, status)
 
 
 def _check_ids(primaries, reserves):
@@ -264,33 +272,44 @@ def _check_captured(primaries, status):
         raise SystemExit(f"refusing: no pair.json for {', '.join(missing)}; capture first")
 
 
-def _check_decision_targets(decisions, needs, status, reserves):
-    for pid in sorted(needs - set(decisions)):
+def _check_decision_targets(decisions, needs, status):
+    missing = sorted(needs - set(decisions))
+    if missing:
+        pid = missing[0]
         raise SystemExit(f"refusing: {pid} is {status[pid]}; record keep or replace for it first")
-    for pid, entry in decisions.items():
-        if pid not in needs:
-            raise SystemExit(f"refusing: {pid} needs no eligibility decision")
-        if entry["decision"] == "replace" and pid in reserves:
-            raise SystemExit(f"refusing: {pid} is a reserve; only primaries are replaced")
 
 
-def _assign_reserves(run, primaries, reserves, needs, decisions, status):
-    plan, used = [], 0
+def _assign_chains(run, primaries, reserves, needs, decisions, status):
+    pool, chains, consulted = list(reserves), [], set()
     for pid in primaries:
-        if pid not in needs or decisions[pid]["decision"] == "keep":
-            plan.append((pid, pid))
-            continue
-        if status[pid] == "failed" and not _failure_classes(run, pid) & ELIGIBLE:
-            raise SystemExit(f"refusing: {pid} has no failure record of an eligible class")
-        if used == len(reserves):
-            plan.append((pid, None))
-            continue
-        reserve = reserves[used]
-        used += 1
-        if status[reserve] is None:
-            raise SystemExit(f"refusing: {reserve} has no pair.json; capture it first")
-        plan.append((pid, reserve))
-    return plan
+        chain = [pid]
+        while status[chain[-1]] in ("failed", "suspected_challenge"):
+            current = chain[-1]
+            consulted.add(current)
+            entry = decisions.get(current)
+            if entry is None:
+                raise SystemExit(
+                    f"refusing: {current} is {status[current]}; record keep or replace for it first"
+                )
+            if entry["decision"] == "keep":
+                break
+            if status[current] == "failed" and not _failure_classes(run, current) & ELIGIBLE:
+                raise SystemExit(f"refusing: {current} has no failure record of an eligible class")
+            if not pool:
+                chain.append(None)
+                break
+            reserve = pool.pop(0)
+            if status[reserve] is None:
+                raise SystemExit(f"refusing: {reserve} has no pair.json; capture it first")
+            chain.append(reserve)
+        chains.append(chain)
+    for pid, entry in decisions.items():
+        # An unused suspected_challenge reserve still needs a keep decision (fail-closed).
+        if pid not in consulted and not (pid in needs and entry["decision"] == "keep"):
+            raise SystemExit(
+                f"refusing: {pid} is not in the replacement chain; remove its decision"
+            )
+    return chains
 
 
 def main(argv=None):

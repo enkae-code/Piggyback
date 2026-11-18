@@ -249,7 +249,8 @@ def lock(store, run_id):
     plan = plan_retained(run, load_pairs())
     check_registered(manifest)
     pairs = {}
-    for _, pid in plan:
+    for chain in plan:
+        pid = chain[-1]
         if pid is None:
             continue  # no reserve left: unresolved, nothing to lock
         pair = json.loads((run / pid / "pair.json").read_text(encoding="utf-8"))

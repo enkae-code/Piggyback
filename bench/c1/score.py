@@ -5,8 +5,9 @@ locked from the snapshots before any pin is read), and every receipt was capture
 the manifest registered. Writes pins.csv, anchors.csv, pair_summary.csv and verdict.json.
 
 Replacements come only from eligibility.json (capture.plan_retained): each replace decision takes
-the next unused reserve, in row order. Refuses when verdict.json already exists: the first scoring
-is final, and a later experiment needs a new run id.
+the next unused reserve, in row order, and a replacement that failed is replaced in turn.
+Refuses when verdict.json already exists: the first scoring is final, and a later experiment
+needs a new run id.
 
 Usage: python -m bench.c1.score --store STORE --run RUN_ID
 """
@@ -408,15 +409,17 @@ def _unresolved(rows, pid, status):
 
 
 def _score_plan(run, plan, targets, chromium):
-    """Rows for every plan entry in row order, and the (shown, correct, pinned, skipped) totals."""
+    """Rows for every chain in row order, and the (shown, correct, pinned, skipped) totals."""
     rows = {"unresolved": [], "pins": [], "props": [], "anchors": [], "pairs": []}
     totals = [0, 0, 0, 0]
-    for pid, scored in plan:
+    for chain in plan:
+        for before, after in zip(chain, chain[1:], strict=False):
+            if after is not None:
+                rows["pairs"].append([before, 0, 0, 0, f"replaced by {after}"])
+        scored = chain[-1]
         if scored is None:
-            _unresolved(rows, pid, "no reserve left")
+            _unresolved(rows, chain[-2], "no reserve left")  # the last pair that needed a reserve
             continue
-        if scored != pid:
-            rows["pairs"].append([pid, 0, 0, 0, f"replaced by {scored}"])
         loaded = _load_pair(run, scored, targets, chromium)
         if loaded is None:
             _unresolved(rows, scored, pair_status(run, scored) or "missing")
@@ -446,12 +449,12 @@ def _report(manifest, data, plan, rows, totals):
         "retained_pairs": scored,
         "avg_pinned_anchors": round(pinned / scored, 2) if scored else None,
         "unresolved": unresolved,
-        "replacements": [f"{p}={s}" for p, s in plan if s not in (None, p)],
+        "replacements": [f"{c[0]}={c[-1]}" for c in plan if len(c) > 1 and c[-1] is not None],
         "spot_check": {
             "seed": manifest["spot_check"]["seed"],
             "sample_size": SAMPLE_SIZE,
             "sample": sample,
-            "retained_for_sample": {p: s for p, s in plan if p in sample},
+            "retained_for_sample": {c[0]: c[-1] for c in plan if c[0] in sample},
         },
         "manifest_commit": manifest["piggyback_commit"],
         "chromium_version": manifest["chromium_version"],

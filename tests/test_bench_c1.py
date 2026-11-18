@@ -540,6 +540,35 @@ class CaptureRecords(unittest.TestCase):
             path = side / f"attempt-{n}" / "failure.json"
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
 
+    def test_network_error_retried_once_and_both_attempts_kept(self):
+        calls = []
+
+        def fake(url, **_):
+            calls.append(url)
+            if len(calls) == 1:
+                raise MeasureError("page.goto: net::ERR_SOCKET_NOT_CONNECTED at https://x.test/")
+            return {"capture": {"status": 200, "final_url": url, "captured_at": RECEIPT}}
+
+        state, attempt, _ = capture.capture_side(
+            "https://x.test/", self.root / "net", measure_fn=fake
+        )
+        self.assertEqual((state, attempt, len(calls)), ("ok", 2, 2))
+        failure = json.loads((self.root / "net" / "attempt-1" / "failure.json").read_text())
+        self.assertEqual(failure["class"], "network")
+
+    def test_network_error_twice_fails_as_network(self):
+        calls = []
+
+        def fake(url, **_):
+            calls.append(url)
+            raise MeasureError("page.goto: net::ERR_CONNECTION_RESET at https://x.test/")
+
+        state, attempt, record = capture.capture_side(
+            "https://x.test/", self.root / "nn", measure_fn=fake
+        )
+        self.assertEqual((state, attempt, len(calls)), ("failed", 2, 2))
+        self.assertEqual(record["class"], "network")
+
     def test_playwright_timeout_message_is_retried(self):
         calls = []
 

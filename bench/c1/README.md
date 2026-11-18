@@ -19,7 +19,11 @@ Run from the repository root, in order. Evidence goes to a store outside the rep
    decided_by, decided_at_utc}`, `decision` is `keep` or `replace`. Required for every failed primary
    and every `suspected_challenge` pair (primary or reserve). `keep` scores the pair as the site;
    `replace` needs an eligible failure (`http_status`, `cross_host_redirect`) for a failed primary;
-   a `suspected_challenge` primary may be replaced. A timeout is never eligible.
+   a `suspected_challenge` primary may be replaced. A timeout or `network` failure is never eligible.
+   A replacement reserve that failed or is `suspected_challenge` needs its own decision. `replace`
+   moves on to the next unused reserve in row order; `keep` leaves a failed reserve unresolved
+   (a suspected one is scored as the site). A `suspected_challenge` reserve needs a decision even
+   when no replacement uses it.
 4. **Capture reserves.** Only needed for a `replace` decision. Reserves are used in row order R1, R2.
    `python -m bench.c1.capture --run RUN R1 R2`
 5. **Lock targets.** Refuses until step 3 and 4 are complete. Locks only the retained set (kept
@@ -31,7 +35,7 @@ Run from the repository root, in order. Evidence goes to a store outside the rep
    replaced, so a later experiment needs a new run id.
    `python -m bench.c1.score --store STORE --run RUN`
 
-Tests: `PYTHONPATH=. python -m unittest tests.test_bench_c1 tests.test_bench_c1_round4` (no browser).
+Tests: `PYTHONPATH=. python -m unittest tests.test_bench_c1 tests.test_bench_c1_round4 tests.test_bench_c1_round6` (no browser).
 The browser test `tests.test_bench_c1_browser` needs Playwright and runs on the host.
 
 Verdict is `pass`, `fail`, or `incomplete` (any unresolved pair).

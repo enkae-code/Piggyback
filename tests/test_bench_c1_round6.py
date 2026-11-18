@@ -87,7 +87,7 @@ class Eligibility(unittest.TestCase):
     def test_keep_scores_the_suspected_pair_as_the_site(self):  # item 1
         with tmpdir() as root:
             make_run(root, {"C1-01": "suspected_challenge"}, decisions=[decide("C1-01")])
-            self.assertEqual(self.plan(root, pairs_of(["C1-01"])), [("C1-01", "C1-01")])
+            self.assertEqual(self.plan(root, pairs_of(["C1-01"])), [["C1-01"]])
 
     def test_replace_on_suspected_challenge_takes_next_reserve(self):  # item 1
         with tmpdir() as root:
@@ -97,7 +97,7 @@ class Eligibility(unittest.TestCase):
                 decisions=[decide("C1-01", "replace")],
             )
             plan = self.plan(root, pairs_of(["C1-01"], ["R1"]))
-            self.assertEqual(plan, [("C1-01", "R1")])
+            self.assertEqual(plan, [["C1-01", "R1"]])
 
     def test_timeout_is_never_eligible(self):  # item 1
         with tmpdir() as root:
@@ -130,7 +130,7 @@ class Eligibility(unittest.TestCase):
                 decisions=[decide("C1-01", "replace"), decide("C1-02", "replace")],
             )
             plan = self.plan(root, pairs_of(["C1-01", "C1-02"], ["R1", "R2"]))
-            self.assertEqual(plan, [("C1-01", "R1"), ("C1-02", "R2")])
+            self.assertEqual(plan, [["C1-01", "R1"], ["C1-02", "R2"]])
 
     def test_no_reserve_left_is_unresolved_not_a_guess(self):  # item 4
         with tmpdir() as root:
@@ -140,7 +140,7 @@ class Eligibility(unittest.TestCase):
                 classes={"C1-01": ["http_status"]},
                 decisions=[decide("C1-01", "replace")],
             )
-            self.assertEqual(self.plan(root, pairs_of(["C1-01"])), [("C1-01", None)])
+            self.assertEqual(self.plan(root, pairs_of(["C1-01"])), [["C1-01", None]])
 
     def test_repeated_primary_id_is_refused(self):  # item 4
         with tmpdir() as root:
@@ -165,7 +165,7 @@ class Eligibility(unittest.TestCase):
                 {"C1-01": "ok", "R1": "suspected_challenge"},
                 decisions=[decide("R1", "replace")],
             )
-            with self.assertRaisesRegex(SystemExit, "only primaries"):
+            with self.assertRaisesRegex(SystemExit, "not in the replacement chain"):
                 self.plan(root, pairs_of(["C1-01"], ["R1"]))
 
 
@@ -434,3 +434,114 @@ class CrashRecords(unittest.TestCase):
 if __name__ == "__main__":
     with contextlib.redirect_stdout(io.StringIO()):
         unittest.main()
+
+
+class ReplacementChain(unittest.TestCase):
+    def plan(self, root, data):
+        return capture.plan_retained(Path(root) / "run1", data)
+
+    def test_failed_reserve_is_replaced_by_the_next_reserve(self):
+        with tmpdir() as root:
+            make_run(
+                root,
+                {"C1-01": "failed", "R1": "failed", "R2": "ok"},
+                classes={"C1-01": ["http_status"], "R1": ["http_status"]},
+                decisions=[decide("C1-01", "replace"), decide("R1", "replace")],
+            )
+            plan = self.plan(root, pairs_of(["C1-01"], ["R1", "R2"]))
+            self.assertEqual(plan, [["C1-01", "R1", "R2"]])
+
+    def test_failed_reserve_without_decision_is_refused(self):
+        with tmpdir() as root:
+            make_run(
+                root,
+                {"C1-01": "failed", "R1": "failed", "R2": "ok"},
+                classes={"C1-01": ["http_status"], "R1": ["http_status"]},
+                decisions=[decide("C1-01", "replace")],
+            )
+            with self.assertRaisesRegex(SystemExit, "R1 is failed"):
+                self.plan(root, pairs_of(["C1-01"], ["R1", "R2"]))
+
+    def test_suspected_unused_reserve_without_decision_is_refused(self):
+        with tmpdir() as root:
+            make_run(
+                root,
+                {"C1-01": "ok", "R1": "suspected_challenge"},
+                decisions=[],
+            )
+            with self.assertRaisesRegex(SystemExit, "R1 is suspected_challenge"):
+                self.plan(root, pairs_of(["C1-01"], ["R1"]))
+
+    def test_unused_suspected_reserve_with_keep_is_allowed(self):
+        with tmpdir() as root:
+            make_run(
+                root,
+                {"C1-01": "ok", "R1": "suspected_challenge"},
+                decisions=[decide("R1")],
+            )
+            self.assertEqual(self.plan(root, pairs_of(["C1-01"], ["R1"])), [["C1-01"]])
+
+    def test_replacement_reserve_failure_without_eligible_class_is_refused(self):
+        with tmpdir() as root:
+            make_run(
+                root,
+                {"C1-01": "failed", "R1": "failed", "R2": "ok"},
+                classes={"C1-01": ["http_status"], "R1": ["other"]},
+                decisions=[decide("C1-01", "replace"), decide("R1", "replace")],
+            )
+            with self.assertRaisesRegex(SystemExit, "R1 has no failure record of an eligible"):
+                self.plan(root, pairs_of(["C1-01"], ["R1", "R2"]))
+
+    def test_keep_on_a_failed_replacement_ends_the_chain_unresolved(self):
+        with tmpdir() as root:
+            make_run(
+                root,
+                {"C1-01": "failed", "R1": "failed", "R2": "ok"},
+                classes={"C1-01": ["http_status"], "R1": ["http_status"]},
+                decisions=[decide("C1-01", "replace"), decide("R1", "keep")],
+            )
+            self.assertEqual(self.plan(root, pairs_of(["C1-01"], ["R1", "R2"])), [["C1-01", "R1"]])
+
+    def test_chain_runs_out_of_reserves_and_ends_unresolved(self):
+        with tmpdir() as root:
+            make_run(
+                root,
+                {"C1-01": "failed", "R1": "failed"},
+                classes={"C1-01": ["http_status"], "R1": ["http_status"]},
+                decisions=[decide("C1-01", "replace"), decide("R1", "replace")],
+            )
+            self.assertEqual(self.plan(root, pairs_of(["C1-01"], ["R1"])), [["C1-01", "R1", None]])
+
+    def test_network_failure_is_never_eligible(self):
+        with tmpdir() as root:
+            make_run(
+                root,
+                {"C1-01": "failed", "R1": "ok"},
+                classes={"C1-01": ["network"]},
+                decisions=[decide("C1-01", "replace")],
+            )
+            with self.assertRaisesRegex(SystemExit, "eligible"):
+                self.plan(root, pairs_of(["C1-01"], ["R1"]))
+
+    def test_chain_rows_show_each_replacement_in_the_summary(self):
+        with tmpdir() as root:
+            run = make_run(
+                root,
+                {"C1-01": "failed", "R1": "failed", "R2": "ok"},
+                classes={"C1-01": ["http_status"], "R1": ["http_status"]},
+                decisions=[decide("C1-01", "replace"), decide("R1", "replace")],
+            )
+            (run / "targets.json").write_text("{}")
+            sha = hashlib.sha256(b"{}").hexdigest()
+            (run / "targets.lock.json").write_text(json.dumps({"targets_sha256": sha}))
+            with (
+                mock.patch("bench.c1.score.check_registered"),
+                mock.patch(
+                    "bench.c1.score.load_pairs", return_value=pairs_of(["C1-01"], ["R1", "R2"])
+                ),
+                mock.patch("bench.c1.score._load_pair", return_value=None),
+            ):
+                score.run_score(root, "run1")
+            rows = (run / "pair_summary.csv").read_text().splitlines()
+            self.assertIn("C1-01,0,0,0,replaced by R1", rows)
+            self.assertIn("R1,0,0,0,replaced by R2", rows)
