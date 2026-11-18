@@ -6,6 +6,7 @@ import io
 import json
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -316,10 +317,40 @@ class EgressPolicy(unittest.TestCase):
         self.assertIsNone(checklist.origin_of("file:///x.html"))
 
 
+class MainDocument(unittest.TestCase):
+    URL = "http://127.0.0.1:9/"
+
+    def response(self, status, url=URL):
+        return types.SimpleNamespace(status=status, url=url)
+
+    def test_no_response_is_not_runnable(self):
+        with self.assertRaises(checklist.NotRunnable) as caught:
+            checklist.main_document(None, self.URL)
+        self.assertEqual(caught.exception.main, {"status": None, "final_url": None})
+
+    def test_proxy_refusal_or_http_error_is_not_runnable(self):
+        for status in (403, 404, 502):
+            with self.subTest(status=status), self.assertRaises(checklist.NotRunnable) as caught:
+                checklist.main_document(self.response(status), self.URL)
+            self.assertEqual(caught.exception.main["status"], status)
+            self.assertIn(f"HTTP {status}", str(caught.exception))
+
+    def test_success_reports_status_and_final_url_after_redirects(self):
+        final = "http://127.0.0.1:9/final.html"
+        self.assertEqual(
+            checklist.main_document(self.response(200, final), self.URL),
+            {"status": 200, "final_url": final},
+        )
+
+    def test_file_target_without_a_response_is_not_a_failure(self):
+        url = Path("/x/page.html").resolve().as_uri()
+        self.assertEqual(checklist.main_document(None, url), {"status": None, "final_url": url})
+
+
 class CheckerFaults(unittest.TestCase):
     """The page-side and checker-side failure paths, with Playwright replaced by a mock."""
 
-    def fake_playwright(self, goto_error=None, launch_error=None):
+    def fake_playwright(self, goto_error=None, launch_error=None, goto_response=None):
         from unittest import mock
 
         module = mock.MagicMock()
@@ -332,6 +363,8 @@ class CheckerFaults(unittest.TestCase):
         page = browser.new_context.return_value.new_page.return_value
         if goto_error is not None:
             page.goto.side_effect = goto_error
+        if goto_response is not None:
+            page.goto.return_value = goto_response
         return mock.patch.dict(sys.modules, {"playwright.sync_api": module}), browser
 
     def run_main(self, argv):
@@ -347,6 +380,18 @@ class CheckerFaults(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(report["outcome"], "no_runnable_output")
         self.assertEqual(report["detail"], "net::ERR_TIMED_OUT")
+        self.assertIsNone(report["correction_message"])
+        self.assertEqual(report["failed"], [])
+        browser.close.assert_called_once()
+
+    def test_http_error_main_document_is_no_runnable_output_with_status(self):
+        error_page = types.SimpleNamespace(status=502, url="http://127.0.0.1:9/")
+        patcher, browser = self.fake_playwright(goto_response=error_page)
+        with patcher:
+            code, report = self.run_main(["http://127.0.0.1:9/", "--task", "T01"])
+        self.assertEqual(code, 1)
+        self.assertEqual(report["outcome"], "no_runnable_output")
+        self.assertEqual(report["main_document"], {"status": 502, "final_url": error_page.url})
         self.assertIsNone(report["correction_message"])
         self.assertEqual(report["failed"], [])
         browser.close.assert_called_once()

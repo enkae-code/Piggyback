@@ -110,10 +110,15 @@ class ChecklistBrowser(unittest.TestCase):
         report = self.run_on(f"http://127.0.0.1:{closed_port()}/")
         self.assertEqual(report["outcome"], "no_runnable_output")
         self.assertIsNone(report["correction_message"])
+        # The proxy answers for the closed port, so the main document has an HTTP error status.
+        self.assertGreaterEqual(report["main_document"]["status"], 400, report)
 
-    def test_page_cannot_reach_ws_preconnect_or_another_loopback_port(self):
-        # The proxy is the enforcement point: ws://, <link rel=preconnect> to a non-loopback
-        # literal and fetch() to another loopback port must all come to nothing.
+    def test_page_cannot_reach_ws_or_another_loopback_port(self):
+        # ws:// goes through the proxy, which must refuse 203.0.113.7 and record it. fetch() to
+        # another loopback port is stopped by the route() layer, which records it in the same
+        # list. Port 8080 is browser-safe: Chromium refuses port 9 before any connection.
+        # <link rel=preconnect> is not asserted: this test does not verify Chromium sends it
+        # through the proxy.
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             listener.listen(4)
@@ -123,7 +128,8 @@ class ChecklistBrowser(unittest.TestCase):
             with self.assertRaises(socket.timeout):
                 listener.accept()
         self.assertTrue(report["checks"]["render"]["pass"], report["failed"])
-        self.assertTrue(report["blocked_requests"])
+        self.assertTrue(any("203.0.113.7" in b for b in report["blocked_requests"]), report)
+        self.assertTrue(any(f"127.0.0.1:{other}" in b for b in report["blocked_requests"]), report)
 
 
 if __name__ == "__main__":

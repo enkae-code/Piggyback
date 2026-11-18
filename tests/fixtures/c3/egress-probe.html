@@ -9,9 +9,9 @@
   const other = new URLSearchParams(location.search).get("port");
   const link = document.createElement("link");
   link.rel = "preconnect";
-  link.href = "http://203.0.113.7:9";
+  link.href = "http://203.0.113.7:8080";
   document.head.appendChild(link);
-  try { new WebSocket("ws://203.0.113.7:9/"); } catch (e) {}
+  try { new WebSocket("ws://203.0.113.7:8080/"); } catch (e) {}
   fetch(`http://127.0.0.1:${other}/`, { mode: "no-cors" }).catch(() => {});
 </script>
 </main>

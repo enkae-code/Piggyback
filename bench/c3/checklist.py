@@ -214,6 +214,16 @@ def correction_message(failed):
     return MESSAGE.format(items="\n".join(f"- {item}" for item in failed))
 
 
+def guard(route, origin, egress):
+    # Second layer for page requests, as in measure.py; the proxy is authoritative. Refusals are
+    # recorded in the same list as proxy refusals.
+    if allowed_request(route.request.url, origin):
+        route.continue_()
+    else:
+        egress.record(route.request.url)
+        route.abort("blockedbyclient")
+
+
 def predicates_for(task_id):
     tasks = json.loads(TASKS_PATH.read_text(encoding="utf-8"))["tasks"]
     matches = [t for t in tasks if t["id"] == task_id]
@@ -256,9 +266,32 @@ def run_axe(page):
     }
 
 
+class NotRunnable(Exception):
+    """The main document is missing, refused by the proxy, or an HTTP error: nothing to check."""
+
+    def __init__(self, detail, main):
+        super().__init__(detail)
+        self.main = main
+
+
+def main_document(response, url):
+    """Status and final URL of the main document. Raises NotRunnable unless it is usable.
+
+    A file target gets no HTTP response from Chromium, so a missing response is not a failure there.
+    """
+    if response is None:
+        if urlsplit(url).scheme == "file":
+            return {"status": None, "final_url": url}
+        raise NotRunnable("no response for the main document", {"status": None, "final_url": None})
+    main = {"status": response.status, "final_url": response.url}
+    if response.status >= 400:
+        raise NotRunnable(f"main document answered HTTP {response.status}", main)
+    return main
+
+
 def observe(page, url):
     """Everything that touches the page. Any exception raised here means no runnable output."""
-    page.goto(url, wait_until="load", timeout=NAV_MS)
+    main = main_document(page.goto(url, wait_until="load", timeout=NAV_MS), url)
     with contextlib.suppress(Exception):
         page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
     snap = page.evaluate(SNAPSHOT_JS)
@@ -268,7 +301,7 @@ def observe(page, url):
         page.set_viewport_size({"width": width, "height": HEIGHT})
         overflow.append({"width": width, **page.evaluate(OVERFLOW_JS)})
     page.set_viewport_size({"width": 1440, "height": HEIGHT})
-    return snap, overflow, run_axe(page)
+    return main, snap, overflow, run_axe(page)
 
 
 def build_checks(snap, overflow, axe, predicates, page_errors, console_errors):
@@ -334,14 +367,7 @@ def run_checklist(target, task_id):
                     accept_downloads=False,
                     bypass_csp=True,
                 )
-                ctx.route(
-                    "**/*",
-                    lambda route: (
-                        route.continue_()
-                        if allowed_request(route.request.url, origin)
-                        else route.abort("blockedbyclient")
-                    ),
-                )
+                ctx.route("**/*", lambda route: guard(route, origin, egress))
                 ctx.add_init_script(NO_WEBRTC)
                 page = ctx.new_page()
                 page_errors, console_errors = [], []
@@ -351,13 +377,14 @@ def run_checklist(target, task_id):
                     lambda msg: console_errors.append(msg.text) if msg.type == "error" else None,
                 )
                 try:
-                    snap, overflow, axe = observe(page, url)
-                except Exception as exc:  # navigation timeout, load failure, context destroyed
+                    main, snap, overflow, axe = observe(page, url)
+                except Exception as exc:  # navigation timeout, not runnable, context destroyed
                     return report_for(
                         url,
                         task_id,
                         NO_RUNNABLE,
                         detail=first_line(exc),
+                        main_document=getattr(exc, "main", None),
                         blocked_requests=egress.blocked,
                         **browser_info,
                     )
@@ -371,6 +398,7 @@ def run_checklist(target, task_id):
                 FAIL if failed else PASS,
                 failed=failed,
                 checks=checks,
+                main_document=main,
                 blocked_requests=egress.blocked,
                 **browser_info,
             )
