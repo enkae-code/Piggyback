@@ -1,0 +1,358 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "type": {
+    "font_size": [
+      {
+        "value": "19px",
+        "share": 0.9
+      },
+      {
+        "value": "103.68px",
+        "share": 0.04
+      },
+      {
+        "value": "14px",
+        "share": 0.02
+      },
+      {
+        "value": "31px",
+        "share": 0.01
+      },
+      {
+        "value": "28px",
+        "share": 0.01
+      },
+      {
+        "value": "16px",
+        "share": 0.01
+      },
+      {
+        "value": "26px",
+        "share": 0
+      },
+      {
+        "value": "40px",
+        "share": 0
+      }
+    ],
+    "line_height": [
+      {
+        "value": "28.5px",
+        "share": 0.9
+      },
+      {
+        "value": "99.5328px",
+        "share": 0.04
+      },
+      {
+        "value": "19.6px",
+        "share": 0.02
+      },
+      {
+        "value": "40.3px",
+        "share": 0.01
+      },
+      {
+        "value": "35px",
+        "share": 0.01
+      },
+      {
+        "value": "22.4px",
+        "share": 0.01
+      },
+      {
+        "value": "28.6px",
+        "share": 0
+      },
+      {
+        "value": "16.8px",
+        "share": 0
+      }
+    ],
+    "letter_spacing": [
+      {
+        "value": "normal",
+        "share": 0.93
+      },
+      {
+        "value": "-1.86624px",
+        "share": 0.04
+      },
+      {
+        "value": "1.26px",
+        "share": 0.02
+      },
+      {
+        "value": "-0.4px",
+        "share": 0
+      }
+    ],
+    "font_weight": [
+      {
+        "value": "400",
+        "share": 0.95
+      },
+      {
+        "value": "700",
+        "share": 0.05
+      }
+    ],
+    "families": [
+      {
+        "value": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+        "share": 1
+      }
+    ]
+  },
+  "palette": {
+    "text": [
+      {
+        "value": "rgb(25, 27, 24)",
+        "share": 0.98
+      },
+      {
+        "value": "rgb(71, 75, 68)",
+        "share": 0.02
+      },
+      {
+        "value": "rgb(243, 244, 241)",
+        "share": 0
+      }
+    ],
+    "background": [
+      {
+        "value": "rgb(25, 27, 24)",
+        "share": 1
+      }
+    ],
+    "accent_share": 0
+  },
+  "radius": [],
+  "rounded_boxes": 0,
+  "shadow": [],
+  "spacing": {
+    "gaps": [
+      {
+        "value": 0,
+        "share": 0.33
+      },
+      {
+        "value": 20,
+        "share": 0.2
+      },
+      {
+        "value": 40,
+        "share": 0.13
+      },
+      {
+        "value": 24,
+        "share": 0.07
+      },
+      {
+        "value": 14,
+        "share": 0.07
+      },
+      {
+        "value": 1,
+        "share": 0.07
+      },
+      {
+        "value": 13,
+        "share": 0.07
+      },
+      {
+        "value": 8,
+        "share": 0.07
+      }
+    ],
+    "padding": [
+      {
+        "value": "6px",
+        "share": 0.19
+      },
+      {
+        "value": "24px",
+        "share": 0.19
+      },
+      {
+        "value": "26px",
+        "share": 0.16
+      },
+      {
+        "value": "44px",
+        "share": 0.06
+      },
+      {
+        "value": "15px",
+        "share": 0.06
+      },
+      {
+        "value": "28px",
+        "share": 0.03
+      },
+      {
+        "value": "18px",
+        "share": 0.03
+      },
+      {
+        "value": "60px",
+        "share": 0.03
+      }
+    ]
+  },
+  "container_width": 1180,
+  "motion": [],
+  "effects": {
+    "gradient_text": 0,
+    "tinted_icon_squares": 0,
+    "gradient_text_box": null,
+    "tinted_icon_square_box": null
+  },
+  "anchors": {
+    "heading": {
+      "tag": "h1",
+      "text": "Rooms with a longer life",
+      "font_size": "103.68px",
+      "line_height": "99.5328px",
+      "letter_spacing": "-1.86624px",
+      "font_weight": "700",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(25, 27, 24)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 130,
+        "y": 141,
+        "width": 516,
+        "height": 199
+      }
+    },
+    "body": {
+      "tag": "p",
+      "text": "Lena Ortiz did not set out to design a landmark. The repair shop on Calder Stree",
+      "font_size": "19px",
+      "line_height": "28.5px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(25, 27, 24)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 130,
+        "y": 475,
+        "width": 369,
+        "height": 197
+      }
+    },
+    "cta": {
+      "tag": "a",
+      "text": "Subscribe for $38",
+      "font_size": "14px",
+      "line_height": "16.8px",
+      "letter_spacing": "1.26px",
+      "font_weight": "700",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(243, 244, 241)",
+      "background": "rgb(25, 27, 24)",
+      "radius": "0px",
+      "padding": [
+        "15px",
+        "24px",
+        "15px",
+        "24px"
+      ],
+      "box": {
+        "x": 971,
+        "y": 766,
+        "width": 201,
+        "height": 47
+      }
+    },
+    "nav": {
+      "tag": "nav",
+      "text": "Feature Dispatches About",
+      "font_size": "14px",
+      "line_height": "19.6px",
+      "letter_spacing": "1.26px",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(25, 27, 24)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 826,
+        "y": 42,
+        "width": 484,
+        "height": 33
+      }
+    },
+    "card": {
+      "count": 4,
+      "tag": "a",
+      "text": "Houses What a window remembers Forty winters of weather, read from one sill on t",
+      "font_size": "19px",
+      "line_height": "28.5px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(25, 27, 24)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "26px",
+        "0px",
+        "24px",
+        "0px"
+      ],
+      "box": {
+        "x": 130,
+        "y": 991,
+        "width": 1180,
+        "height": 110
+      }
+    }
+  },
+  "reduced_motion": {
+    "still_running": 0
+  },
+  "url": "starter:field-journal",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "bundled chromium",
+  "captured_at": "2026-11-18T00:56:01+00:00",
+  "capture": {
+    "status": 200,
+    "final_url": "starter:field-journal",
+    "browser": "bundled chromium",
+    "browser_version": "156.0.8078.4",
+    "os": "Linux 7.0.0-43-generic",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "captured_at": "2026-11-18T00:56:01+00:00"
+  },
+  "blocked_requests": [],
+  "screenshot": "screenshot.png"
+}

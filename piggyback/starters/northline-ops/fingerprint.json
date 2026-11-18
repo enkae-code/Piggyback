@@ -1,0 +1,354 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "type": {
+    "font_size": [
+      {
+        "value": "13px",
+        "share": 0.95
+      },
+      {
+        "value": "12px",
+        "share": 0.02
+      },
+      {
+        "value": "15px",
+        "share": 0.01
+      },
+      {
+        "value": "34px",
+        "share": 0.01
+      },
+      {
+        "value": "14px",
+        "share": 0
+      }
+    ],
+    "line_height": [
+      {
+        "value": "20.15px",
+        "share": 0.95
+      },
+      {
+        "value": "18px",
+        "share": 0.02
+      },
+      {
+        "value": "24px",
+        "share": 0.01
+      },
+      {
+        "value": "37.4px",
+        "share": 0.01
+      },
+      {
+        "value": "19.6px",
+        "share": 0
+      },
+      {
+        "value": "19.5px",
+        "share": 0
+      },
+      {
+        "value": "15.6px",
+        "share": 0
+      }
+    ],
+    "letter_spacing": [
+      {
+        "value": "normal",
+        "share": 0.97
+      },
+      {
+        "value": "0.96px",
+        "share": 0.02
+      },
+      {
+        "value": "-0.68px",
+        "share": 0.01
+      },
+      {
+        "value": "0.52px",
+        "share": 0
+      },
+      {
+        "value": "1.04px",
+        "share": 0
+      }
+    ],
+    "font_weight": [
+      {
+        "value": "400",
+        "share": 0.98
+      },
+      {
+        "value": "700",
+        "share": 0.02
+      }
+    ],
+    "families": [
+      {
+        "value": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        "share": 1
+      }
+    ]
+  },
+  "palette": {
+    "text": [
+      {
+        "value": "rgb(221, 232, 230)",
+        "share": 0.95
+      },
+      {
+        "value": "rgb(157, 177, 175)",
+        "share": 0.04
+      },
+      {
+        "value": "rgb(165, 230, 189)",
+        "share": 0
+      },
+      {
+        "value": "rgb(242, 189, 112)",
+        "share": 0
+      },
+      {
+        "value": "rgb(15, 23, 25)",
+        "share": 0
+      }
+    ],
+    "background": [
+      {
+        "value": "rgb(21, 32, 35)",
+        "share": 0.99
+      },
+      {
+        "value": "rgb(165, 230, 189)",
+        "share": 0.01
+      }
+    ],
+    "accent_share": 0.7
+  },
+  "radius": [],
+  "rounded_boxes": 0,
+  "shadow": [],
+  "spacing": {
+    "gaps": [
+      {
+        "value": 0,
+        "share": 0.44
+      },
+      {
+        "value": 18,
+        "share": 0.17
+      },
+      {
+        "value": 57,
+        "share": 0.17
+      },
+      {
+        "value": 6,
+        "share": 0.06
+      },
+      {
+        "value": 14,
+        "share": 0.06
+      },
+      {
+        "value": 8,
+        "share": 0.06
+      },
+      {
+        "value": 16,
+        "share": 0.06
+      }
+    ],
+    "padding": [
+      {
+        "value": "11px",
+        "share": 0.43
+      },
+      {
+        "value": "16px",
+        "share": 0.22
+      },
+      {
+        "value": "14px",
+        "share": 0.07
+      },
+      {
+        "value": "22px",
+        "share": 0.07
+      },
+      {
+        "value": "20px",
+        "share": 0.06
+      },
+      {
+        "value": "24px",
+        "share": 0.05
+      },
+      {
+        "value": "17px",
+        "share": 0.02
+      },
+      {
+        "value": "28px",
+        "share": 0.02
+      }
+    ]
+  },
+  "container_width": 1392,
+  "motion": [],
+  "effects": {
+    "gradient_text": 0,
+    "tinted_icon_squares": 0,
+    "gradient_text_box": null,
+    "tinted_icon_square_box": null
+  },
+  "anchors": {
+    "heading": {
+      "tag": "h1",
+      "text": "Fleet watch",
+      "font_size": "34px",
+      "line_height": "37.4px",
+      "letter_spacing": "-0.68px",
+      "font_weight": "700",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(221, 232, 230)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 24,
+        "y": 100,
+        "width": 213,
+        "height": 37
+      }
+    },
+    "body": {
+      "tag": "p",
+      "text": "4 of 6 vessels are underway and every position is current. 128 samples are logge",
+      "font_size": "15px",
+      "line_height": "24px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(157, 177, 175)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 24,
+        "y": 153,
+        "width": 666,
+        "height": 92
+      }
+    },
+    "cta": {
+      "tag": "button",
+      "text": "Acknowledge 2 signals",
+      "font_size": "13px",
+      "line_height": "15.6px",
+      "letter_spacing": "0.52px",
+      "font_weight": "700",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(15, 23, 25)",
+      "background": "rgb(165, 230, 189)",
+      "radius": "0px",
+      "padding": [
+        "13px",
+        "18px",
+        "13px",
+        "18px"
+      ],
+      "box": {
+        "x": 1201,
+        "y": 206,
+        "width": 215,
+        "height": 42
+      }
+    },
+    "nav": {
+      "tag": "nav",
+      "text": "Fleet Signals Positions",
+      "font_size": "13px",
+      "line_height": "20.15px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(221, 232, 230)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 259,
+        "y": 0,
+        "width": 260,
+        "height": 47
+      }
+    },
+    "card": {
+      "count": 3,
+      "tag": "article",
+      "text": "Station N-04 missed its 14:00 check-in 18 min Beacon last heard 13:42 on the eas",
+      "font_size": "13px",
+      "line_height": "20.15px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(221, 232, 230)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "16px",
+        "0px",
+        "17px",
+        "14px"
+      ],
+      "box": {
+        "x": 920,
+        "y": 332,
+        "width": 473,
+        "height": 88
+      }
+    }
+  },
+  "reduced_motion": {
+    "still_running": 0
+  },
+  "url": "starter:northline-ops",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "bundled chromium",
+  "captured_at": "2026-11-18T00:56:09+00:00",
+  "capture": {
+    "status": 200,
+    "final_url": "starter:northline-ops",
+    "browser": "bundled chromium",
+    "browser_version": "156.0.8078.4",
+    "os": "Linux 7.0.0-43-generic",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "captured_at": "2026-11-18T00:56:09+00:00"
+  },
+  "blocked_requests": [],
+  "screenshot": "screenshot.png"
+}

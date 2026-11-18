@@ -1,0 +1,362 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "type": {
+    "font_size": [
+      {
+        "value": "15px",
+        "share": 0.78
+      },
+      {
+        "value": "178.56px",
+        "share": 0.16
+      },
+      {
+        "value": "72px",
+        "share": 0.03
+      },
+      {
+        "value": "13px",
+        "share": 0.01
+      },
+      {
+        "value": "44px",
+        "share": 0.01
+      },
+      {
+        "value": "22px",
+        "share": 0
+      },
+      {
+        "value": "20px",
+        "share": 0
+      },
+      {
+        "value": "14px",
+        "share": 0
+      }
+    ],
+    "line_height": [
+      {
+        "value": "23.25px",
+        "share": 0.78
+      },
+      {
+        "value": "164.275px",
+        "share": 0.16
+      },
+      {
+        "value": "72px",
+        "share": 0.03
+      },
+      {
+        "value": "18.2px",
+        "share": 0.01
+      },
+      {
+        "value": "44px",
+        "share": 0.01
+      },
+      {
+        "value": "25.3px",
+        "share": 0
+      },
+      {
+        "value": "31px",
+        "share": 0
+      },
+      {
+        "value": "16.8px",
+        "share": 0
+      }
+    ],
+    "letter_spacing": [
+      {
+        "value": "normal",
+        "share": 0.78
+      },
+      {
+        "value": "-7.1424px",
+        "share": 0.16
+      },
+      {
+        "value": "-2.88px",
+        "share": 0.03
+      },
+      {
+        "value": "0.78px",
+        "share": 0.01
+      },
+      {
+        "value": "-1.32px",
+        "share": 0.01
+      },
+      {
+        "value": "-0.22px",
+        "share": 0
+      },
+      {
+        "value": "-0.4px",
+        "share": 0
+      },
+      {
+        "value": "0.7px",
+        "share": 0
+      }
+    ],
+    "font_weight": [
+      {
+        "value": "400",
+        "share": 0.78
+      },
+      {
+        "value": "700",
+        "share": 0.22
+      }
+    ],
+    "families": [
+      {
+        "value": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        "share": 1
+      }
+    ]
+  },
+  "palette": {
+    "text": [
+      {
+        "value": "rgb(18, 18, 18)",
+        "share": 0.95
+      },
+      {
+        "value": "rgb(244, 178, 35)",
+        "share": 0.05
+      }
+    ],
+    "background": [
+      {
+        "value": "rgb(18, 18, 18)",
+        "share": 1
+      }
+    ],
+    "accent_share": 0
+  },
+  "radius": [],
+  "rounded_boxes": 0,
+  "shadow": [],
+  "spacing": {
+    "gaps": [
+      {
+        "value": 0,
+        "share": 0.52
+      },
+      {
+        "value": 14,
+        "share": 0.22
+      },
+      {
+        "value": 18,
+        "share": 0.09
+      },
+      {
+        "value": 37,
+        "share": 0.09
+      },
+      {
+        "value": 44,
+        "share": 0.04
+      },
+      {
+        "value": 22,
+        "share": 0.04
+      }
+    ],
+    "padding": [
+      {
+        "value": "28px",
+        "share": 0.21
+      },
+      {
+        "value": "7px",
+        "share": 0.18
+      },
+      {
+        "value": "18px",
+        "share": 0.1
+      },
+      {
+        "value": "26px",
+        "share": 0.1
+      },
+      {
+        "value": "4px",
+        "share": 0.08
+      },
+      {
+        "value": "57.6px",
+        "share": 0.08
+      },
+      {
+        "value": "30px",
+        "share": 0.06
+      },
+      {
+        "value": "16px",
+        "share": 0.04
+      }
+    ]
+  },
+  "container_width": null,
+  "motion": [],
+  "effects": {
+    "gradient_text": 0,
+    "tinted_icon_squares": 0,
+    "gradient_text_box": null,
+    "tinted_icon_square_box": null
+  },
+  "anchors": {
+    "heading": {
+      "tag": "h1",
+      "text": "Print without the fuss.",
+      "font_size": "178.56px",
+      "line_height": "164.275px",
+      "letter_spacing": "-7.1424px",
+      "font_weight": "700",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(18, 18, 18)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 58,
+        "y": 110,
+        "width": 899,
+        "height": 493
+      }
+    },
+    "body": {
+      "tag": "p",
+      "text": "Good paper, sharp registration, and a person at the counter who remembers what y",
+      "font_size": "15px",
+      "line_height": "23.25px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(18, 18, 18)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 58,
+        "y": 648,
+        "width": 396,
+        "height": 67
+      }
+    },
+    "cta": {
+      "tag": "a",
+      "text": "Ask for a paper sample",
+      "font_size": "14px",
+      "line_height": "16.8px",
+      "letter_spacing": "0.7px",
+      "font_weight": "700",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(244, 178, 35)",
+      "background": "rgb(18, 18, 18)",
+      "radius": "0px",
+      "padding": [
+        "18px",
+        "26px",
+        "18px",
+        "26px"
+      ],
+      "box": {
+        "x": 773,
+        "y": 658,
+        "width": 249,
+        "height": 59
+      }
+    },
+    "nav": {
+      "tag": "nav",
+      "text": "What we print Turnaround Visit",
+      "font_size": "13px",
+      "line_height": "18.2px",
+      "letter_spacing": "0.78px",
+      "font_weight": "700",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(18, 18, 18)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 565,
+        "y": 17,
+        "width": 310,
+        "height": 29
+      }
+    },
+    "card": {
+      "count": 3,
+      "tag": "article",
+      "text": "Flyers & posters Handbills, menus, gig posters, and the one sheet you need by Fr",
+      "font_size": "15px",
+      "line_height": "23.25px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(18, 18, 18)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "32px",
+        "28px",
+        "30px",
+        "28px"
+      ],
+      "box": {
+        "x": 0,
+        "y": 999,
+        "width": 480,
+        "height": 227
+      }
+    }
+  },
+  "reduced_motion": {
+    "still_running": 0
+  },
+  "url": "starter:ink-and-rule",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "bundled chromium",
+  "captured_at": "2026-11-18T00:56:04+00:00",
+  "capture": {
+    "status": 200,
+    "final_url": "starter:ink-and-rule",
+    "browser": "bundled chromium",
+    "browser_version": "156.0.8078.4",
+    "os": "Linux 7.0.0-43-generic",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "captured_at": "2026-11-18T00:56:04+00:00"
+  },
+  "blocked_requests": [],
+  "screenshot": "screenshot.png"
+}

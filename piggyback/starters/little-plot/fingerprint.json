@@ -1,0 +1,343 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "type": {
+    "font_size": [
+      {
+        "value": "21px",
+        "share": 0.82
+      },
+      {
+        "value": "149.76px",
+        "share": 0.08
+      },
+      {
+        "value": "17px",
+        "share": 0.05
+      },
+      {
+        "value": "19px",
+        "share": 0.03
+      },
+      {
+        "value": "23px",
+        "share": 0.02
+      },
+      {
+        "value": "62px",
+        "share": 0
+      },
+      {
+        "value": "30px",
+        "share": 0
+      }
+    ],
+    "line_height": [
+      {
+        "value": "31.5px",
+        "share": 0.82
+      },
+      {
+        "value": "137.779px",
+        "share": 0.08
+      },
+      {
+        "value": "22.1px",
+        "share": 0.05
+      },
+      {
+        "value": "32.2px",
+        "share": 0.02
+      },
+      {
+        "value": "24.7px",
+        "share": 0.01
+      },
+      {
+        "value": "28.5px",
+        "share": 0.01
+      },
+      {
+        "value": "22.8px",
+        "share": 0
+      },
+      {
+        "value": "64.48px",
+        "share": 0
+      }
+    ],
+    "letter_spacing": [
+      {
+        "value": "normal",
+        "share": 0.91
+      },
+      {
+        "value": "-4.4928px",
+        "share": 0.08
+      },
+      {
+        "value": "-1.24px",
+        "share": 0
+      },
+      {
+        "value": "-0.3px",
+        "share": 0
+      }
+    ],
+    "font_weight": [
+      {
+        "value": "400",
+        "share": 0.98
+      },
+      {
+        "value": "700",
+        "share": 0.02
+      }
+    ],
+    "families": [
+      {
+        "value": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+        "share": 1
+      }
+    ]
+  },
+  "palette": {
+    "text": [
+      {
+        "value": "rgb(28, 48, 35)",
+        "share": 0.87
+      },
+      {
+        "value": "rgb(238, 244, 228)",
+        "share": 0.13
+      }
+    ],
+    "background": [
+      {
+        "value": "rgb(28, 48, 35)",
+        "share": 1
+      }
+    ],
+    "accent_share": 0.1
+  },
+  "radius": [
+    {
+      "value": "8px",
+      "share": 1
+    }
+  ],
+  "rounded_boxes": 1,
+  "shadow": [],
+  "spacing": {
+    "gaps": [
+      {
+        "value": 0,
+        "share": 0.62
+      },
+      {
+        "value": 22,
+        "share": 0.14
+      },
+      {
+        "value": 14,
+        "share": 0.14
+      },
+      {
+        "value": 26,
+        "share": 0.05
+      },
+      {
+        "value": 44,
+        "share": 0.05
+      }
+    ],
+    "padding": [
+      {
+        "value": "30px",
+        "share": 0.2
+      },
+      {
+        "value": "26px",
+        "share": 0.14
+      },
+      {
+        "value": "4px",
+        "share": 0.12
+      },
+      {
+        "value": "36px",
+        "share": 0.08
+      },
+      {
+        "value": "104px",
+        "share": 0.08
+      },
+      {
+        "value": "14px",
+        "share": 0.06
+      },
+      {
+        "value": "16px",
+        "share": 0.04
+      },
+      {
+        "value": "17px",
+        "share": 0.04
+      }
+    ]
+  },
+  "container_width": 1160,
+  "motion": [],
+  "effects": {
+    "gradient_text": 0,
+    "tinted_icon_squares": 0,
+    "gradient_text_box": null,
+    "tinted_icon_square_box": null
+  },
+  "anchors": {
+    "heading": {
+      "tag": "h1",
+      "text": "Make room for growing.",
+      "font_size": "149.76px",
+      "line_height": "137.779px",
+      "letter_spacing": "-4.4928px",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(28, 48, 35)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 140,
+        "y": 148,
+        "width": 649,
+        "height": 276
+      }
+    },
+    "body": {
+      "tag": "p",
+      "text": "A small, friendly planner for people starting with one windowsill, one balcony, ",
+      "font_size": "23px",
+      "line_height": "32.2px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(28, 48, 35)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 935,
+        "y": 202,
+        "width": 314,
+        "height": 127
+      }
+    },
+    "cta": {
+      "tag": "a",
+      "text": "Plan your first week",
+      "font_size": "19px",
+      "line_height": "22.8px",
+      "letter_spacing": "normal",
+      "font_weight": "700",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(238, 244, 228)",
+      "background": "rgb(28, 48, 35)",
+      "radius": "8px",
+      "padding": [
+        "16px",
+        "26px",
+        "17px",
+        "26px"
+      ],
+      "box": {
+        "x": 935,
+        "y": 355,
+        "width": 213,
+        "height": 56
+      }
+    },
+    "nav": {
+      "tag": "nav",
+      "text": "How it works A week in the plot First seed",
+      "font_size": "19px",
+      "line_height": "28.5px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(28, 48, 35)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 933,
+        "y": 27,
+        "width": 367,
+        "height": 39
+      }
+    },
+    "card": {
+      "count": 3,
+      "tag": "article",
+      "text": "Monday look Check the leaves New growth is a better clue than the calendar.",
+      "font_size": "21px",
+      "line_height": "31.5px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(28, 48, 35)",
+      "background": "rgb(244, 247, 236)",
+      "radius": "0px",
+      "padding": [
+        "30px",
+        "30px",
+        "104px",
+        "30px"
+      ],
+      "box": {
+        "x": 140,
+        "y": 1367,
+        "width": 365,
+        "height": 344
+      }
+    }
+  },
+  "reduced_motion": {
+    "still_running": 0
+  },
+  "url": "starter:little-plot",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "bundled chromium",
+  "captured_at": "2026-11-18T00:56:06+00:00",
+  "capture": {
+    "status": 200,
+    "final_url": "starter:little-plot",
+    "browser": "bundled chromium",
+    "browser_version": "156.0.8078.4",
+    "os": "Linux 7.0.0-43-generic",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "captured_at": "2026-11-18T00:56:06+00:00"
+  },
+  "blocked_requests": [],
+  "screenshot": "screenshot.png"
+}

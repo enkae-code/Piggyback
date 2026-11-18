@@ -1,0 +1,358 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "type": {
+    "font_size": [
+      {
+        "value": "23px",
+        "share": 0.84
+      },
+      {
+        "value": "239.04px",
+        "share": 0.14
+      },
+      {
+        "value": "27px",
+        "share": 0.01
+      },
+      {
+        "value": "16px",
+        "share": 0.01
+      },
+      {
+        "value": "14px",
+        "share": 0.01
+      },
+      {
+        "value": "43.92px",
+        "share": 0
+      },
+      {
+        "value": "28px",
+        "share": 0
+      }
+    ],
+    "line_height": [
+      {
+        "value": "32.2px",
+        "share": 0.84
+      },
+      {
+        "value": "234.259px",
+        "share": 0.14
+      },
+      {
+        "value": "35.1px",
+        "share": 0.01
+      },
+      {
+        "value": "22.4px",
+        "share": 0.01
+      },
+      {
+        "value": "19.6px",
+        "share": 0.01
+      },
+      {
+        "value": "43.92px",
+        "share": 0
+      },
+      {
+        "value": "28px",
+        "share": 0
+      }
+    ],
+    "letter_spacing": [
+      {
+        "value": "normal",
+        "share": 0.84
+      },
+      {
+        "value": "-8.3664px",
+        "share": 0.14
+      },
+      {
+        "value": "0.64px",
+        "share": 0.01
+      },
+      {
+        "value": "0.56px",
+        "share": 0.01
+      },
+      {
+        "value": "-0.8784px",
+        "share": 0
+      },
+      {
+        "value": "-0.42px",
+        "share": 0
+      }
+    ],
+    "font_weight": [
+      {
+        "value": "400",
+        "share": 0.84
+      },
+      {
+        "value": "700",
+        "share": 0.16
+      }
+    ],
+    "families": [
+      {
+        "value": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+        "share": 0.99
+      },
+      {
+        "value": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        "share": 0.01
+      }
+    ]
+  },
+  "palette": {
+    "text": [
+      {
+        "value": "rgb(255, 255, 255)",
+        "share": 0.82
+      },
+      {
+        "value": "rgb(255, 210, 63)",
+        "share": 0.14
+      },
+      {
+        "value": "rgb(20, 26, 60)",
+        "share": 0.04
+      }
+    ],
+    "background": [
+      {
+        "value": "rgb(255, 210, 63)",
+        "share": 0.62
+      },
+      {
+        "value": "rgb(240, 100, 72)",
+        "share": 0.38
+      }
+    ],
+    "accent_share": 0.08
+  },
+  "radius": [],
+  "rounded_boxes": 0,
+  "shadow": [],
+  "spacing": {
+    "gaps": [
+      {
+        "value": 0,
+        "share": 0.38
+      },
+      {
+        "value": 14,
+        "share": 0.19
+      },
+      {
+        "value": 12,
+        "share": 0.19
+      },
+      {
+        "value": 18,
+        "share": 0.13
+      },
+      {
+        "value": 44,
+        "share": 0.06
+      },
+      {
+        "value": 72,
+        "share": 0.06
+      }
+    ],
+    "padding": [
+      {
+        "value": "40px",
+        "share": 0.26
+      },
+      {
+        "value": "18px",
+        "share": 0.13
+      },
+      {
+        "value": "6px",
+        "share": 0.1
+      },
+      {
+        "value": "22px",
+        "share": 0.06
+      },
+      {
+        "value": "26px",
+        "share": 0.06
+      },
+      {
+        "value": "12px",
+        "share": 0.05
+      },
+      {
+        "value": "36px",
+        "share": 0.05
+      },
+      {
+        "value": "44px",
+        "share": 0.05
+      }
+    ]
+  },
+  "container_width": 1320,
+  "motion": [],
+  "effects": {
+    "gradient_text": 0,
+    "tinted_icon_squares": 0,
+    "gradient_text_box": null,
+    "tinted_icon_square_box": null
+  },
+  "anchors": {
+    "heading": {
+      "tag": "h1",
+      "text": "Bring yourgood stuff.",
+      "font_size": "239.04px",
+      "line_height": "234.259px",
+      "letter_spacing": "-8.3664px",
+      "font_weight": "700",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(255, 210, 63)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 53,
+        "y": 103,
+        "width": 1010,
+        "height": 469
+      }
+    },
+    "body": {
+      "tag": "p",
+      "text": "A neighborhood field day for swapping skills, making something lopsided, and eat",
+      "font_size": "27px",
+      "line_height": "35.1px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 60,
+        "y": 722,
+        "width": 548,
+        "height": 70
+      }
+    },
+    "cta": {
+      "tag": "a",
+      "text": "Save the date",
+      "font_size": "16px",
+      "line_height": "22.4px",
+      "letter_spacing": "0.64px",
+      "font_weight": "700",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(20, 26, 60)",
+      "background": "rgb(255, 210, 63)",
+      "radius": "0px",
+      "padding": [
+        "18px",
+        "26px",
+        "18px",
+        "26px"
+      ],
+      "box": {
+        "x": 849,
+        "y": 734,
+        "width": 531,
+        "height": 58
+      }
+    },
+    "nav": {
+      "tag": "nav",
+      "text": "The day Make, trade, play Save your Saturday",
+      "font_size": "14px",
+      "line_height": "19.6px",
+      "letter_spacing": "0.56px",
+      "font_weight": "700",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 956,
+        "y": 26,
+        "width": 424,
+        "height": 35
+      }
+    },
+    "card": {
+      "count": 3,
+      "tag": "article",
+      "text": "make Table one · Make Fix it or invent it Patch a tote, bind a pocket notebook, ",
+      "font_size": "23px",
+      "line_height": "32.2px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(20, 26, 60)",
+      "background": "rgb(240, 100, 72)",
+      "radius": "0px",
+      "padding": [
+        "36px",
+        "40px",
+        "44px",
+        "40px"
+      ],
+      "box": {
+        "x": 0,
+        "y": 1334,
+        "width": 1440,
+        "height": 324
+      }
+    }
+  },
+  "reduced_motion": {
+    "still_running": 0
+  },
+  "url": "starter:good-day-assembly",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "bundled chromium",
+  "captured_at": "2026-11-18T00:56:03+00:00",
+  "capture": {
+    "status": 200,
+    "final_url": "starter:good-day-assembly",
+    "browser": "bundled chromium",
+    "browser_version": "156.0.8078.4",
+    "os": "Linux 7.0.0-43-generic",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "captured_at": "2026-11-18T00:56:03+00:00"
+  },
+  "blocked_requests": [],
+  "screenshot": "screenshot.png"
+}

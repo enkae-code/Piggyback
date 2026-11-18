@@ -1,0 +1,386 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "type": {
+    "font_size": [
+      {
+        "value": "21px",
+        "share": 0.8
+      },
+      {
+        "value": "274.752px",
+        "share": 0.08
+      },
+      {
+        "value": "50px",
+        "share": 0.06
+      },
+      {
+        "value": "80.64px",
+        "share": 0.03
+      },
+      {
+        "value": "77.76px",
+        "share": 0.02
+      },
+      {
+        "value": "14px",
+        "share": 0.01
+      },
+      {
+        "value": "24px",
+        "share": 0
+      },
+      {
+        "value": "13px",
+        "share": 0
+      }
+    ],
+    "line_height": [
+      {
+        "value": "30.45px",
+        "share": 0.8
+      },
+      {
+        "value": "236.287px",
+        "share": 0.08
+      },
+      {
+        "value": "55px",
+        "share": 0.06
+      },
+      {
+        "value": "79.0272px",
+        "share": 0.03
+      },
+      {
+        "value": "71.5392px",
+        "share": 0.02
+      },
+      {
+        "value": "21px",
+        "share": 0.01
+      },
+      {
+        "value": "24px",
+        "share": 0
+      },
+      {
+        "value": "15.6px",
+        "share": 0
+      }
+    ],
+    "letter_spacing": [
+      {
+        "value": "normal",
+        "share": 0.8
+      },
+      {
+        "value": "-5.49504px",
+        "share": 0.08
+      },
+      {
+        "value": "-0.9px",
+        "share": 0.06
+      },
+      {
+        "value": "-2.016px",
+        "share": 0.03
+      },
+      {
+        "value": "-2.3328px",
+        "share": 0.02
+      },
+      {
+        "value": "0.28px",
+        "share": 0.01
+      },
+      {
+        "value": "-0.24px",
+        "share": 0
+      },
+      {
+        "value": "0.52px",
+        "share": 0
+      }
+    ],
+    "font_weight": [
+      {
+        "value": "400",
+        "share": 0.98
+      },
+      {
+        "value": "700",
+        "share": 0.02
+      }
+    ],
+    "families": [
+      {
+        "value": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+        "share": 0.98
+      },
+      {
+        "value": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        "share": 0.02
+      }
+    ]
+  },
+  "palette": {
+    "text": [
+      {
+        "value": "rgb(236, 230, 218)",
+        "share": 0.91
+      },
+      {
+        "value": "rgb(230, 238, 203)",
+        "share": 0.05
+      },
+      {
+        "value": "rgb(168, 161, 147)",
+        "share": 0.04
+      },
+      {
+        "value": "rgb(18, 17, 16)",
+        "share": 0
+      }
+    ],
+    "background": [
+      {
+        "value": "rgb(39, 63, 43)",
+        "share": 0.93
+      },
+      {
+        "value": "rgb(236, 230, 218)",
+        "share": 0.07
+      }
+    ],
+    "accent_share": 0.09
+  },
+  "radius": [],
+  "rounded_boxes": 0,
+  "shadow": [],
+  "spacing": {
+    "gaps": [
+      {
+        "value": 0,
+        "share": 0.29
+      },
+      {
+        "value": 44,
+        "share": 0.19
+      },
+      {
+        "value": 22,
+        "share": 0.14
+      },
+      {
+        "value": 6,
+        "share": 0.1
+      },
+      {
+        "value": 63,
+        "share": 0.1
+      },
+      {
+        "value": 38,
+        "share": 0.05
+      },
+      {
+        "value": 115,
+        "share": 0.05
+      },
+      {
+        "value": 18,
+        "share": 0.05
+      }
+    ],
+    "padding": [
+      {
+        "value": "26px",
+        "share": 0.17
+      },
+      {
+        "value": "6px",
+        "share": 0.13
+      },
+      {
+        "value": "28px",
+        "share": 0.13
+      },
+      {
+        "value": "24px",
+        "share": 0.11
+      },
+      {
+        "value": "38px",
+        "share": 0.07
+      },
+      {
+        "value": "14px",
+        "share": 0.07
+      },
+      {
+        "value": "64px",
+        "share": 0.04
+      },
+      {
+        "value": "17px",
+        "share": 0.04
+      }
+    ]
+  },
+  "container_width": 1320,
+  "motion": [],
+  "effects": {
+    "gradient_text": 0,
+    "tinted_icon_squares": 0,
+    "gradient_text_box": null,
+    "tinted_icon_square_box": null
+  },
+  "anchors": {
+    "heading": {
+      "tag": "h1",
+      "text": "Mina Okafor",
+      "font_size": "274.752px",
+      "line_height": "236.287px",
+      "letter_spacing": "-5.49504px",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(236, 230, 218)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 52,
+        "y": 94,
+        "width": 1322,
+        "height": 236
+      }
+    },
+    "body": {
+      "tag": "p",
+      "text": "An identity for a school where urban ecologists teach by walking, noticing and k",
+      "font_size": "21px",
+      "line_height": "30.45px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(236, 230, 218)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 173,
+        "y": 858,
+        "width": 619,
+        "height": 88
+      }
+    },
+    "cta": {
+      "tag": "a",
+      "text": "Start a project",
+      "font_size": "13px",
+      "line_height": "15.6px",
+      "letter_spacing": "0.52px",
+      "font_weight": "400",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(18, 17, 16)",
+      "background": "rgb(236, 230, 218)",
+      "radius": "0px",
+      "padding": [
+        "17px",
+        "24px",
+        "17px",
+        "24px"
+      ],
+      "box": {
+        "x": 1204,
+        "y": 484,
+        "width": 176,
+        "height": 50
+      }
+    },
+    "nav": {
+      "tag": "nav",
+      "text": "Work Notes Contact",
+      "font_size": "14px",
+      "line_height": "21px",
+      "letter_spacing": "0.28px",
+      "font_weight": "400",
+      "font_family": "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "color": "rgb(168, 161, 147)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "box": {
+        "x": 624,
+        "y": 26,
+        "width": 193,
+        "height": 34
+      }
+    },
+    "card": {
+      "count": 3,
+      "tag": "article",
+      "text": "01 North Shore Field School An identity for a school where urban ecologists teac",
+      "font_size": "21px",
+      "line_height": "30.45px",
+      "letter_spacing": "normal",
+      "font_weight": "400",
+      "font_family": "\"EB Garamond\", Georgia, \"Times New Roman\", serif",
+      "color": "rgb(236, 230, 218)",
+      "background": "rgba(0, 0, 0, 0)",
+      "radius": "0px",
+      "padding": [
+        "20px",
+        "0px",
+        "38px",
+        "0px"
+      ],
+      "box": {
+        "x": 60,
+        "y": 657,
+        "width": 1320,
+        "height": 382
+      }
+    }
+  },
+  "reduced_motion": {
+    "still_running": 0
+  },
+  "url": "starter:mina-okafor",
+  "captured_with": "piggyback 0.1.0.dev0",
+  "browser": "bundled chromium",
+  "captured_at": "2026-11-18T00:56:07+00:00",
+  "capture": {
+    "status": 200,
+    "final_url": "starter:mina-okafor",
+    "browser": "bundled chromium",
+    "browser_version": "156.0.8078.4",
+    "os": "Linux 7.0.0-43-generic",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "captured_at": "2026-11-18T00:56:07+00:00"
+  },
+  "blocked_requests": [],
+  "screenshot": "screenshot.png"
+}
