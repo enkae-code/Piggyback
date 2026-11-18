@@ -306,7 +306,8 @@ class Checks(unittest.TestCase):
                 report = checklist.run_bounded("page.html", "T01", total_s=60)
             finally:
                 os.chdir(old)
-        self.assertEqual(report["target"], str(Path(tmp, "page.html").resolve()))
+        # The worker reports a file:// URL once a browser has loaded the page.
+        self.assertIn(str(Path(tmp, "page.html").resolve()), report["target"])
         self.assertNotIn("refusing non-loopback target", report.get("detail") or "")
 
     def test_message_template_lists_items_verbatim(self):
