@@ -49,7 +49,8 @@
             }
           ],
           "min": 3,
-          "rule": "a visible table with at least 3 rows that hold data cells"
+          "rule": "a visible table with at least 3 rows that hold data cells",
+          "per_table": true
         },
         {
           "item": "acknowledge CTA",
@@ -159,9 +160,6 @@
               "kind": "count",
               "any": [
                 {
-                  "tag": "time"
-                },
-                {
                   "tag": "address"
                 },
                 {
@@ -186,7 +184,7 @@
             }
           ],
           "item": "byline",
-          "rule": "a byline: a time, address, author element, or a 'By Firstname Lastname' line"
+          "rule": "a byline: an address, author element, or a 'By Firstname Lastname' line"
         },
         {
           "item": "article opening",
@@ -304,7 +302,7 @@
         {
           "item": "event details",
           "kind": "text",
-          "pattern": "\\b\\d{1,2}(?::\\d{2})?\\s?(?:a\\.?m\\.?|p\\.?m\\.?)(?![a-z])|\\b(?:[01]?\\d|2[0-3]):[0-5]\\d\\b|\\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b|\\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\b|\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b\\d{1,2}/\\d{1,2}(?:/\\d{2,4})?\\b|\\b\\d{1,2}(?:st|nd|rd|th)\\b",
+          "pattern": "\\b\\d{1,2}(?::\\d{2})?\\s?(?:a\\.?m\\.?|p\\.?m\\.?)(?![a-z])|\\b(?:[01]?\\d|2[0-3]):[0-5]\\d\\b|\\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b|\\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\b|\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b(?:0?[1-9]|[12]\\d|3[01])/(?:0?[1-9]|1[0-2])/(?:\\d{4}|\\d{2})\\b|\\b\\d{1,2}(?:st|nd|rd|th)\\b",
           "rule": "a visible date or time: a weekday, a month with a day, an ordinal, a.m./p.m., a 24-hour time, or an ISO date"
         },
         {
@@ -374,7 +372,8 @@
             }
           ],
           "min": 3,
-          "rule": "a visible table with at least 3 rows that hold data cells"
+          "rule": "a visible table with at least 3 rows that hold data cells",
+          "per_table": true
         },
         {
           "item": "report-issue CTA",
@@ -527,7 +526,7 @@
                 },
                 {
                   "kind": "text",
-                  "pattern": "\\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b|\\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\b|\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b\\d{1,2}/\\d{1,2}(?:/\\d{2,4})?\\b"
+                  "pattern": "\\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b|\\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\b|\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b(?:0?[1-9]|[12]\\d|3[01])/(?:0?[1-9]|1[0-2])/(?:\\d{4}|\\d{2})\\b"
                 }
               ]
             }

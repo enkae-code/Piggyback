@@ -68,18 +68,18 @@ class ChecklistBrowser(unittest.TestCase):
 
     def test_wide_element_fails_overflow(self):
         report = self.run_on(page("t01-overflow.html"))
-        self.assertIn("horizontal overflow at 1440 px", report["failed"])
-        self.assertIn("horizontal overflow at 390 px", report["failed"])
+        self.assertIn(checklist.OVERFLOW_ITEM.format(width=1440), report["failed"])
+        self.assertIn(checklist.OVERFLOW_ITEM.format(width=390), report["failed"])
 
     def test_fixed_element_past_the_edge_fails_overflow(self):
         report = self.run_on(page("t01-fixed-overflow.html"))
-        self.assertIn("horizontal overflow at 1440 px", report["failed"])
-        self.assertIn("horizontal overflow at 390 px", report["failed"])
+        self.assertIn(checklist.OVERFLOW_ITEM.format(width=1440), report["failed"])
+        self.assertIn(checklist.OVERFLOW_ITEM.format(width=390), report["failed"])
 
     def test_element_that_grows_after_resize_fails_at_390_once_settled(self):
         report = self.run_on(page("t01-animated-overflow.html"))
-        self.assertIn("horizontal overflow at 390 px", report["failed"])
-        self.assertNotIn("horizontal overflow at 1440 px", report["failed"])
+        self.assertIn(checklist.OVERFLOW_ITEM.format(width=390), report["failed"])
+        self.assertNotIn(checklist.OVERFLOW_ITEM.format(width=1440), report["failed"])
 
     def test_wide_element_clipped_by_overflow_hidden_passes(self):
         report = self.run_on(page("t01-clipped.html"))
@@ -130,6 +130,21 @@ class ChecklistBrowser(unittest.TestCase):
         self.assertTrue(report["checks"]["render"]["pass"], report["failed"])
         self.assertTrue(any("203.0.113.7" in b for b in report["blocked_requests"]), report)
         self.assertTrue(any(f"127.0.0.1:{other}" in b for b in report["blocked_requests"]), report)
+
+    def test_fixed_element_escapes_an_overflow_hidden_ancestor(self):
+        report = self.run_on(page("t01-fixed-escapes.html"))
+        self.assertIn(checklist.OVERFLOW_ITEM.format(width=1440), report["failed"])
+        self.assertIn(checklist.OVERFLOW_ITEM.format(width=390), report["failed"])
+
+    def test_absolute_element_clipped_by_its_containing_block_passes(self):
+        report = self.run_on(page("t01-absolute-clipped.html"))
+        self.assertTrue(report["pass"], report["failed"])
+
+    def test_page_that_blocks_the_browser_is_bounded(self):
+        report = checklist.run_bounded(page("t01-hangs.html"), "T01", total_s=20)
+        self.assertEqual(report["outcome"], "no_runnable_output")
+        self.assertEqual(report["detail"], "checklist timed out")
+        self.assertIsNone(report["correction_message"])
 
 
 if __name__ == "__main__":

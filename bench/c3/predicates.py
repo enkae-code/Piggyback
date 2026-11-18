@@ -7,6 +7,7 @@ shape in snapshot.js; the tests build it from HTML with the same meaning.
 """
 
 import re
+from collections import Counter
 
 HEADINGS = ("h1", "h2", "h3", "h4", "h5", "h6")
 SHORT_HEADINGS = ("h1", "h2", "h3", "h4")
@@ -53,16 +54,29 @@ def _alt_matches(alt, index, nodes):
     return all(check(alt, node, index, nodes) for key, check in _ALT_CHECKS.items() if key in alt)
 
 
+def _nearest_table(nodes, path):
+    return next((j for j in reversed(path) if nodes[j]["tag"] == "table"), None)
+
+
 def count_matches(pred, nodes):
-    """Visible elements matching any alternative, outside the excluded ancestors."""
+    """Visible elements matching any alternative, outside the excluded ancestors.
+
+    A match inside another match is part of that item, so only outermost matches count. With
+    per_table, the count is the most matches held by one table: rows must share a table.
+    """
     excluded = pred.get("exclude_within", [])
-    total = 0
-    for index, node in enumerate(nodes):
-        if not node["visible"] or any(nodes[j]["tag"] in excluded for j in node["path"]):
-            continue
-        if any(_alt_matches(alt, index, nodes) for alt in pred["any"]):
-            total += 1
-    return total
+    matched = {
+        index
+        for index, node in enumerate(nodes)
+        if node["visible"]
+        and not any(nodes[j]["tag"] in excluded for j in node["path"])
+        and any(_alt_matches(alt, index, nodes) for alt in pred["any"])
+    }
+    if pred.get("per_table"):
+        groups = Counter(_nearest_table(nodes, nodes[i]["path"]) for i in matched)
+        groups.pop(None, None)
+        return max(groups.values(), default=0)
+    return sum(1 for i in matched if not any(j in matched for j in nodes[i]["path"]))
 
 
 def _scope_of_headline(nodes, first):

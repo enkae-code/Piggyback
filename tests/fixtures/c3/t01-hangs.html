@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hangs</title>
+</head>
+<body>
+<main><h1>Fleet operations</h1><p>The page starts, then never yields.</p></main>
+<script>addEventListener('load', () => setTimeout(() => { for (;;) {} }, 200));</script>
+</body>
+</html>

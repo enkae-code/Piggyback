@@ -4,6 +4,8 @@ import contextlib
 import hashlib
 import io
 import json
+import signal
+import subprocess
 import sys
 import tempfile
 import types
@@ -230,7 +232,7 @@ class Checks(unittest.TestCase):
                 checklist.RENDER_ITEM,
                 "content item missing: vessel/asset table "
                 "(a visible table with at least 3 rows that hold data cells)",
-                "horizontal overflow at 1440 px",
+                checklist.OVERFLOW_ITEM.format(width=1440),
                 "axe-core violation image-alt: Images must have alternate text",
             ],
         )
@@ -240,6 +242,45 @@ class Checks(unittest.TestCase):
             axe={"error": "no axe", "violations": [], "incomplete": [], "pass": False}
         )
         self.assertEqual(checklist.failed_items(checks), ["axe-core could not run: no axe"])
+
+    def test_overflow_and_render_items_say_what_passes(self):
+        self.assertEqual(
+            checklist.OVERFLOW_ITEM.format(width=390),
+            "horizontal overflow at 390 px: the page must not scroll sideways, and no element may "
+            "end past the 390 px viewport edge unless an overflow hidden or clip ancestor clips it",
+        )
+        self.assertEqual(checklist.RENDER_ITEM, "page renders: the body must show rendered text")
+
+    def test_renderer_crash_during_axe_is_not_a_result(self):
+        from unittest import mock
+
+        page = mock.MagicMock()
+        page.evaluate.side_effect = RuntimeError("Target crashed")
+        with self.assertRaises(RuntimeError):
+            checklist.run_axe(page)
+
+    def test_axe_script_error_with_a_live_page_still_fails_closed(self):
+        from unittest import mock
+
+        page = mock.MagicMock()
+        page.evaluate.side_effect = [RuntimeError("axe bad"), 1]
+        result = checklist.run_axe(page)
+        self.assertEqual((result["error"], result["pass"]), ("axe bad", False))
+
+    def test_worker_past_its_bound_is_killed_with_its_group(self):
+        from unittest import mock
+
+        worker = mock.MagicMock(pid=4242)
+        worker.communicate.side_effect = [subprocess.TimeoutExpired("worker", 1), ("", "")]
+        with (
+            mock.patch.object(checklist.subprocess, "Popen", return_value=worker),
+            mock.patch.object(checklist.os, "killpg") as killpg,
+        ):
+            report = checklist.run_bounded("page.html", "T01", total_s=1)
+        killpg.assert_called_once_with(4242, signal.SIGKILL)
+        self.assertEqual(report["outcome"], "no_runnable_output")
+        self.assertEqual(report["detail"], "checklist timed out")
+        self.assertIsNone(report["correction_message"])
 
     def test_message_template_lists_items_verbatim(self):
         message = checklist.correction_message(["a item", "b item"])
@@ -370,7 +411,7 @@ class CheckerFaults(unittest.TestCase):
     def run_main(self, argv):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = checklist.main(argv)
+            code = checklist.main([*argv, "--worker"])  # in-process, so the mocks apply
         return code, json.loads(out.getvalue())
 
     def test_navigation_failure_is_no_runnable_output_with_json_and_no_correction(self):

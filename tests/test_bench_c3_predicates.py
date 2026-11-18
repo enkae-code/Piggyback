@@ -375,5 +375,30 @@ class ContentPredicates(unittest.TestCase):
         )
 
 
+class CountsAndDates(unittest.TestCase):
+    def test_nested_matches_are_one_item(self):
+        html = '<article class="project"><div class="card"><figure>Only project</figure></div>'
+        html += "</article>"
+        self.assertFalse(passes("T02", "three selected projects", html))
+
+    def test_one_row_tables_do_not_add_up_to_a_table(self):
+        html = "".join(f"<table><tr><td>{n}</td></tr></table>" for n in "ABC")
+        self.assertFalse(passes("T01", "vessel/asset table", html))
+        self.assertFalse(passes("T07", "route table", html))
+
+    def test_rows_of_one_table_meet_the_minimum(self):
+        rows = "".join(f"<tr><td>{n}</td></tr>" for n in "ABC")
+        self.assertTrue(passes("T07", "route table", f"<table>{rows}</table>"))
+
+    def test_byline_needs_an_author_not_only_a_date(self):
+        self.assertFalse(passes("T03", "byline", "<time>12 March 2026</time>"))
+
+    def test_numeric_ratings_are_not_dates(self):
+        self.assertFalse(passes("T06", "event details", "<p>Rated 5/5 by readers</p>"))
+        html = '<p class="byline">By Ann Lee</p><p>Rated 5/5</p>'
+        self.assertFalse(passes("T09", "author/date", html))
+        self.assertTrue(passes("T06", "event details", "<p>Saturday 5/5/2026</p>"))
+
+
 if __name__ == "__main__":
     unittest.main()

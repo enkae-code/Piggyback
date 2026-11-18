@@ -12,6 +12,8 @@
 Outcomes: pass (exit 0), fail (exit 1, one correction message), no_runnable_output (exit 1, no
 correction message: the page never reached a state we can check), checker_fault (exit 2: a bad
 target or task, no bundled Chromium, or a bug here). Every outcome prints the JSON report.
+The checks run in a worker process killed after TOTAL_S: a page that blocks the browser
+gives no_runnable_output with detail "checklist timed out".
 
 Only file paths and loopback http(s) URLs are loaded. The browser goes through TargetProxy, which
 connects only to the target's own origin; route() checks the page's requests as a second layer.
@@ -25,6 +27,8 @@ import contextlib
 import ipaddress
 import json
 import os
+import signal
+import subprocess
 import sys
 from contextlib import closing
 from pathlib import Path
@@ -37,6 +41,7 @@ from piggyback.measure import BYPASS_ENV
 from piggyback.proxy import FORBIDDEN, EgressProxy
 
 HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[1]
 TASKS_PATH = HERE / "tasks.json"
 AXE_PATH = HERE / "vendor" / "axe-core" / "axe.min.js"
 AXE_VERSION = "4.14.1"
@@ -45,6 +50,7 @@ OVERFLOW_WIDTHS = (1440, 390)
 HEIGHT = 900
 NAV_MS = 30_000
 SETTLE_MS = 5_000
+TOTAL_S = 90  # whole worker run, browser start included, as in measure.py
 PASS, FAIL, NO_RUNNABLE, FAULT = "pass", "fail", "no_runnable_output", "checker_fault"
 EXIT_CODES = {PASS: 0, FAIL: 1, NO_RUNNABLE: 1, FAULT: 2}
 CONTROL_ROLES = (
@@ -58,7 +64,11 @@ CONTROL_ROLES = (
     "tab",
     "menuitem",
 )
-RENDER_ITEM = "page renders: body has no rendered text"
+RENDER_ITEM = "page renders: the body must show rendered text"
+OVERFLOW_ITEM = (
+    "horizontal overflow at {width} px: the page must not scroll sideways, and no element may "
+    "end past the {width} px viewport edge unless an overflow hidden or clip ancestor clips it"
+)
 MESSAGE = (
     "The page failed these checklist items:\n{items}\n"
     "Fix each listed item and return the complete page."
@@ -91,10 +101,19 @@ OVERFLOW_JS = """async () => {
   await Promise.race([finished, new Promise((done) => setTimeout(done, 1000))]);
   await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
   const width = window.innerWidth;
+  // A fixed element is never clipped by an ancestor. An absolute element is clipped only by an
+  // overflow ancestor at or above its containing block, the nearest positioned ancestor.
+  // ponytail: transform and filter ancestors make a fixed containing block; not modelled, so a
+  // fixed element counts as unclipped there too.
+  const clips = (s) => [s.overflowX, s.overflowY].some((v) => v === "hidden" || v === "clip");
   const clipped = (el) => {
+    const position = getComputedStyle(el).position;
+    if (position === "fixed") return false;
+    let inside = position !== "absolute";
     for (let p = el.parentElement; p; p = p.parentElement) {
       const s = getComputedStyle(p);
-      if ([s.overflowX, s.overflowY].some((v) => v === "hidden" || v === "clip")) return true;
+      if (!inside && s.position !== "static") inside = true;
+      if (inside && clips(s)) return true;
     }
     return false;
   };
@@ -198,9 +217,7 @@ def failed_items(checks):
         for c in checks["content"]
         if not c["pass"]
     ]
-    items += [
-        f"horizontal overflow at {o['width']} px" for o in checks["overflow"] if not o["pass"]
-    ]
+    items += [OVERFLOW_ITEM.format(width=o["width"]) for o in checks["overflow"] if not o["pass"]]
     axe = checks["axe"]
     if axe["error"] is not None:
         items.append(f"axe-core could not run: {axe['error']}")
@@ -249,6 +266,7 @@ def run_axe(page):
         page.add_script_tag(path=str(AXE_PATH))
         result = page.evaluate(AXE_RUN_JS, AXE_TAGS)
     except Exception as exc:  # fails closed; keep the first line of the error
+        page.evaluate("1")  # raises again when the renderer crashed: nothing was checked, so raise
         return {
             "version": AXE_VERSION,
             "tags": AXE_TAGS,
@@ -411,15 +429,49 @@ def fault_report(target, task_id, exc):
     return report_for(target, task_id, FAULT, detail=first_line(exc))
 
 
+def checked_in_process(target, task_id):
+    try:
+        return run_checklist(target, task_id)
+    except Exception as exc:  # a bad target or task, no bundled Chromium, or a bug here
+        return fault_report(target, task_id, exc)
+
+
+def run_bounded(target, task_id, total_s=TOTAL_S):
+    """Run the checks in a worker process, so a page that blocks the browser cannot hang us.
+
+    The worker leads its own process group, so the kill also reaches Chromium and its renderer.
+    """
+    worker = subprocess.Popen(
+        [sys.executable, "-m", "bench.c3.checklist", "--worker", target, "--task", task_id],
+        cwd=REPO,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        start_new_session=True,
+    )
+    try:
+        out, err = worker.communicate(timeout=total_s)
+    except subprocess.TimeoutExpired:
+        os.killpg(worker.pid, signal.SIGKILL)
+        worker.communicate()
+        return report_for(target, task_id, NO_RUNNABLE, detail="checklist timed out")
+    try:
+        return json.loads(out)
+    except json.JSONDecodeError:
+        return fault_report(
+            target, task_id, RuntimeError(err.strip() or "worker output was not JSON")
+        )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Run the frozen C3 checklist on one page.")
     parser.add_argument("target", help="file path or loopback http(s) URL")
     parser.add_argument("--task", required=True, help="task id, T01 to T10")
+    parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
-    try:
-        report = run_checklist(args.target, args.task)
-    except Exception as exc:  # a checker fault: bad target or task, no Chromium, or a bug here
-        report = fault_report(args.target, args.task, exc)
+    check = checked_in_process if args.worker else run_bounded
+    report = check(args.target, args.task)
     json.dump(report, sys.stdout, indent=2)
     sys.stdout.write("\n")
     return EXIT_CODES[report["outcome"]]
