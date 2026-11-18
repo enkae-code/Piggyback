@@ -1,0 +1,126 @@
+{
+  "source": "phase-c-sets.md, section C3 (Ten fixed tasks). Build requests are verbatim.",
+  "tasks": [
+    {
+      "id": "T01",
+      "reference": "Northline Field Ops",
+      "starter_id": "northline-ops",
+      "build_request": "Build a fleet-operations dashboard for a coastal research team: status summary, one prominent signal, vessel/asset table, and acknowledge CTA.",
+      "predicates": [
+        {"item": "status summary", "kind": "text", "pattern": "status|summary"},
+        {"item": "one prominent signal", "kind": "count", "selector": "[role=alert], [role=status], [aria-live], .alert, .signal, .banner", "min": 1},
+        {"item": "vessel/asset table", "kind": "count", "selector": "table tr:has(td)", "min": 3},
+        {"item": "acknowledge CTA", "kind": "control_name", "pattern": "acknowledg"}
+      ]
+    },
+    {
+      "id": "T02",
+      "reference": "Mina Okafor",
+      "starter_id": "mina-okafor",
+      "build_request": "Build a portfolio homepage for an independent book designer: concise introduction, three selected projects, and contact CTA.",
+      "predicates": [
+        {"item": "concise introduction", "kind": "count", "selector": "p", "min": 1},
+        {"item": "three selected projects", "kind": "count", "selector": "article, .card, .project, figure", "min": 3},
+        {"item": "contact CTA", "kind": "control_name", "pattern": "contact|email|get in touch|inquir|hello"}
+      ]
+    },
+    {
+      "id": "T03",
+      "reference": "Field Journal",
+      "starter_id": "field-journal",
+      "build_request": "Build the lead story page for an independent architecture journal: feature headline, standfirst, byline, article opening, related stories, subscribe CTA.",
+      "predicates": [
+        {"item": "feature headline", "kind": "count", "selector": "h1", "min": 1},
+        {"item": "standfirst", "kind": "count", "selector": "[class*=standfirst], [class*=deck], [class*=dek], [class*=lede], [class*=subhead]", "min": 1},
+        {"item": "byline", "kind": "count", "selector": "[class*=byline], [class*=author], [rel=author], [itemprop=author], address", "min": 1},
+        {"item": "article opening", "kind": "count", "selector": "p", "min": 2},
+        {"item": "related stories", "kind": "text", "pattern": "related"},
+        {"item": "subscribe CTA", "kind": "control_name", "pattern": "subscribe"}
+      ]
+    },
+    {
+      "id": "T04",
+      "reference": "Ink & Rule",
+      "starter_id": "ink-and-rule",
+      "build_request": "Build a pricing page for an independent print magazine: three subscription options, clear differences, and one subscribe CTA.",
+      "predicates": [
+        {"item": "three subscription options", "kind": "count", "selector": "article, .card, .plan, .tier, [class*=plan], [class*=tier], [class*=pricing] > *", "min": 3},
+        {"item": "clear differences", "kind": "count", "selector": "li", "min": 3},
+        {"item": "one subscribe CTA", "kind": "control_name", "pattern": "subscribe"}
+      ]
+    },
+    {
+      "id": "T05",
+      "reference": "Little Plot",
+      "starter_id": "little-plot",
+      "build_request": "Build a small urban farm's homepage: seasonal produce, growing approach, weekly market details, and visit/order CTA.",
+      "predicates": [
+        {"item": "seasonal produce", "kind": "text", "pattern": "season|produce|harvest"},
+        {"item": "growing approach", "kind": "text", "pattern": "approach|growing|grow|method"},
+        {"item": "weekly market details", "kind": "text", "pattern": "market|weekly|every week"},
+        {"item": "visit/order CTA", "kind": "control_name", "pattern": "visit|order|shop|buy|book"}
+      ]
+    },
+    {
+      "id": "T06",
+      "reference": "Good Day Assembly",
+      "starter_id": "good-day-assembly",
+      "build_request": "Build a neighborhood skills-swap event page: event details, three activities, access information, and save-your-place CTA.",
+      "predicates": [
+        {"item": "event details", "kind": "text", "pattern": "\\b\\d{1,2}(:\\d{2})?\\s?(am|pm)\\b|\\b\\d{1,2}:\\d{2}\\b|\\b\\d{1,2}/\\d{1,2}\\b|\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}\\b"},
+        {"item": "three activities", "kind": "count", "selector": "article, .card, .activity, li", "min": 3},
+        {"item": "access information", "kind": "text", "pattern": "access|wheelchair|step-free|entrance"},
+        {"item": "save-your-place CTA", "kind": "control_name", "pattern": "save|reserve|rsvp|register|sign ?up|join"}
+      ]
+    },
+    {
+      "id": "T07",
+      "reference": "Northline Field Ops",
+      "starter_id": "northline-ops",
+      "build_request": "Build a maintenance overview for a small public-transport operator: service status, urgent alert, route table, and report-issue CTA.",
+      "predicates": [
+        {"item": "service status", "kind": "text", "pattern": "status|operat|service"},
+        {"item": "urgent alert", "kind": "text", "pattern": "urgent|alert"},
+        {"item": "route table", "kind": "count", "selector": "table tr:has(td)", "min": 3},
+        {"item": "report-issue CTA", "kind": "control_name", "pattern": "report"}
+      ]
+    },
+    {
+      "id": "T08",
+      "reference": "Mina Okafor",
+      "starter_id": "mina-okafor",
+      "build_request": "Build a consultant's portfolio for an independent accessibility researcher: introduction, three case studies, and inquiry CTA.",
+      "predicates": [
+        {"item": "introduction", "kind": "count", "selector": "p", "min": 1},
+        {"item": "three case studies", "kind": "count", "selector": "article, .card, .case, [class*=case], figure", "min": 3},
+        {"item": "inquiry CTA", "kind": "control_name", "pattern": "inquir|enquir|contact|get in touch|email|book"}
+      ]
+    },
+    {
+      "id": "T09",
+      "reference": "Field Journal",
+      "starter_id": "field-journal",
+      "build_request": "Build an editorial story page for a local history publication: headline, deck, author/date, body opening, related cards, and membership CTA.",
+      "predicates": [
+        {"item": "headline", "kind": "count", "selector": "h1", "min": 1},
+        {"item": "deck", "kind": "count", "selector": "[class*=deck], [class*=standfirst], [class*=dek], [class*=lede], [class*=subhead]", "min": 1},
+        {"item": "author/date", "kind": "count", "selector": "time, [class*=byline], [class*=author], [rel=author], [itemprop=author], address", "min": 1},
+        {"item": "body opening", "kind": "count", "selector": "p", "min": 2},
+        {"item": "related cards", "kind": "count", "selector": "[class*=card], [class*=related] article, [class*=related] li", "min": 2},
+        {"item": "membership CTA", "kind": "control_name", "pattern": "member|join|subscribe|support|donate"}
+      ]
+    },
+    {
+      "id": "T10",
+      "reference": "Little Plot",
+      "starter_id": "little-plot",
+      "build_request": "Build a nonprofit community-garden homepage: mission, volunteer schedule, produce share, and volunteer CTA.",
+      "predicates": [
+        {"item": "mission", "kind": "text", "pattern": "mission|our purpose|who we are|about us"},
+        {"item": "volunteer schedule", "kind": "text", "pattern": "schedule|shift|hours|\\d{1,2}(:\\d{2})?\\s?(am|pm)"},
+        {"item": "produce share", "kind": "text", "pattern": "produce share|share|harvest|csa|pantry"},
+        {"item": "volunteer CTA", "kind": "control_name", "pattern": "volunteer|join|sign up|get involved"}
+      ]
+    }
+  ]
+}
