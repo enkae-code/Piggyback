@@ -306,16 +306,63 @@ class ToleranceAndRounding(unittest.TestCase):
 
 
 class HandValues(unittest.TestCase):
+    ALL = ["font_size", "line_height", "letter_spacing"]
+
     def test_tracking_converts_through_em(self):
         t = {"style": {"font-size": "20px", "line-height": "24px", "letter-spacing": "-0.4px"}}
-        hand = score.hand_values(t)
+        hand = score.hand_values(t, self.ALL)
         self.assertEqual(hand["font_size"], 20.0)
         self.assertEqual(hand["line_height"], 24.0)
         self.assertAlmostEqual(hand["letter_spacing"], -0.4)
 
     def test_normal_line_height_is_a_string(self):
         t = {"style": {"font-size": "20px", "line-height": "normal", "letter-spacing": "normal"}}
-        self.assertEqual(score.hand_values(t)["line_height"], "normal")
+        self.assertEqual(score.hand_values(t, self.ALL)["line_height"], "normal")
+
+    def test_only_requested_props_are_returned(self):
+        t = {"style": {"font-size": "20px", "line-height": "24px"}}  # no tracking locked
+        self.assertEqual(
+            set(score.hand_values(t, ["font_size", "line_height"])), {"font_size", "line_height"}
+        )
+
+    def test_missing_locked_value_is_a_harness_defect_not_incorrect(self):
+        t = {"style": {"font-size": "20px", "line-height": "24px"}}  # tracking never locked
+        with self.assertRaises(score.HarnessDefect) as ctx:
+            score.hand_values(t, ["letter_spacing"])
+        self.assertIn("letter-spacing", str(ctx.exception))
+        with self.assertRaises(score.HarnessDefect):
+            score.hand_values({"style": {"font-size": "20px"}}, ["line_height"])
+
+    def test_difference_scores_only_what_it_reports(self):
+        self.assertEqual(
+            score.reported_props("Body text at x anchor: 16px/24px → 18px/24px"),
+            ["font_size", "line_height"],
+        )
+        detail = "Body text at x anchor: 16px/24px → 18px/24px, tracking 0.00em → 0.02em"
+        self.assertEqual(
+            score.reported_props(detail), ["font_size", "line_height", "letter_spacing"]
+        )
+
+
+class LockCoversReportedProps(unittest.TestCase):
+    def test_every_slot_locks_every_type_key_gap_can_report(self):
+        data = evidence(
+            [
+                el("h1", box=(0, 0, 300, 60), text="H", font_size="40px", line_height="44px"),
+                el("p", box=(0, 70, 300, 20), text="x" * 40, letter_spacing="0.5px"),
+                el("button", box=(0, 100, 100, 40), text="go", background_color="rgb(1, 2, 3)"),
+                el("nav", box=(0, 0, 500, 60)),
+                el("div", parent=-1, box=(0, 200, 900, 900)),
+            ]
+        )
+        locked = targets.lock_targets(data)
+        for slot in targets.SLOTS:
+            if locked[slot].get("absent"):
+                continue
+            self.assertEqual(set(locked[slot]["style"]), set(targets.TYPE_KEYS), slot)
+        self.assertEqual(locked["heading"]["style"]["font-size"], "40px")
+        self.assertEqual(locked["body"]["style"]["letter-spacing"], "0.5px")
+        self.assertEqual(locked["nav"]["style"]["line-height"], "normal")
 
 
 class LockAndOrdering(unittest.TestCase):
@@ -350,6 +397,16 @@ class LockAndOrdering(unittest.TestCase):
             with self.assertRaises(SystemExit) as ctx:
                 score.run_score(root, "run1")
             self.assertIn("changed", str(ctx.exception))
+
+    def test_unresolved_pairs_are_not_counted_as_retained(self):
+        with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as root:
+            self.make_run(root)  # C1-01 reference only: no pair.json, so it is unresolved
+            targets.lock(root, "run1")
+            report = score.run_score(root, "run1")
+            self.assertEqual(report["retained_pairs"], 0)
+            self.assertIsNone(report["avg_pinned_anchors"])
+            self.assertIn("C1-01", report["unresolved"])
+            self.assertEqual(report["verdict"], "incomplete")
 
     def test_fingerprint_is_not_read_by_target_lock(self):
         with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as root:
@@ -559,6 +616,16 @@ class OffSetPinsFromGap(unittest.TestCase):
         self.assertTrue({row[1] for row in pin_rows} <= set(score.SLOTS))
         self.assertLessEqual(correct, shown)
         self.assertLessEqual(pinned, len(score.SLOTS))
+
+    def test_pin_with_no_locked_hand_value_raises_not_incorrect(self):
+        targets = {side: _targets_from(self.fps[side]) for side in self.fps}
+        for side in targets:
+            for slot in score.SLOTS:
+                if not targets[side][slot].get("absent"):
+                    targets[side][slot]["style"].pop("line-height")  # hand value never locked
+        receipts = {side: RECEIPT for side in self.fps}
+        with self.assertRaises(score.HarnessDefect):
+            score.score_pair("D-01", targets, self.fps, receipts)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,8 @@ from pathlib import Path
 from bench.c1.snapshot import Snapshot, px
 
 SLOTS = ("heading", "body", "cta", "nav", "card")
+# Every computed property piggyback.gap can report for an anchor (font size, line height, tracking).
+TYPE_KEYS = ("font-size", "line-height", "letter-spacing")
 HEADINGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 CONTROL_TAGS = {"button", "input"}
 RGBA = re.compile(r"rgba?\(([^)]*)\)")
@@ -101,19 +103,15 @@ def pick_first_best(candidates, key):
     return best
 
 
-def _target(snap, el, box, style_keys):
-    values = {k: el.style.get(k) for k in style_keys}
+def _target(snap, el, box):
+    """Locked target for one element: its box, text and the type values of every slot."""
     return {
         "tag": el.tag,
         "dom_index": el.idx,
         "text": snap.inner_text(el.idx)[:80],
         "box": [js_round(v) for v in box],
-        "style": values,
+        "style": {k: el.style.get(k) for k in TYPE_KEYS},
     }
-
-
-def _text_slot(snap, el, box):
-    return _target(snap, el, box, ("font-size", "line-height", "letter-spacing"))
 
 
 def _heading(snap, els, vw, vh):
@@ -121,17 +119,17 @@ def _heading(snap, els, vw, vh):
     heading = pick_first_best(
         pool, lambda el: (px(el.style["font-size"]) or 0, clipped_area(el, vw, vh))
     )
-    return _text_slot(snap, heading, ink_box(snap, heading)) if heading else None
+    return _target(snap, heading, ink_box(snap, heading)) if heading else None
 
 
 def _body(snap, els):
     body = next((el for el in els if el.tag == "p" and len(snap.inner_text(el.idx)) >= 40), None)
-    return _text_slot(snap, body, ink_box(snap, body)) if body else None
+    return _target(snap, body, ink_box(snap, body)) if body else None
 
 
 def _nav(snap, els):
     nav = next((el for el in els if el.tag == "nav" or el.attrs.get("role") == "navigation"), None)
-    return _target(snap, nav, nav.box, ("font-size",)) if nav else None
+    return _target(snap, nav, nav.box) if nav else None
 
 
 def lock_targets(evidence):
@@ -165,7 +163,7 @@ def _cta(snap, els, vw, vh):
     painted = [el for el in cands if has_background(el)]
     pool = painted or cands
     best = pick_first_best(pool, lambda el: clipped_area(el, vw, vh))
-    return _target(snap, best, best.box, ("font-size",)) if best else None
+    return _target(snap, best, best.box) if best else None
 
 
 def _qualifies_as_card(snap, el, vw):
@@ -208,7 +206,7 @@ def _card(snap, els, vw):
     if best is None:
         return None
     first = best[0]
-    target = _target(snap, first, first.box, ())
+    target = _target(snap, first, first.box)
     target["count"] = len(best)
     return target
 

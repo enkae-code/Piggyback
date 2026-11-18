@@ -95,22 +95,44 @@ def within(kind, expected, actual):
     return abs(actual - expected) <= 0.02 * abs(expected)
 
 
-def hand_values(target):
-    """Hand-checked values from the locked snapshot style. Tracking is converted to px via em."""
+class HarnessDefect(RuntimeError):
+    """A scored value has no locked hand value: the harness is wrong, not Piggyback."""
+
+
+# gap's property name -> the locked computed-style key it is checked against
+HAND_KEYS = {
+    "font_size": "font-size",
+    "line_height": "line-height",
+    "letter_spacing": "letter-spacing",
+}
+
+
+def reported_props(detail):
+    """Properties a pin's detail reports: size and line, plus tracking when shown."""
+    props = ["font_size", "line_height"]
+    if ", tracking " in detail:
+        props.append("letter_spacing")
+    return props
+
+
+def _hand_value(prop, raw, font):
+    if prop == "font_size":
+        value = font
+    elif prop == "line_height":
+        value = raw if raw == "normal" else fp.px(raw)
+    else:  # tracking is locked in px, compared through em to the gap rule's 0.01em grain
+        tracking = 0.0 if raw == "normal" else fp.px(raw)
+        value = round(tracking / font, 2) * font if tracking is not None and font else None
+    if value is None:
+        raise HarnessDefect(f"no locked hand value for {HAND_KEYS[prop]}: {raw!r}")
+    return value
+
+
+def hand_values(target, props):
+    """Hand-checked values for the named properties, from the locked snapshot style."""
     style = target["style"]
-    font = fp.px(style.get("font-size"))
-    line = style.get("line-height")
-    tracking_px = (
-        0.0 if style.get("letter-spacing") == "normal" else fp.px(style.get("letter-spacing"))
-    )
-    if font is None or tracking_px is None:  # unmeasured: no hand value, so the pin cannot pass
-        return {"font_size": font, "line_height": None, "letter_spacing": None}
-    tracking_em = round(tracking_px / font, 2)
-    return {
-        "font_size": font,
-        "line_height": line if line == "normal" else fp.px(line),
-        "letter_spacing": tracking_em * font if font else tracking_px,
-    }
+    font = fp.px(style.get(HAND_KEYS["font_size"]))
+    return {prop: _hand_value(prop, style.get(HAND_KEYS[prop]), font) for prop in props}
 
 
 def piggyback_values(anchor):
@@ -126,7 +148,6 @@ def piggyback_values(anchor):
 
 
 SIDE_KEYS = ("reference", "build")
-VALUE_PROPS = (("font_size", "px"), ("line_height", "px"), ("letter_spacing", "px"))
 PIN_CORRECT = PIN_COLUMNS.index("pin_correct")
 
 
@@ -142,10 +163,11 @@ def _anchor_pins(pins):
 def _value_rows(pair_id, slot, pin, target, anchors, shown, element_right, receipts):
     """One row per side and property: hand-checked value against Piggyback's own value."""
     rows, value_ok = [], True
+    props = reported_props(pin.detail)
     for side in SIDE_KEYS:
-        hand = hand_values(target[side])
+        hand = hand_values(target[side], props)
         mine = piggyback_values(anchors[side])
-        for prop, unit in VALUE_PROPS:
+        for prop in props:
             ok = within("string" if isinstance(hand[prop], str) else "px", hand[prop], mine[prop])
             numeric = isinstance(hand[prop], float) and isinstance(mine[prop], float)
             value_ok = value_ok and ok
@@ -160,7 +182,7 @@ def _value_rows(pair_id, slot, pin, target, anchors, shown, element_right, recei
                     prop,
                     mine[prop],
                     hand[prop],
-                    unit,
+                    "px",
                     abs(mine[prop] - hand[prop]) if numeric else None,
                     PX_TOLERANCE,
                     "correct" if ok else "incorrect",
@@ -331,7 +353,7 @@ def run_score(store, run_id, replacements=None):
         correct_total += correct
         pinned_total += pinned
         skipped_total += skipped
-    scored = len(retained)
+    scored = len(pair_rows)  # resolved pairs only: an unresolved pair is counted as unresolved
     verdict, required = _verdict(
         scored, len(data["primary"]), unresolved, shown_total, correct_total, pinned_total
     )
