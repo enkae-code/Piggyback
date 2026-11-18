@@ -29,16 +29,24 @@ def js_round(value):
     return math.floor(value + 0.5)
 
 
+def _hidden(style):
+    return (
+        style.get("display") == "none"
+        or style.get("visibility") == "hidden"
+        or style.get("opacity") == "0"
+    )
+
+
+def _on_screen(box, vw, vh):
+    x, y, w, h = box
+    return w > 0 and h > 0 and x < vw and x + w > 0 and y < vh and y + h > 0
+
+
 def visible(el, vw, vh):
     """Rendered for the captured checks: display, visibility, opacity, geometry, viewport."""
-    if el.style is None or el.box is None:
+    if el.style is None or el.box is None or _hidden(el.style):
         return False
-    x, y, w, h = el.box
-    if el.style.get("display") == "none" or el.style.get("visibility") == "hidden":
-        return False
-    if el.style.get("opacity") == "0":
-        return False
-    return w > 0 and h > 0 and x < vw and x + w > 0 and y < vh and y + h > 0
+    return _on_screen(el.box, vw, vh)
 
 
 def clipped_area(el, vw, vh):
@@ -108,27 +116,36 @@ def _text_slot(snap, el, box):
     return _target(snap, el, box, ("font-size", "line-height", "letter-spacing"))
 
 
+def _heading(snap, els, vw, vh):
+    pool = [el for el in els if el.tag in HEADINGS and snap.inner_text(el.idx) != ""]
+    heading = pick_first_best(
+        pool, lambda el: (px(el.style["font-size"]) or 0, clipped_area(el, vw, vh))
+    )
+    return _text_slot(snap, heading, ink_box(snap, heading)) if heading else None
+
+
+def _body(snap, els):
+    body = next((el for el in els if el.tag == "p" and len(snap.inner_text(el.idx)) >= 40), None)
+    return _text_slot(snap, body, ink_box(snap, body)) if body else None
+
+
+def _nav(snap, els):
+    nav = next((el for el in els if el.tag == "nav" or el.attrs.get("role") == "navigation"), None)
+    return _target(snap, nav, nav.box, ("font-size",)) if nav else None
+
+
 def lock_targets(evidence):
     """Expected target per slot for one side: a dict, or {"absent": True} when none qualifies."""
     snap = Snapshot(evidence)
     vw, vh = snap.viewport
     els = [el for el in snap.elements() if visible(el, vw, vh)]
-    targets = {}
-
-    heading_pool = [el for el in els if el.tag in HEADINGS and snap.inner_text(el.idx) != ""]
-    heading = pick_first_best(
-        heading_pool,
-        lambda el: (px(el.style["font-size"]) or 0, clipped_area(el, vw, vh)),
-    )
-    targets["heading"] = _text_slot(snap, heading, ink_box(snap, heading)) if heading else None
-
-    body = next((el for el in els if el.tag == "p" and len(snap.inner_text(el.idx)) >= 40), None)
-    targets["body"] = _text_slot(snap, body, ink_box(snap, body)) if body else None
-
-    targets["cta"] = _cta(snap, els, vw, vh)
-    nav = next((el for el in els if el.tag == "nav" or el.attrs.get("role") == "navigation"), None)
-    targets["nav"] = _target(snap, nav, nav.box, ("font-size",)) if nav else None
-    targets["card"] = _card(snap, els, vw, vh)
+    targets = {
+        "heading": _heading(snap, els, vw, vh),
+        "body": _body(snap, els),
+        "cta": _cta(snap, els, vw, vh),
+        "nav": _nav(snap, els),
+        "card": _card(snap, els, vw),
+    }
     return {slot: targets[slot] or {"absent": True} for slot in SLOTS}
 
 
@@ -165,23 +182,34 @@ def _qualifies_as_card(snap, el, vw):
     )
 
 
-def _card(snap, els, vw, vh):
+def _sibling_groups(els):
+    """Rendered elements sharing a parent, tag and class, in DOM order per group."""
     groups = {}
     for el in els:
         cls = el.attrs.get("class")
         if cls is None or el.parent < 0:
             continue
         groups.setdefault((el.parent, el.tag, cls), []).append(el)
-    best_list = None
-    for members in groups.values():
+    return groups.values()
+
+
+def _largest_card_group(snap, els, vw):
+    """Qualifying members of the largest group of three or more; the first group wins a tie."""
+    best = None
+    for members in _sibling_groups(els):
         qualifying = [el for el in members if _qualifies_as_card(snap, el, vw)]
-        if len(qualifying) >= 3 and (best_list is None or len(qualifying) > len(best_list)):
-            best_list = qualifying
-    if best_list is None:
+        if len(qualifying) >= 3 and (best is None or len(qualifying) > len(best)):
+            best = qualifying
+    return best
+
+
+def _card(snap, els, vw):
+    best = _largest_card_group(snap, els, vw)
+    if best is None:
         return None
-    first = best_list[0]
+    first = best[0]
     target = _target(snap, first, first.box, ())
-    target["count"] = len(best_list)
+    target["count"] = len(best)
     return target
 
 

@@ -1,0 +1,404 @@
+{
+ "anchors": {
+  "body": {
+   "background": "rgba(0, 0, 0, 0)",
+   "box": {
+    "height": 89,
+    "width": 621,
+    "x": 410,
+    "y": 405
+   },
+   "color": "rgb(12, 60, 38)",
+   "font_family": "Roboto, Corbel, Avenir, \"Lucida Grande\", \"Lucida Sans\", sans-serif",
+   "font_size": "36px",
+   "font_weight": "300",
+   "letter_spacing": "-1px",
+   "line_height": "46.8px",
+   "padding": [
+    "1px",
+    "0px",
+    "6px",
+    "0px"
+   ],
+   "radius": "0px",
+   "tag": "p",
+   "text": "placeholder"
+  },
+  "card": {
+   "background": "rgba(0, 0, 0, 0)",
+   "box": {
+    "height": 116,
+    "width": 396,
+    "x": 984,
+    "y": 2268
+   },
+   "color": "rgb(12, 60, 38)",
+   "count": 3,
+   "font_family": "Roboto, Corbel, Avenir, \"Lucida Grande\", \"Lucida Sans\", sans-serif",
+   "font_size": "14px",
+   "font_weight": "400",
+   "letter_spacing": "normal",
+   "line_height": "22.4px",
+   "padding": [
+    "0px",
+    "0px",
+    "0px",
+    "0px"
+   ],
+   "radius": "0px",
+   "tag": "dl",
+   "text": "placeholder"
+  },
+  "cta": {
+   "background": "rgba(0, 0, 0, 0)",
+   "box": {
+    "height": 45,
+    "width": 41,
+    "x": 1337,
+    "y": 21
+   },
+   "color": "rgb(241, 255, 247)",
+   "font_family": "Roboto, Corbel, Avenir, \"Lucida Grande\", \"Lucida Sans\", sans-serif",
+   "font_size": "18px",
+   "font_weight": "400",
+   "letter_spacing": "normal",
+   "line_height": "normal",
+   "padding": [
+    "0px",
+    "0px",
+    "0px",
+    "0px"
+   ],
+   "radius": "0px",
+   "tag": "button",
+   "text": "placeholder"
+  },
+  "heading": {
+   "background": "rgba(0, 0, 0, 0)",
+   "box": {
+    "height": 35,
+    "width": 169,
+    "x": 60,
+    "y": 757
+   },
+   "color": "rgb(12, 60, 38)",
+   "font_family": "Roboto, Corbel, Avenir, \"Lucida Grande\", \"Lucida Sans\", sans-serif",
+   "font_size": "32px",
+   "font_weight": "400",
+   "letter_spacing": "-1px",
+   "line_height": "35.2px",
+   "padding": [
+    "0px",
+    "0px",
+    "0px",
+    "0px"
+   ],
+   "radius": "0px",
+   "tag": "h1",
+   "text": "placeholder"
+  },
+  "nav": {
+   "background": "rgb(12, 75, 51)",
+   "box": {
+    "height": 40,
+    "width": 834,
+    "x": 264,
+    "y": 23
+   },
+   "color": "rgb(12, 60, 38)",
+   "font_family": "Roboto, Corbel, Avenir, \"Lucida Grande\", \"Lucida Sans\", sans-serif",
+   "font_size": "18px",
+   "font_weight": "400",
+   "letter_spacing": "normal",
+   "line_height": "28.8px",
+   "padding": [
+    "0px",
+    "2px",
+    "0px",
+    "2px"
+   ],
+   "radius": "0px",
+   "tag": "nav",
+   "text": "placeholder"
+  }
+ },
+ "blocked_requests": [],
+ "browser": "placeholder",
+ "capture": {
+  "browser": "placeholder",
+  "browser_version": "placeholder",
+  "captured_at": "placeholder",
+  "final_url": "placeholder",
+  "os": "placeholder",
+  "status": 200,
+  "viewport": {
+   "height": 900,
+   "width": 1440
+  }
+ },
+ "captured_at": "placeholder",
+ "captured_with": "placeholder",
+ "container_width": 1080,
+ "effects": {
+  "gradient_text": 0,
+  "gradient_text_box": null,
+  "tinted_icon_square_box": null,
+  "tinted_icon_squares": 0
+ },
+ "motion": [],
+ "palette": {
+  "accent_share": 0.12,
+  "background": [
+   {
+    "share": 0.57,
+    "value": "rgb(255, 255, 255)"
+   },
+   {
+    "share": 0.26,
+    "value": "rgb(147, 215, 183)"
+   },
+   {
+    "share": 0.12,
+    "value": "rgb(12, 75, 51)"
+   },
+   {
+    "share": 0.05,
+    "value": "rgb(68, 183, 139)"
+   },
+   {
+    "share": 0,
+    "value": "rgb(241, 255, 247)"
+   }
+  ],
+  "text": [
+   {
+    "share": 0.84,
+    "value": "rgb(12, 60, 38)"
+   },
+   {
+    "share": 0.13,
+    "value": "rgb(14, 17, 23)"
+   },
+   {
+    "share": 0.01,
+    "value": "rgb(255, 255, 255)"
+   },
+   {
+    "share": 0.01,
+    "value": "rgb(241, 255, 247)"
+   },
+   {
+    "share": 0,
+    "value": "rgb(32, 170, 118)"
+   },
+   {
+    "share": 0,
+    "value": "rgb(201, 240, 221)"
+   },
+   {
+    "share": 0,
+    "value": "rgb(68, 183, 139)"
+   }
+  ]
+ },
+ "radius": [
+  {
+   "share": 0.84,
+   "value": "5px"
+  },
+  {
+   "share": 0.16,
+   "value": "4px"
+  }
+ ],
+ "reduced_motion": {
+  "still_running": 0
+ },
+ "rounded_boxes": 5,
+ "screenshot": "placeholder",
+ "shadow": [
+  {
+   "share": 0.62,
+   "value": "rgb(255, 255, 255) -1200px 0px 0px 0px"
+  },
+  {
+   "share": 0.38,
+   "value": "rgb(255, 255, 255) 0px 0px 0px 0px, rgb(255, 255, 255) 0px 0px 0px 0px, rgb(255, 255, 255) -460px 0px 0px 0px, rgb(255, 255, 255) -1000px 0px 0px 0px, rgb(255, 255, 255) 0px 600px 0px 0px, rgb(255, 255, 255) -460px 600px 0px 0px"
+  }
+ ],
+ "spacing": {
+  "gaps": [
+   {
+    "share": 0.29,
+    "value": 10
+   },
+   {
+    "share": 0.21,
+    "value": 20
+   },
+   {
+    "share": 0.09,
+    "value": 3
+   },
+   {
+    "share": 0.08,
+    "value": 40
+   },
+   {
+    "share": 0.04,
+    "value": 30
+   },
+   {
+    "share": 0.04,
+    "value": 4
+   },
+   {
+    "share": 0.04,
+    "value": 17
+   },
+   {
+    "share": 0.03,
+    "value": 18
+   }
+  ],
+  "padding": [
+   {
+    "share": 0.32,
+    "value": "10px"
+   },
+   {
+    "share": 0.09,
+    "value": "20px"
+   },
+   {
+    "share": 0.08,
+    "value": "60px"
+   },
+   {
+    "share": 0.08,
+    "value": "30px"
+   },
+   {
+    "share": 0.06,
+    "value": "2px"
+   },
+   {
+    "share": 0.05,
+    "value": "15px"
+   },
+   {
+    "share": 0.04,
+    "value": "18px"
+   },
+   {
+    "share": 0.04,
+    "value": "110px"
+   }
+  ]
+ },
+ "type": {
+  "families": [
+   {
+    "share": 1,
+    "value": "Roboto, Corbel, Avenir, \"Lucida Grande\", \"Lucida Sans\", sans-serif"
+   }
+  ],
+  "font_size": [
+   {
+    "share": 0.84,
+    "value": "18px"
+   },
+   {
+    "share": 0.07,
+    "value": "36px"
+   },
+   {
+    "share": 0.03,
+    "value": "14px"
+   },
+   {
+    "share": 0.02,
+    "value": "13px"
+   },
+   {
+    "share": 0.01,
+    "value": "16px"
+   },
+   {
+    "share": 0.01,
+    "value": "24px"
+   },
+   {
+    "share": 0.01,
+    "value": "32px"
+   },
+   {
+    "share": 0,
+    "value": "20px"
+   }
+  ],
+  "font_weight": [
+   {
+    "share": 0.78,
+    "value": "400"
+   },
+   {
+    "share": 0.17,
+    "value": "300"
+   },
+   {
+    "share": 0.05,
+    "value": "700"
+   }
+  ],
+  "letter_spacing": [
+   {
+    "share": 0.92,
+    "value": "normal"
+   },
+   {
+    "share": 0.08,
+    "value": "-1px"
+   }
+  ],
+  "line_height": [
+   {
+    "share": 0.72,
+    "value": "28.8px"
+   },
+   {
+    "share": 0.11,
+    "value": "25.2px"
+   },
+   {
+    "share": 0.07,
+    "value": "46.8px"
+   },
+   {
+    "share": 0.03,
+    "value": "22.4px"
+   },
+   {
+    "share": 0.02,
+    "value": "16px"
+   },
+   {
+    "share": 0.01,
+    "value": "33.6px"
+   },
+   {
+    "share": 0.01,
+    "value": "25.6px"
+   },
+   {
+    "share": 0.01,
+    "value": "35.2px"
+   }
+  ]
+ },
+ "url": "placeholder",
+ "viewport": {
+  "height": 900,
+  "width": 1440
+ }
+}

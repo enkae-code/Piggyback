@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 DEFAULT_STORE = Path("/home/brodey/projects/piggyback-evidence/c1")
 VIEWPORT = (1440, 900)
-SIDES = (("reference", "reference_url"), ("build", "build_url"))
+SIDES = ("reference", "build")  # pairs.json keys: each side's URL is pair[side]
 CHALLENGE = re.compile(
     r"just a moment|access denied|your access has been blocked|verify you are human|captcha",
     re.IGNORECASE,
@@ -127,9 +127,9 @@ def capture_pair(pair, run_dir, measure_fn=measure):
     """Both sides of one pair. Returns the pair record written to pair.json."""
     pair_dir = make_private_dir(run_dir / pair["id"])
     record = {"pair_id": pair["id"], "sides": {}}
-    for side, key in SIDES:
-        state, detail = capture_side(pair[key], pair_dir / side, measure_fn)
-        record["sides"][side] = {"state": state, "requested_url": pair[key]}
+    for side in SIDES:
+        state, detail = capture_side(pair[side], pair_dir / side, measure_fn)
+        record["sides"][side] = {"state": state, "requested_url": pair[side]}
         if state == "ok":
             record["sides"][side]["receipt"] = detail
     record["status"] = (

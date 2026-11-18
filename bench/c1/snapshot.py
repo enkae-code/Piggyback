@@ -35,12 +35,12 @@ class El:
 
 class Snapshot:
     def __init__(self, evidence):
-        strings = evidence["strings"]
         doc = evidence["documents"][0]
-        nodes, layout = doc["nodes"], doc["layout"]
+        nodes = doc["nodes"]
         page = evidence["page"]
-        scroll_x, scroll_y = page["scroll"]
         self.viewport = (page["viewport"][0], page["viewport"][1])
+        self.scroll_x, self.scroll_y = page["scroll"]
+        self.strings = evidence["strings"]
         count = len(nodes["nodeType"])
         self.kind = nodes["nodeType"]
         self.parents = nodes["parentIndex"]
@@ -48,39 +48,50 @@ class Snapshot:
         for idx, parent in enumerate(self.parents):
             if parent >= 0:
                 self.children[parent].append(idx)
-
-        def text(index):
-            return strings[index] if 0 <= index < len(strings) else ""
-
         values = nodes.get("nodeValue", [-1] * count)
-        self.text_value = {i: text(values[i]) for i in range(count) if self.kind[i] == 3}
+        self.text_value = {i: self._text(values[i]) for i in range(count) if self.kind[i] == 3}
+        self.els = self._elements(evidence, doc, count)
+        self._attach_text_boxes(doc)
+
+    def _text(self, index):
+        return self.strings[index] if 0 <= index < len(self.strings) else ""
+
+    def _shift(self, bounds):
+        x, y, w, h = bounds
+        return (x - self.scroll_x, y - self.scroll_y, w, h)
+
+    def _elements(self, evidence, doc, count):
+        nodes, layout = doc["nodes"], doc["layout"]
         layout_of = {node: li for li, node in enumerate(layout["nodeIndex"])}
         styles = evidence["styles"]
-
-        def shifted(bounds):
-            x, y, w, h = bounds
-            return (x - scroll_x, y - scroll_y, w, h)
-
-        self.els = {}
+        flat_attrs = nodes.get("attributes", [[]] * count)
+        els = {}
         for idx in range(count):
             if self.kind[idx] != 1:
                 continue
-            flat = nodes.get("attributes", [[]] * count)[idx]
-            attrs = {text(flat[k]): text(flat[k + 1]) for k in range(0, len(flat) - 1, 2)}
+            flat = flat_attrs[idx]
+            attrs = {
+                self._text(flat[k]): self._text(flat[k + 1]) for k in range(0, len(flat) - 1, 2)
+            }
             li = layout_of.get(idx)
             style = box = None
             if li is not None:
-                style = dict(zip(styles, (text(v) for v in layout["styles"][li]), strict=True))
-                box = shifted(layout["bounds"][li])
-            tag = text(nodes["nodeName"][idx]).lower()
-            self.els[idx] = El(idx, tag, attrs, self.parents[idx], self.children[idx], style, box)
+                style = dict(
+                    zip(styles, (self._text(v) for v in layout["styles"][li]), strict=True)
+                )
+                box = self._shift(layout["bounds"][li])
+            tag = self._text(nodes["nodeName"][idx]).lower()
+            els[idx] = El(idx, tag, attrs, self.parents[idx], self.children[idx], style, box)
+        return els
+
+    def _attach_text_boxes(self, doc):
+        layout = doc["layout"]
         boxes = doc.get("textBoxes", {"layoutIndex": [], "bounds": []})
         for k, li in enumerate(boxes["layoutIndex"]):
-            node = layout["nodeIndex"][li]
-            parent = self.parents[node]
+            parent = self.parents[layout["nodeIndex"][li]]
             while parent >= 0:
                 if parent in self.els:
-                    self.els[parent].boxes.append(shifted(boxes["bounds"][k]))
+                    self.els[parent].boxes.append(self._shift(boxes["bounds"][k]))
                 parent = self.parents[parent]
 
     def elements(self):

@@ -499,6 +499,68 @@ class FingerprintContract(unittest.TestCase):
         self.assertEqual(score.SLOT_OF_CONCEPT["heading_type"], "heading")
 
 
+FIXTURE = REPO / "tests" / "fixtures" / "c1"
+RECEIPT = "2026-01-01T00:00:00+00:00"
+
+
+def _targets_from(fingerprint):
+    """Locked-style targets for each anchor slot, read from one scrubbed fingerprint fixture."""
+    out = {}
+    for slot in score.SLOTS:
+        anchor = fp.anchor(fingerprint, slot)
+        if anchor is None:
+            out[slot] = {"absent": True}
+            continue
+        out[slot] = {
+            "tag": anchor["tag"],
+            "text": anchor["text"],
+            "box": [anchor["box"][k] for k in ("x", "y", "width", "height")],
+            "style": {
+                "font-size": anchor["font_size"],
+                "line-height": anchor["line_height"],
+                "letter-spacing": anchor["letter_spacing"],
+            },
+        }
+    return out
+
+
+class RealPairsCapture(unittest.TestCase):
+    def test_capture_pair_runs_every_real_pairs_entry(self):
+        def fake(url, *, screenshot, evidence, **_):
+            Path(evidence).write_text(json.dumps({"page": {"title": "t", "text": "body"}}))
+            return {"capture": {"status": 200, "final_url": url, "captured_at": RECEIPT}}
+
+        data = capture.load_pairs()
+        with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as tmp:
+            for pair in data["primary"] + data["reserves"]:
+                record = capture.capture_pair(pair, Path(tmp), measure_fn=fake)
+                self.assertEqual(record["status"], "ok", pair["id"])
+                self.assertEqual(record["sides"]["reference"]["requested_url"], pair["reference"])
+                self.assertEqual(record["sides"]["build"]["requested_url"], pair["build"])
+
+
+class OffSetPinsFromGap(unittest.TestCase):
+    def setUp(self):
+        self.fps = {
+            side: json.loads((FIXTURE / f"{side}.json").read_text(encoding="utf-8"))
+            for side in ("reference", "build")
+        }
+
+    def test_score_pair_skips_page_level_pins_and_scores_anchors(self):
+        concepts = {pin.concept for pin in gap(self.fps["reference"], self.fps["build"])}
+        self.assertTrue({"accent", "container"} <= concepts)  # real gap output, page-level
+        targets = {side: _targets_from(self.fps[side]) for side in self.fps}
+        receipts = {side: RECEIPT for side in self.fps}
+        pin_rows, anchor_rows, shown, correct, pinned, skipped = score.score_pair(
+            "D-01", targets, self.fps, receipts
+        )
+        self.assertEqual(skipped, 2)  # accent and container are outside pin accuracy
+        self.assertEqual([row[1] for row in anchor_rows], list(score.SLOTS))
+        self.assertTrue({row[1] for row in pin_rows} <= set(score.SLOTS))
+        self.assertLessEqual(correct, shown)
+        self.assertLessEqual(pinned, len(score.SLOTS))
+
+
 if __name__ == "__main__":
     with contextlib.redirect_stdout(io.StringIO()):
         unittest.main()

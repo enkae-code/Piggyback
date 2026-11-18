@@ -49,18 +49,25 @@ PIN_COLUMNS = [
 ANCHOR_COLUMNS = ["pair_id", "slot", "disposition", "pin_number"]
 
 
+def _fully_in(box, vw, vh):
+    return (
+        box["x"] >= 0
+        and box["y"] >= 0
+        and box["x"] + box["width"] <= vw
+        and box["y"] + box["height"] <= vh
+    )
+
+
 def placement(box, viewport):
     """The overlay rule of piggyback/web/app.js placement(): in, below, outside, partly or none."""
     if not box or not viewport:
         return "none"
     vw, vh = viewport["width"], viewport["height"]
-    right = box["x"] + box["width"]
-    bottom = box["y"] + box["height"]
-    if box["x"] >= 0 and box["y"] >= 0 and right <= vw and bottom <= vh:
+    if _fully_in(box, vw, vh):
         return "in"
     if box["y"] >= vh:
         return "below"
-    if bottom <= 0 or right <= 0 or box["x"] >= vw:
+    if box["y"] + box["height"] <= 0 or box["x"] + box["width"] <= 0 or box["x"] >= vw:
         return "outside"
     return "partly"
 
@@ -118,86 +125,117 @@ def piggyback_values(anchor):
     }
 
 
+SIDE_KEYS = ("reference", "build")
+VALUE_PROPS = (("font_size", "px"), ("line_height", "px"), ("letter_spacing", "px"))
+PIN_CORRECT = PIN_COLUMNS.index("pin_correct")
+
+
+def _anchor_pins(pins):
+    """Numbered pins for the five anchor slots, keyed by slot. Page-level pins are left out."""
+    return {
+        SLOT_OF_CONCEPT[pin.concept]: pin
+        for pin in pins
+        if pin.number is not None and pin.concept in SLOT_OF_CONCEPT
+    }
+
+
+def _value_rows(pair_id, slot, pin, target, anchors, shown, element_right, receipts):
+    """One row per side and property: hand-checked value against Piggyback's own value."""
+    rows, value_ok = [], True
+    for side in SIDE_KEYS:
+        hand = hand_values(target[side])
+        mine = piggyback_values(anchors[side])
+        for prop, unit in VALUE_PROPS:
+            ok = within("string" if isinstance(hand[prop], str) else "px", hand[prop], mine[prop])
+            numeric = isinstance(hand[prop], float) and isinstance(mine[prop], float)
+            value_ok = value_ok and ok
+            rows.append(
+                [
+                    pair_id,
+                    slot,
+                    pin.number,
+                    side,
+                    shown,
+                    element_right,
+                    prop,
+                    mine[prop],
+                    hand[prop],
+                    unit,
+                    abs(mine[prop] - hand[prop]) if numeric else None,
+                    PX_TOLERANCE,
+                    "correct" if ok else "incorrect",
+                    None,
+                    f"{target[side]['tag']} {target[side]['text']!r}",
+                    "bot",
+                    receipts[side],
+                ]
+            )
+    return rows, value_ok
+
+
+def _disposition(spots):
+    """Anchor disposition: pinned only when both sides show a fully visible overlay."""
+    if all(spot == "in" for spot in spots.values()):
+        return "pinned"
+    return "partly visible" if "partly" in spots.values() else "no pin"
+
+
+def _slot_rows(pair_id, slot, pin, target, anchors, fps, receipts):
+    """Anchor disposition, then pin rows for one slot. Returns (anchor_row, pin_rows, counts)."""
+    boxes = {"reference": pin.ref_box, "build": pin.build_box}
+    spots = {side: placement(boxes[side], fps[side].get("viewport")) for side in SIDE_KEYS}
+    shown_sides = [side for side in SIDE_KEYS if spots[side] == "in"]
+    disposition = _disposition(spots)
+    shown = bool(shown_sides)
+    element_right = shown and all(box_matches(boxes[s], target[s]["box"]) for s in shown_sides)
+    pin_rows, value_ok = _value_rows(
+        pair_id, slot, pin, target, anchors, shown, element_right, receipts
+    )
+    correct = shown and element_right and value_ok
+    for row in pin_rows:
+        row[PIN_CORRECT] = correct
+    counts = (int(shown), int(correct), int(disposition == "pinned"))
+    return [pair_id, slot, disposition, pin.number], pin_rows, counts
+
+
+def _missing_row(pair_id, slot, target, anchors, pin):
+    """Disposition for a slot that cannot be scored, else None."""
+    if any(t.get("absent") for t in target.values()) or any(a is None for a in anchors.values()):
+        return [pair_id, slot, "not found", ""]
+    if pin is None:
+        return [pair_id, slot, "no pin", ""]
+    return None
+
+
 def score_pair(pair_id, targets, fps, receipts):
-    """Rows for one retained pair. fps and targets are dicts keyed by side."""
+    """Rows for one retained pair: (pin_rows, anchor_rows, shown, correct, pinned, skipped).
+
+    skipped counts numbered page-level pins (accent, container, motion): outside pin accuracy.
+    """
     pins = gap(fps["reference"], fps["build"])
-    by_slot = {}
-    for pin in pins:
-        if pin.concept is not None and pin.number is not None:
-            by_slot[SLOT_OF_CONCEPT[pin.concept]] = pin
-    pin_rows, anchor_rows, pinned_total, shown_total, correct_total = [], [], 0, 0, 0
+    by_slot = _anchor_pins(pins)
+    skipped = sum(
+        1 for pin in pins if pin.number is not None and pin.concept not in SLOT_OF_CONCEPT
+    )
+    pin_rows, anchor_rows = [], []
+    shown_total = correct_total = pinned_total = 0
     for slot in SLOTS:
-        target = {side: targets[side][slot] for side in ("reference", "build")}
-        absent = any(t.get("absent") for t in target.values())
-        anchors = {side: fp.anchor(fps[side], slot) for side in ("reference", "build")}
+        target = {side: targets[side][slot] for side in SIDE_KEYS}
+        anchors = {side: fp.anchor(fps[side], slot) for side in SIDE_KEYS}
         pin = by_slot.get(slot)
-        if absent or any(a is None for a in anchors.values()):
-            anchor_rows.append([pair_id, slot, "not found", ""])
+        missing = _missing_row(pair_id, slot, target, anchors, pin)
+        if missing is not None:
+            anchor_rows.append(missing)
             continue
-        if pin is None:
-            anchor_rows.append([pair_id, slot, "no pin", ""])
-            continue
-        boxes = {"reference": pin.ref_box, "build": pin.build_box}
-        spots = {}
-        for side in ("reference", "build"):
-            spots[side] = placement(boxes[side], fps[side].get("viewport"))
-        shown_sides = [s for s in ("reference", "build") if spots[s] == "in"]
-        disposition = (
-            "pinned"
-            if len(shown_sides) == 2
-            else ("partly visible" if "partly" in spots.values() else "no pin")
+        anchor_row, rows, (shown, correct, pinned) = _slot_rows(
+            pair_id, slot, pin, target, anchors, fps, receipts
         )
-        anchor_rows.append([pair_id, slot, disposition, pin.number])
-        shown = bool(shown_sides)
-        element_right = (
-            all(box_matches(boxes[s], target[s]["box"]) for s in shown_sides) if shown else False
-        )
-        value_ok = True
-        side_rows = []
-        for side in ("reference", "build"):
-            hand = hand_values(target[side])
-            mine = piggyback_values(anchors[side])
-            for prop, unit in (
-                ("font_size", "px"),
-                ("line_height", "px"),
-                ("letter_spacing", "px"),
-            ):
-                kind = "string" if isinstance(hand[prop], str) else "px"
-                ok = within(kind, hand[prop], mine[prop])
-                value_ok = value_ok and ok
-                side_rows.append(
-                    [
-                        pair_id,
-                        slot,
-                        pin.number,
-                        side,
-                        shown,
-                        element_right,
-                        prop,
-                        mine[prop],
-                        hand[prop],
-                        unit,
-                        None
-                        if hand[prop] is None or mine[prop] is None
-                        else abs(mine[prop] - hand[prop]),
-                        PX_TOLERANCE,
-                        "correct" if ok else "incorrect",
-                        None,
-                        f"{target[side]['tag']} {target[side]['text']!r}",
-                        "bot",
-                        receipts[side],
-                    ]
-                )
-        correct = shown and element_right and value_ok
-        if shown:
-            shown_total += 1
-            correct_total += int(correct)
-        if disposition == "pinned":
-            pinned_total += 1
-        for row in side_rows:
-            row[13] = correct
-        pin_rows.extend(side_rows)
-    return pin_rows, anchor_rows, shown_total, correct_total, pinned_total
+        anchor_rows.append(anchor_row)
+        pin_rows.extend(rows)
+        shown_total += shown
+        correct_total += correct
+        pinned_total += pinned
+    return pin_rows, anchor_rows, shown_total, correct_total, pinned_total, skipped
 
 
 def _private_write(path, text):
@@ -233,60 +271,77 @@ def _parse_replacements(items):
     return out
 
 
+def _retained_ids(data, replacements):
+    """Primary IDs, each named primary replaced by its reserve. Reserves are used in order."""
+    replaced = dict(_parse_replacements(replacements))
+    reserves_used = [r for _, r in _parse_replacements(replacements)]
+    reserve_order = [r["id"] for r in data["reserves"]]
+    if reserves_used != reserve_order[: len(reserves_used)]:
+        raise SystemExit("replacements must use reserves in order R1, R2, ...")
+    return [replaced.get(p["id"], p["id"]) for p in data["primary"]]  # a reserve takes its row
+
+
+def _load_pair(run, pid, targets):
+    """(fingerprints, receipts) for a pair that captured ok and has locked targets, else None."""
+    pair_dir = run / pid
+    pair_file = pair_dir / "pair.json"
+    if not pair_file.exists() or json.loads(pair_file.read_text())["status"] != "ok":
+        return None
+    if pid not in targets:
+        return None
+    fps, receipts = {}, {}
+    for side in SIDE_KEYS:
+        fps[side] = json.loads((pair_dir / side / "fingerprint.json").read_text(encoding="utf-8"))
+        receipts[side] = fps[side]["capture"]["captured_at"]
+    return fps, receipts
+
+
 def required_correct(shown):
     """Fewest correct pins that pass: 90% of the shown pins, rounded up to a whole pin."""
     return -(-PASS_NUMERATOR * shown // PASS_DENOMINATOR)
+
+
+def _verdict(scored, primary_count, unresolved, shown, correct, pinned):
+    """pass or fail on the thresholds; incomplete when any pair is unresolved or missing."""
+    required = required_correct(shown)
+    accuracy_ok = shown > 0 and correct >= required
+    anchors_ok = scored == primary_count and pinned >= MIN_AVG_PINNED * scored
+    if unresolved or scored != primary_count:
+        return "incomplete", required
+    return ("pass" if accuracy_ok and anchors_ok else "fail"), required
 
 
 def run_score(store, run_id, replacements=None):
     run = Path(store) / run_id
     targets = _lock_ok(run)
     data = load_pairs()
-    primary = [p["id"] for p in data["primary"]]
-    replaced = dict(_parse_replacements(replacements))
-    reserves_used = [r for _, r in _parse_replacements(replacements)]
-    reserve_order = [r["id"] for r in data["reserves"]]
-    if reserves_used != reserve_order[: len(reserves_used)]:
-        raise SystemExit("replacements must use reserves in order R1, R2, ...")
-    retained = [replaced.get(pid, pid) for pid in primary]  # a reserve takes its primary's row
+    retained = _retained_ids(data, replacements)
     unresolved, pin_rows, anchor_rows, pair_rows = [], [], [], []
-    shown_total = correct_total = pinned_total = 0
+    shown_total = correct_total = pinned_total = skipped_total = 0
     for pid in retained:
-        pair_dir = run / pid
-        pair_file = pair_dir / "pair.json"
-        if not pair_file.exists() or json.loads(pair_file.read_text())["status"] != "ok":
+        loaded = _load_pair(run, pid, targets)
+        if loaded is None:
             unresolved.append(pid)
             continue
-        fps, receipts = {}, {}
-        for side in ("reference", "build"):
-            fps[side] = json.loads(
-                (pair_dir / side / "fingerprint.json").read_text(encoding="utf-8")
-            )
-            receipts[side] = fps[side]["capture"]["captured_at"]
-        if pid not in targets:
-            unresolved.append(pid)
-            continue
-        pr, ar, shown, correct, pinned = score_pair(pid, targets[pid], fps, receipts)
+        pr, ar, shown, correct, pinned, skipped = score_pair(pid, targets[pid], *loaded)
         pin_rows += pr
         anchor_rows += ar
         pair_rows.append([pid, shown, correct, pinned, "ok"])
         shown_total += shown
         correct_total += correct
         pinned_total += pinned
+        skipped_total += skipped
     scored = len(retained)
-    required = required_correct(shown_total)
-    accuracy_ok = shown_total > 0 and correct_total >= required
-    anchors_ok = scored == len(primary) and pinned_total >= MIN_AVG_PINNED * scored
-    if unresolved or scored != len(primary):
-        verdict = "incomplete"
-    else:
-        verdict = "pass" if accuracy_ok and anchors_ok else "fail"
+    verdict, required = _verdict(
+        scored, len(data["primary"]), unresolved, shown_total, correct_total, pinned_total
+    )
     report = {
         "verdict": verdict,
         "shown_pins": shown_total,
         "correct_pins": correct_total,
         "required_correct": required,
         "anchors_pinned": pinned_total,
+        "page_level_pins_skipped": skipped_total,
         "retained_pairs": scored,
         "avg_pinned_anchors": round(pinned_total / scored, 2) if scored else None,
         "unresolved": sorted(set(unresolved)),
