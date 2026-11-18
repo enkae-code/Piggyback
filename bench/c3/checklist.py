@@ -51,6 +51,7 @@ HEIGHT = 900
 NAV_MS = 30_000
 SETTLE_MS = 5_000
 TOTAL_S = 90  # whole worker run, browser start included, as in measure.py
+WINDOWS = os.name == "nt"
 PASS, FAIL, NO_RUNNABLE, FAULT = "pass", "fail", "no_runnable_output", "checker_fault"
 EXIT_CODES = {PASS: 0, FAIL: 1, NO_RUNNABLE: 1, FAULT: 2}
 CONTROL_ROLES = (
@@ -440,6 +441,14 @@ def checked_in_process(target, task_id):
         return fault_report(target, task_id, exc)
 
 
+def _kill_tree(pid):
+    """Kill the worker and what it spawned: its process group, or its process tree on Windows."""
+    if WINDOWS:
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True)
+    else:
+        os.killpg(pid, signal.SIGKILL)
+
+
 def run_bounded(target, task_id, total_s=TOTAL_S):
     """Run the checks in a worker process, so a page that blocks the browser cannot hang us.
 
@@ -460,12 +469,12 @@ def run_bounded(target, task_id, total_s=TOTAL_S):
     try:
         out, err = worker.communicate(timeout=total_s)
     except subprocess.TimeoutExpired:
-        os.killpg(worker.pid, signal.SIGKILL)
+        _kill_tree(worker.pid)
         worker.communicate()
         return report_for(target, task_id, NO_RUNNABLE, detail="checklist timed out")
     except BaseException:  # Ctrl-C or SIGTERM: never leave Chromium orphaned
         with contextlib.suppress(ProcessLookupError):
-            os.killpg(worker.pid, signal.SIGKILL)
+            _kill_tree(worker.pid)
         raise
     try:
         return json.loads(out)

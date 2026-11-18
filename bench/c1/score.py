@@ -336,7 +336,11 @@ def score_pair(pair_id, targets, fps, meta):
 
 
 def _private_write(path, text):
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    # ponytail: no O_NOFOLLOW on Windows, so refuse a link by lstat first; a race is possible
+    # there, the run folder is single-user. Upgrade path: a directory fd where O_NOFOLLOW exists.
+    if not hasattr(os, "O_NOFOLLOW") and os.path.islink(path):
+        raise SystemExit("refusing: output path is a symbolic link")
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0), 0o600)
     with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
         handle.write(text)
 

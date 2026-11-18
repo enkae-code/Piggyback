@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import signal
 import subprocess
 import sys
@@ -268,36 +269,76 @@ class Checks(unittest.TestCase):
         result = checklist.run_axe(page)
         self.assertEqual((result["error"], result["pass"]), ("axe bad", False))
 
-    def test_worker_past_its_bound_is_killed_with_its_group(self):
+    def kill_calls(self, windows):
+        # killpg and SIGKILL are POSIX-only; on a real Windows run only the taskkill case is taken.
         from unittest import mock
 
-        worker = mock.MagicMock(pid=4242)
-        worker.communicate.side_effect = [subprocess.TimeoutExpired("worker", 1), ("", "")]
-        with (
-            mock.patch.object(checklist.subprocess, "Popen", return_value=worker),
-            mock.patch.object(checklist.os, "killpg") as killpg,
-        ):
-            report = checklist.run_bounded("page.html", "T01", total_s=1)
-        killpg.assert_called_once_with(4242, signal.SIGKILL)
-        self.assertEqual(report["outcome"], "no_runnable_output")
-        self.assertEqual(report["detail"], "checklist timed out")
-        self.assertIsNone(report["correction_message"])
+        return (
+            mock.patch.object(checklist, "WINDOWS", windows),
+            mock.patch.object(checklist.os, "killpg", create=True),
+            mock.patch.object(checklist.subprocess, "run"),
+        )
 
-    def test_interrupt_kills_the_worker_group_and_reraises(self):
+    def test_worker_past_its_bound_is_killed_with_its_tree(self):
         from unittest import mock
 
-        worker = mock.MagicMock(pid=4343)
-        worker.communicate.side_effect = KeyboardInterrupt()
-        with (
-            mock.patch.object(checklist.subprocess, "Popen", return_value=worker),
-            mock.patch.object(checklist.os, "killpg") as killpg,
-            self.assertRaises(KeyboardInterrupt),
-        ):
-            checklist.run_bounded("page.html", "T01", total_s=1)
-        killpg.assert_called_once_with(4343, signal.SIGKILL)
+        for windows in (False, True):
+            if not windows and os.name == "nt":
+                continue
+            with self.subTest(windows=windows):
+                worker = mock.MagicMock(pid=4242)
+                worker.communicate.side_effect = [
+                    subprocess.TimeoutExpired("worker", 1),
+                    ("", ""),
+                ]
+                patches = self.kill_calls(windows)
+                with (
+                    mock.patch.object(checklist.subprocess, "Popen", return_value=worker),
+                    patches[0],
+                    patches[1] as killpg,
+                    patches[2] as taskkill,
+                ):
+                    report = checklist.run_bounded("page.html", "T01", total_s=1)
+                if windows:
+                    taskkill.assert_called_once_with(
+                        ["taskkill", "/T", "/F", "/PID", "4242"], capture_output=True
+                    )
+                    killpg.assert_not_called()
+                else:
+                    killpg.assert_called_once_with(4242, signal.SIGKILL)
+                    taskkill.assert_not_called()
+                self.assertEqual(report["outcome"], "no_runnable_output")
+                self.assertEqual(report["detail"], "checklist timed out")
+                self.assertIsNone(report["correction_message"])
+
+    def test_interrupt_kills_the_worker_tree_and_reraises(self):
+        from unittest import mock
+
+        for windows in (False, True):
+            if not windows and os.name == "nt":
+                continue
+            with self.subTest(windows=windows):
+                worker = mock.MagicMock(pid=4343)
+                worker.communicate.side_effect = KeyboardInterrupt()
+                patches = self.kill_calls(windows)
+                with (
+                    mock.patch.object(checklist.subprocess, "Popen", return_value=worker),
+                    patches[0],
+                    patches[1] as killpg,
+                    patches[2] as taskkill,
+                    self.assertRaises(KeyboardInterrupt),
+                ):
+                    checklist.run_bounded("page.html", "T01", total_s=1)
+                if windows:
+                    taskkill.assert_called_once_with(
+                        ["taskkill", "/T", "/F", "/PID", "4343"], capture_output=True
+                    )
+                    killpg.assert_not_called()
+                else:
+                    killpg.assert_called_once_with(4343, signal.SIGKILL)
+                    taskkill.assert_not_called()
 
     def test_relative_file_target_is_resolved_in_the_callers_directory(self):
-        import os
 
         if importlib.util.find_spec("playwright") is None:
             self.skipTest("playwright not installed; run with the measure extra")

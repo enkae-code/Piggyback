@@ -538,7 +538,8 @@ class CaptureRecords(unittest.TestCase):
         self.assertEqual(record["class"], "timeout")
         for n in (1, 2):
             path = side / f"attempt-{n}" / "failure.json"
-            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            if os.name != "nt":  # Windows keeps no POSIX mode bits
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
 
     def test_network_error_retried_once_and_both_attempts_kept(self):
         calls = []
@@ -620,7 +621,8 @@ class CaptureRecords(unittest.TestCase):
         _, _, record = capture.capture_side("https://x.test/", self.root / "s5", measure_fn=fake)
         shot = Path(record["screenshot"])
         self.assertTrue(shot.exists())
-        self.assertEqual(stat.S_IMODE(shot.stat().st_mode), 0o600)
+        if os.name != "nt":  # Windows keeps no POSIX mode bits
+            self.assertEqual(stat.S_IMODE(shot.stat().st_mode), 0o600)
 
     def test_new_attempt_never_reuses_or_overwrites_a_folder(self):
         side = self.root / "n"
