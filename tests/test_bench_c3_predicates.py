@@ -520,6 +520,55 @@ class RepeatedItemProbes(unittest.TestCase):
                 self.assertEqual(passes(task, item, markup), expected)
 
 
+# WO-20 round 8 probes: item suffixes (case-study, card-item), any-word wrappers, and li tags
+# scoped to one related card.
+ROUND8_PROBES = [
+    ("T08", "three case studies", '<div class="case-study">P</div>' * 3, True),
+    ("T02", "three selected projects", '<div class="project-item">P</div>' * 3, True),
+    ("T04", "three subscription options", '<div class="card-item">P</div>' * 3, True),
+    ("T06", "three activities", '<div class="activity-item">P</div>' * 3, True),
+    (
+        "T09",
+        "related cards",
+        '<ul class="related-posts">' + "<li>P</li>" * 2 + "</ul>",
+        True,
+    ),
+    (
+        "T09",
+        "related cards",
+        '<section class="related-stories">' + "<article>P</article>" * 2 + "</section>",
+        True,
+    ),
+    (
+        "T09",
+        "related cards",
+        '<div class="related-articles">' + "<li>P</li>" * 2 + "</div>",
+        True,
+    ),
+    (
+        "T09",
+        "related cards",
+        '<aside class="related"><div class="card"><ul><li>a</li><li>b</li><li>c</li></ul></div>'
+        "</aside>",
+        False,
+    ),
+    (
+        "T09",
+        "related cards",
+        '<aside class="related"><div class="card"><div class="card-header">H</div>'
+        '<div class="card-body">B</div><div class="card-footer">F</div></div></aside>',
+        False,
+    ),
+]
+
+
+class RoundEightProbes(unittest.TestCase):
+    def test_probe_table(self):
+        for task, item, markup, expected in ROUND8_PROBES:
+            with self.subTest(task=task, item=item, markup=markup[:70]):
+                self.assertEqual(passes(task, item, markup), expected)
+
+
 class SinglePresenceMatching(unittest.TestCase):
     def test_min_one_class_matches_any_word(self):
         for markup in (

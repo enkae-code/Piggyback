@@ -22,9 +22,22 @@ def class_words(attrs):
     return words
 
 
+# ponytail: fixed item suffixes; widen only when a real generated page needs another.
+ITEM_SUFFIXES = {"item", "study", "entry"}
+
+
 def class_names(attrs):
-    """Last word of each class token, so 'plan-card' is a card but 'card-body' is not."""
-    return {re.split(r"[-_]", token)[-1] for token in attrs.get("class", "").lower().split()}
+    """Item name of each class token: its last word after one trailing item suffix is dropped.
+
+    'plan-card' and 'case-study' are card and case, but 'card-body' is not card.
+    """
+    names = set()
+    for token in attrs.get("class", "").lower().split():
+        words = re.split(r"[-_]", token)
+        if len(words) > 1 and words[-1] in ITEM_SUFFIXES:
+            words = words[:-1]
+        names.add(words[-1])
+    return names
 
 
 def _attr_matches(spec, attrs):
@@ -45,8 +58,9 @@ def _words(attrs, strict):
     return class_names(attrs) if strict else class_words(attrs)
 
 
-def _in_class(alt, node, nodes, strict):
-    return any(alt["in_class"] in _words(nodes[j]["attrs"], strict) for j in node["path"])
+def _in_class(alt, node, nodes):
+    """Any class word of an ancestor. A wrapper is never counted itself, so any word is safe."""
+    return any(alt["in_class"] in class_words(nodes[j]["attrs"]) for j in node["path"])
 
 
 # Each check reads one key of an alternative. An alternative matches when every key it sets holds.
@@ -54,7 +68,7 @@ _ALT_CHECKS = {
     "tag": lambda alt, node, index, nodes, strict: alt["tag"] == node["tag"],
     "class": lambda alt, node, index, nodes, strict: alt["class"] in _words(node["attrs"], strict),
     "attr": lambda alt, node, index, nodes, strict: _attr_matches(alt["attr"], node["attrs"]),
-    "in_class": lambda alt, node, index, nodes, strict: _in_class(alt, node, nodes, strict),
+    "in_class": lambda alt, node, index, nodes, strict: _in_class(alt, node, nodes),
     "has": lambda alt, node, index, nodes, strict: _has_visible_child(alt["has"], index, nodes),
 }
 
@@ -71,7 +85,7 @@ def _nearest_table(nodes, path):
 
 
 def _is_tag_alt(alt):
-    return "tag" in alt and not {"class", "in_class", "attr"} & alt.keys()
+    return "tag" in alt and not {"class", "attr"} & alt.keys()
 
 
 # ponytail: a bare tag item (<article> with no class) holding several tag-matched children
