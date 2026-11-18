@@ -223,10 +223,18 @@ class MeasureIntegration(unittest.TestCase):
         palette = measure(f"{self.base}/scrim-over-amber.html", allow_loopback=True)["palette"]
         self.assertGreater(palette["accent_share"], 0.8)
 
-    def test_full_viewport_image_covers_the_canvas(self):
-        # An opaque image covers the amber body; its pixels add no colour, so no accent.
+    def test_transparent_full_viewport_media_does_not_hide_the_canvas(self):
+        # An empty full-viewport svg paints nothing, so the amber body still leads.
         palette = measure(f"{self.base}/img-over-amber.html", allow_loopback=True)["palette"]
-        self.assertLess(palette["accent_share"], 0.05)
+        self.assertEqual(palette["background"][0]["value"], "rgb(244, 178, 35)")
+        self.assertGreater(palette["accent_share"], 0.8)
+
+    def test_translucent_body_over_html_canvas_keeps_its_colour(self):
+        palette = measure(
+            f"{self.base}/body-translucent-over-html-white.html", allow_loopback=True
+        )["palette"]
+        self.assertEqual(palette["background"][0]["value"], "rgba(244, 178, 35, 0.4)")
+        self.assertGreater(palette["accent_share"], 0.8)
 
     def test_http_404_is_refused_with_its_status(self):
         with self.assertRaisesRegex(MeasureError, "HTTP 404"):

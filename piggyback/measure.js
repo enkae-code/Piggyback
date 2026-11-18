@@ -114,17 +114,18 @@
   const canvasEl = document.body && !hasBg(getComputedStyle(root)) ? document.body : root;
   const canvasCs = getComputedStyle(canvasEl);
   const canvas = hasBg(canvasCs) ? rgba(canvasCs.backgroundColor) : null;
-  // A painter hides the canvas when its background is opaque enough, or when it is a replaced
-  // element. Body is not in `boxes`, so it is looked up on its own.
-  const REPLACED = ["img", "video", "canvas", "iframe", "svg"];
+  // A box hides the canvas when its background is opaque enough. Body is not in `boxes`, so it is
+  // looked up on its own; any body background paints the cells where it is topmost.
+  // ponytail: an opaque full-viewport img/video/iframe over a coloured body still counts as canvas.
+  // Replaced elements paint only through their own background-colour. Upgrade path: screenshot pixel sampling.
   const opaque = (cs) => {
     const c = rgba(cs.backgroundColor);
     return c !== null && c[3] >= 0.5;
   };
   const paintsEl = (el) => {
     const b = byEl.get(el);
-    if (b) return REPLACED.includes(el.localName) || opaque(b.cs);
-    return el === document.body && opaque(getComputedStyle(el));
+    if (b) return opaque(b.cs);
+    return el === document.body && hasBg(getComputedStyle(el));
   };
   const GRID_X = 24;
   const GRID_Y = 15;
@@ -134,7 +135,8 @@
     for (let j = 0; j < GRID_Y; j++) {
       const x = ((i + 0.5) * VW) / GRID_X;
       const y = ((j + 0.5) * VH) / GRID_Y;
-      // ponytail: elementsFromPoint skips pointer-events:none, so such an overlay cannot hide the canvas here. Upgrade path: coverage from `boxes` rects.
+      // ponytail: elementsFromPoint skips pointer-events:none, so such an overlay cannot hide the
+      // canvas here. Upgrade path: coverage from `boxes` rects.
       const top = document.elementsFromPoint(x, y).find((el) => el !== canvasEl && paintsEl(el));
       if (top === undefined) canvasCells++;
       else if (top === document.body) bodyCells++;
