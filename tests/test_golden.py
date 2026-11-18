@@ -1,4 +1,8 @@
-"""Golden checks on real `piggyback measure` output (tests/fixtures/real-*.json). No browser."""
+"""Golden checks on real `piggyback measure` output (tests/fixtures/real-*.json). No browser.
+
+The real-*.json captures are historical: taken 2026-11-16, before the WO-22 palette fixes, so their
+palette and accent values predate them. They are not regenerated here (that needs network).
+"""
 
 import re
 import unittest

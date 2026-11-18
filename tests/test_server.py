@@ -195,6 +195,24 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(self.call("POST", "/api/brief", {})[0], 409)
         self.assertFalse(target.exists())
 
+    def test_write_new_refuses_a_dangling_link_even_when_create_follows_it(self):
+        # Windows O_EXCL follows a dangling link and creates its target; emulate that here.
+        real_open = os.open
+
+        def windows_open(path, flags, mode=0o777):
+            if flags & os.O_EXCL and os.path.islink(path):
+                return real_open(os.readlink(path), flags, mode)
+            return real_open(path, flags, mode)
+
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder, "elsewhere.txt")
+            link = Path(folder, "BRIEF.md")
+            link.symlink_to(target)
+            with mock.patch.object(server.os, "open", side_effect=windows_open):
+                with self.assertRaises(FileExistsError):
+                    server.write_new(link, "text")
+            self.assertFalse(target.exists())
+
     def test_reference_only_is_a_brief_with_no_paths_in_the_payload(self):
         status, data = self.post_measure({"references": ["https://example.com"]})
         self.assertEqual(status, 200)
