@@ -6,7 +6,7 @@ Every page exposes the five anchors the engine measures: a `<nav>`, an `<h1>`, b
 
 | Page | Direction | Typeface |
 |---|---|---|
-| [Field Journal](field-journal/index.html) | Editorial long-read on grey-white paper: double-rule masthead, two-column text with a drop cap, a line drawing, a ruled story index | EB Garamond 400/700, book sizes, letterspaced small labels |
+| [Field Journal](field-journal/index.html) | Editorial long-read on cool grey paper: a full-width section drawing with numbered callouts keyed to the text, two-column body, a story index by print page number, a ruled colophon block | EB Garamond 400/700, book sizes, sentence-case labels, an underlined text button |
 | [INK / RULE](ink-and-rule/index.html) | Print-shop poster on goldenrod: 3px black rules, an inverted headline bar, a job ticket with dotted leaders | JetBrains Mono 400/700, uppercase, poster scale, tight tracking |
 | [Northline Field Ops](northline-ops/index.html) | Dark, dense operations view: one plotted trace with a drawn threshold, a signal list, a vessel table | JetBrains Mono 400/700, 13 to 15px, tabular data |
 | [Little Plot](little-plot/index.html) | Friendly product page on sage: a seven-day seedling diagram on a soil band, plant-marker cards | EB Garamond 400/700, large roomy text, lowercase wordmark |
