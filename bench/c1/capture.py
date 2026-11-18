@@ -27,7 +27,8 @@ CHALLENGE = re.compile(
     re.IGNORECASE,
 )
 TIMEOUT = re.compile(r"timed out|Timeout \d+ms exceeded", re.IGNORECASE)
-NETWORK = re.compile(r"net::ERR_")  # Chromium transport failure, e.g. ERR_SOCKET_NOT_CONNECTED
+NETWORK = re.compile(r"net::ERR_(?!HTTP_RESPONSE_CODE_FAILURE)")  # Chromium transport failure
+HTTP_ERROR = re.compile(r"answered HTTP|net::ERR_HTTP_RESPONSE_CODE_FAILURE")  # non-2xx, empty body
 REDIRECT = re.compile(r"redirected to")
 # Failure classes retried once inside the capture window (spec: Capture and substitution)
 TRANSIENT = frozenset({"timeout", "network"})
@@ -86,7 +87,7 @@ def classify(error, status):
         return "network"
     if REDIRECT.search(error):
         return "cross_host_redirect"
-    if (status is not None and not 200 <= status < 300) or "answered HTTP" in error:
+    if (status is not None and not 200 <= status < 300) or HTTP_ERROR.search(error):
         return "http_status"
     return "other"
 
@@ -243,8 +244,7 @@ def plan_retained(run, data):
     replacement that failed or was flagged needs its own decision, and may be replaced in turn.
     A chain ends at a pair that needs no replacement (ok, or kept). It ends with None when a
     replacement is needed but no reserve is left: the gate is incomplete. Refuses before anything
-    is written, until every failed or suspected_challenge primary and every suspected_challenge
-    reserve has a decision.
+    is written, until every failed or suspected_challenge pair, primary or reserve, has a decision.
     """
     primaries = [p["id"] for p in data["primary"]]
     reserves = [r["id"] for r in data["reserves"]]
@@ -252,11 +252,7 @@ def plan_retained(run, data):
     decisions = load_decisions(run)
     status = {pid: pair_status(run, pid) for pid in primaries + reserves}
     _check_captured(primaries, status)
-    needs = {
-        pid
-        for pid, s in status.items()
-        if s == "suspected_challenge" or (s == "failed" and pid in primaries)
-    }
+    needs = {pid for pid, s in status.items() if s in ("failed", "suspected_challenge")}
     _check_decision_targets(decisions, needs, status)
     return _assign_chains(run, primaries, reserves, needs, decisions, status)
 
@@ -304,7 +300,7 @@ def _assign_chains(run, primaries, reserves, needs, decisions, status):
             chain.append(reserve)
         chains.append(chain)
     for pid, entry in decisions.items():
-        # An unused suspected_challenge reserve still needs a keep decision (fail-closed).
+        # An unused failed or suspected_challenge reserve still needs a keep decision (fail-closed).
         if pid not in consulted and not (pid in needs and entry["decision"] == "keep"):
             raise SystemExit(
                 f"refusing: {pid} is not in the replacement chain; remove its decision"

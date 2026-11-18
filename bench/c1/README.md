@@ -16,14 +16,14 @@ Run from the repository root, in order. Evidence goes to a store outside the rep
    taken). A bot-wall page is kept and flagged `suspected_challenge` with the matched text. A crash
    still writes `pair.json` with status `failed`.
 3. **Decide.** Write `eligibility.json` in the run folder: a list of `{pair_id, decision, reason,
-   decided_by, decided_at_utc}`, `decision` is `keep` or `replace`. Required for every failed primary
-   and every `suspected_challenge` pair (primary or reserve). `keep` scores the pair as the site;
-   `replace` needs an eligible failure (`http_status`, `cross_host_redirect`) for a failed primary;
-   a `suspected_challenge` primary may be replaced. A timeout or `network` failure is never eligible.
-   A replacement reserve that failed or is `suspected_challenge` needs its own decision. `replace`
-   moves on to the next unused reserve in row order; `keep` leaves a failed reserve unresolved
-   (a suspected one is scored as the site). A `suspected_challenge` reserve needs a decision even
-   when no replacement uses it.
+   decided_by, decided_at_utc}`, `decision` is `keep` or `replace`. Required for every failed or
+   `suspected_challenge` pair, primary or reserve, even when no replacement uses it. `keep` scores the
+   pair as the site; `replace` needs an eligible failure (`http_status`, `cross_host_redirect`) for a
+   failed pair; a `suspected_challenge` primary may be replaced. A timeout or `network` failure is
+   never eligible. A replacement reserve that failed or is `suspected_challenge` needs its own
+   decision. `replace` moves on to the next unused reserve in row order; `keep` leaves a failed
+   reserve unresolved (a suspected one is scored as the site). An unused failed or
+   `suspected_challenge` reserve takes `keep`; `replace` on an unused reserve is refused.
 4. **Capture reserves.** Only needed for a `replace` decision. Reserves are used in row order R1, R2.
    `python -m bench.c1.capture --run RUN R1 R2`
 5. **Lock targets.** Refuses until step 3 and 4 are complete. Locks only the retained set (kept
