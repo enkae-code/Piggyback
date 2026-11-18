@@ -129,6 +129,14 @@ class MeasureIntegration(unittest.TestCase):
             self.assertIn("http://10.0.0.1/", result["blocked_requests"])
             self.assertFalse(any(f":{self.other_port}" in u for u in result["blocked_requests"]))
 
+    def test_page_canvas_background_leads_the_palette(self):
+        # The light body paints the canvas; the dark footer and button are small boxes.
+        result = measure(f"{self.base}/canvas-paper.html", allow_loopback=True)
+        background = result["palette"]["background"]
+        self.assertEqual(background[0]["value"], "rgb(245, 240, 228)")
+        self.assertGreater(background[0]["share"], 0.5)
+        self.assertIn("rgb(25, 27, 24)", [row["value"] for row in background])
+
     def test_http_404_is_refused_with_its_status(self):
         with self.assertRaisesRegex(MeasureError, "HTTP 404"):
             measure(f"{self.base}/no-such-page.html", allow_loopback=True)

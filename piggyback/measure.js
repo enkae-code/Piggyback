@@ -110,11 +110,20 @@
     entry.area += b.area;
     accents.set(b.cs.backgroundColor, entry);
   }
-  // ponytail: overlapping boxes double count; the share is capped at 1.
+  // ponytail: overlapping boxes double count; the share is capped at 1. The canvas is one more
+  // overlap: html and body are not boxes, so the canvas (html's background, else body's, as CSS
+  // propagates it) is counted once at viewport weight. Accent ignores it.
+  const canvas = [document.documentElement, document.body]
+    .filter(Boolean)
+    .map((el) => getComputedStyle(el).backgroundColor)
+    .find((c) => rgba(c)?.[3] > 0);
   const accent = [...accents.values()].sort((a, b) => b.sat - a.sat)[0];
   const palette = {
     text: hist(texts.map((b) => [b.cs.color, b.area])),
-    background: hist(bgs.map((b) => [b.cs.backgroundColor, b.area])),
+    background: hist([
+      ...bgs.map((b) => [b.cs.backgroundColor, b.area]),
+      ...(canvas ? [[canvas, VW * VH]] : []),
+    ]),
     accent_share: accent ? round(Math.min(1, accent.area / (VW * VH))) : 0,
   };
 
