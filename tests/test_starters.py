@@ -55,6 +55,10 @@ class StarterData(Packaged):
             self.assertEqual(starters.catalog(), [])
             self.assertEqual(starters.listing(), "No starters are packaged.")
 
+    def test_catalog_skips_an_incomplete_folder(self):
+        (Path(self.tmp.name) / "starters" / "northline-ops" / "screenshot.png").unlink()
+        self.assertEqual(starters.catalog(), [])
+
     def test_fingerprint_comes_from_the_package(self):
         self.assertEqual(
             starters.fingerprint("starter:northline-ops")["url"], "starter:northline-ops"

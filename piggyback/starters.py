@@ -18,11 +18,18 @@ def is_starter(ref):
     return ref.startswith(PREFIX)
 
 
+def is_complete(folder):
+    """A folder is a starter once all three files are there; meta.json alone is not enough."""
+    return all(
+        (folder / name).is_file() for name in ("meta.json", "fingerprint.json", "screenshot.png")
+    )
+
+
 def catalog():
     """Packaged starters as {id, name, license}, sorted by id. Empty when none are packaged."""
     if not PACKAGED.is_dir():
         return []
-    folders = sorted(path for path in PACKAGED.iterdir() if (path / "meta.json").is_file())
+    folders = sorted(path for path in PACKAGED.iterdir() if is_complete(path))
     rows = []
     for folder in folders:
         meta = json.loads((folder / "meta.json").read_text(encoding="utf-8"))

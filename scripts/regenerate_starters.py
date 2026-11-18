@@ -68,6 +68,9 @@ def package(ident, port):
             raise RuntimeError(f"{ident}: a loopback address is still in the fingerprint")
         folder = starters.PACKAGED / ident
         folder.mkdir(parents=True, exist_ok=True)
+        (folder / "meta.json").unlink(
+            missing_ok=True
+        )  # a crash below must not leave a listed starter
         shutil.copyfile(Path(tmp) / "screenshot.png", folder / "screenshot.png")
         text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
         (folder / "fingerprint.json").write_text(text, encoding="utf-8")

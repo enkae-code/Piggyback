@@ -86,6 +86,7 @@ main.wrap, .result, .result-body, .report, .comparison, .sheet, .spec-body, .spe
 .slot-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
 .slot-title { font-size: 14px; font-weight: 600; }
 .hint { color: var(--fg-3); font-size: 13px; }
+[hidden] { display: none !important; } /* a class's display rule would otherwise win over the hidden attribute */
 .row { display: flex; gap: 8px; min-width: 0; }
 input[type="url"], input[type="text"], select {
   flex: 1; min-width: 0; height: 40px; padding: 0 12px; border-radius: var(--r-s);

@@ -84,6 +84,7 @@ function renderRefs() {
 
 // The one way a reference joins the list, typed URL or packaged starter alike.
 function pushRef(url) {
+  if (!url.trim()) return false;
   if (state.refs.length >= MAX_REFS) {
     showError("ref-error", "Three references is the most. More would be averaged away.");
     return false;
@@ -100,8 +101,7 @@ function pushRef(url) {
 
 function addRef() {
   const input = $("ref-input");
-  const url = input.value.trim();
-  if (url && pushRef(url)) input.value = "";
+  if (pushRef(input.value.trim())) input.value = "";
 }
 
 // Starters are listed by the server and read from its package: no page is fetched for them.
@@ -122,6 +122,8 @@ function clock() {
 
 async function measure(rerun) {
   if (state.busy) return;
+  showError("error", "");
+  showError("ref-error", "");
   if (!rerun && $("ref-input").value.trim()) addRef();
   const request = rerun
     ? state.lastRequest
@@ -130,7 +132,6 @@ async function measure(rerun) {
     showError("error", "Add a reference, your build, or both.");
     return;
   }
-  showError("error", "");
   setBusy(true, "Measuring. A page can take up to a minute.");
   try {
     const data = await api("/api/measure", { ...request, rerun });
