@@ -8,7 +8,7 @@ to stderr. The URLs are fixed at startup by the human, and no tool takes a URL, 
 import json
 import traceback
 
-from . import __version__, server
+from . import __version__, server, starters
 from . import brief as brief_mod
 from . import defaults as defaults_mod
 from . import fingerprint as fp
@@ -40,8 +40,18 @@ TOOLS = [
         "description": "DESIGN.md for the first configured reference page (Impeccable reads it).",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
+    {
+        "name": "list_starters",
+        "description": "The packaged starter references: their starter:<id> names and licences.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
 ]
-ARGUMENTS = {"get_brief": {"refresh"}, "check": set(), "get_design_md": set()}
+ARGUMENTS = {
+    "get_brief": {"refresh"},
+    "check": set(),
+    "get_design_md": set(),
+    "list_starters": set(),
+}
 REFRESH_HINT = "call get_brief with refresh: true to measure again"
 
 
@@ -72,12 +82,18 @@ class Session:
             raise RefFailed(str(self.ref_failure))
         if self.ref_pages is None or refresh:
             try:
-                self.ref_pages = [self.measure_page(url) for url in self.refs]
+                self.ref_pages = [self._read(url) for url in self.refs]
             except MeasureError as exc:
                 self.ref_failure = exc
                 raise
             self.differing = set()  # a moved reference is not a fix
         return self.ref_pages
+
+    def _read(self, url):
+        # A starter is read from the package: the agent can name one, never fetch a page.
+        if starters.is_starter(url):
+            return starters.fingerprint(url)
+        return self.measure_page(url)
 
     def get_brief(self, refresh):
         return brief_mod.brief(self._refs(refresh))
@@ -126,6 +142,7 @@ def _call(session, params):
             "get_brief": lambda: session.get_brief(refresh),
             "check": session.check,
             "get_design_md": session.get_design_md,
+            "list_starters": starters.listing,
         }
         return _text(handlers[name]())
     except RefFailed as exc:  # the hint is ours, so it is added after the page text is cleaned

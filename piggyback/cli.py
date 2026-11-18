@@ -218,7 +218,12 @@ def main(argv=None):
     mc = sub.add_parser(
         "mcp", help="read-only MCP server on stdio: get_brief, get_design_md and check"
     )
-    mc.add_argument("--ref", action="append", metavar="URL", help="public reference (1 to 3)")
+    mc.add_argument(
+        "--ref",
+        action="append",
+        metavar="URL",
+        help="public reference, or starter:<id> from list_starters (1 to 3)",
+    )
     mc.add_argument("--build", metavar="URL", help="your build: localhost, or a public preview")
     args = parser.parse_args(argv)
     if args.command in (None, "open"):

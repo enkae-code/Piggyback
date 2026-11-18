@@ -90,7 +90,7 @@ class Protocol(unittest.TestCase):
         self.assertEqual(replies[0]["result"]["protocolVersion"], "2025-06-18")
         self.assertIn("tools", replies[0]["result"]["capabilities"])
         tools = {tool["name"]: tool for tool in replies[1]["result"]["tools"]}
-        self.assertEqual(set(tools), {"get_brief", "check", "get_design_md"})
+        self.assertEqual(set(tools), {"get_brief", "check", "get_design_md", "list_starters"})
         for tool in tools.values():
             self.assertIs(tool["inputSchema"]["additionalProperties"], False)
 

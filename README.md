@@ -44,6 +44,8 @@ Every pin and brief line names the concept in plain words and says why it matter
 
 Type, palette, radius, anchors and container width are measured on the first screen (1440×900); container width is weighted by visible area. Spacing and motion are measured over the whole document.
 
+To try Piggyback without a page of your own, pick a **starter** in the reference slot. Starters are six CC0 pages shipped inside the package (`starter:<id>`, listed by `list_starters`). They are read from the package, never fetched, and their brief is labelled with the starter id. Their source pages are in [starters/](starters/README.md).
+
 Copy the brief to your agent as `BRIEF.md`, let it revise, then re-run. Fixed pins tick and open ones stay. "Copy DESIGN.md" writes the first reference as a `DESIGN.md` that works with Impeccable.
 
 On a reference's brief, press Borrow or Avoid on a measured row to add a note, with optional text of up to 200 characters. Each note hangs off one row of one reference, and `BRIEF.md` prints it under that reference with the row's measured value. Notes are kept while the reference list stays the same.
@@ -94,8 +96,9 @@ Add this to your MCP client config (Claude Desktop, or `.mcp.json` for Claude Co
 }
 ```
 
-- `--ref` takes up to three public reference pages; differences use reference 1 (the first one listed). `--build` takes your localhost or a public preview. Give at least one.
+- `--ref` takes up to three public reference pages, or `starter:<id>` for a packaged starter; differences use reference 1 (the first one listed). `--build` takes your localhost or a public preview. Give at least one.
 - `get_brief` returns the brief. Its `refresh` flag measures again. `check` measures the build and returns numbered differences, marking the ones now within tolerance as fixed, plus any generic defaults on the build.
+- `list_starters` lists the packaged starter ids. The agent cannot add or change a reference.
 - The Claude Code skill in `skills/piggyback/SKILL.md` tells the agent when to call these tools.
 - This is a config you edit. Your agent does not install or run it. Like the install command above, it works once v0.1 is installable.
 

@@ -12,6 +12,7 @@ These numbers are the target. If you use a design skill such as Impeccable, Hall
 - `get_brief`: the measured design of the reference pages (type scale, palette, radius, spacing, container width, fonts). Read it before you change UI styles. Pass `refresh: true` only when the user asks you to measure again.
 - `get_design_md`: the first reference as a `DESIGN.md` (measured tokens in frontmatter), the file Impeccable reads. Use it when the user asks for a DESIGN.md; it does not write any file.
 - `check`: re-measures the build and lists numbered differences from the reference. A "Fixed since the last check" section lists differences that are now within tolerance.
+- `list_starters`: the packaged starter references, named `starter:<id>`. The user may have picked one as the reference. Its numbers come from the package, not from a live page.
 
 Rules:
 

@@ -78,20 +78,34 @@ function renderRefs() {
     });
   }
   $("ref-add").disabled = state.refs.length >= MAX_REFS;
+  $("starter-add").disabled = state.refs.length >= MAX_REFS;
+}
+
+// The one way a reference joins the list, typed URL or packaged starter alike.
+function pushRef(url) {
+  if (state.refs.length >= MAX_REFS) {
+    showError("ref-error", "Three references is the most. More would be averaged away.");
+    return false;
+  }
+  showError("ref-error", "");
+  state.refs.push(url);
+  renderRefs();
+  return true;
 }
 
 function addRef() {
   const input = $("ref-input");
   const url = input.value.trim();
-  if (!url) return;
-  if (state.refs.length >= MAX_REFS) {
-    showError("ref-error", "Three references is the most. More would be averaged away.");
-    return;
-  }
-  showError("ref-error", "");
-  state.refs.push(url);
-  input.value = "";
-  renderRefs();
+  if (url && pushRef(url)) input.value = "";
+}
+
+// Starters are listed by the server and read from its package: no page is fetched for them.
+async function loadStarters() {
+  const list = await api("/api/starters");
+  if (!list.length) return;
+  $("starter-input").replaceChildren(...list.map((row) =>
+    el("option", { value: `starter:${row.id}`, text: `${row.name} (CC0)` })));
+  $("starter-row").hidden = false;
 }
 
 // Measure, re-run, copy
@@ -617,6 +631,8 @@ function highlight(event, on) {
 // Wiring
 
 $("ref-add").addEventListener("click", addRef);
+$("starter-add").addEventListener("click", () => pushRef($("starter-input").value));
+loadStarters().catch(() => {}); // no list: the picker stays hidden and typed URLs still work
 $("ref-input").addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();

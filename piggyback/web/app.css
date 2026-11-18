@@ -87,11 +87,11 @@ main.wrap, .result, .result-body, .report, .comparison, .sheet, .spec-body, .spe
 .slot-title { font-size: 14px; font-weight: 600; }
 .hint { color: var(--fg-3); font-size: 13px; }
 .row { display: flex; gap: 8px; min-width: 0; }
-input[type="url"], input[type="text"] {
+input[type="url"], input[type="text"], select {
   flex: 1; min-width: 0; height: 40px; padding: 0 12px; border-radius: var(--r-s);
   border: 1px solid var(--line-2); background: var(--bg-1); color: var(--fg);
 }
-input[type="url"]:hover, input[type="text"]:hover { border-color: var(--line-3); }
+input[type="url"]:hover, input[type="text"]:hover, select:hover { border-color: var(--line-3); }
 input::placeholder { color: var(--fg-3); opacity: 1; }
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 40px; }
 .chips:empty, .chips:not(:empty) + .chips-empty { display: none; }

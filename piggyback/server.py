@@ -10,6 +10,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import signal
 import sys
 import tempfile
@@ -23,7 +24,7 @@ from urllib.parse import urlsplit
 from . import brief as brief_mod
 from . import defaults as defaults_mod
 from . import gap as gap_mod
-from . import netpolicy
+from . import netpolicy, starters
 from .glossary import TERMS
 from .measure import MeasureError, check_url, measure
 
@@ -109,9 +110,12 @@ def _slots(body):
     refs, build = body.get("references", []), body.get("build") or None
     _shape(refs, build)
     build = netpolicy.local_name(build) if build else None
-    # Reference: public addresses only. Build: loopback too (your own localhost), still no LAN.
+    # Reference: public addresses or a packaged starter. Build: loopback too (your own localhost).
     for url in refs:
-        check_url(url)
+        if starters.is_starter(url):
+            starters.check(url)
+        else:
+            check_url(url)
     if build:
         check_url(build, allow_loopback=True)
         # Loopback reach is only for a literal loopback address (see run); a name that resolves to
@@ -273,7 +277,11 @@ class Screen(ThreadingHTTPServer):
     def _shoot(self, url, allow_loopback, shown=None):
         shot_id = secrets.token_hex(16)
         path = self.shot_dir / f"{shot_id}.png"
-        fp = measure(url, allow_loopback=allow_loopback, screenshot=path)
+        if starters.is_starter(url):  # packaged, never fetched; a copy, since _forget_shots unlinks
+            fp = starters.fingerprint(url)
+            shutil.copyfile(starters.screenshot(url), path)
+        else:
+            fp = measure(url, allow_loopback=allow_loopback, screenshot=path)
         self.shots[shot_id] = path
         return {**fp, "url": shown or fp["url"], "shot": shot_id}
 
@@ -322,6 +330,8 @@ class Handler(BaseHTTPRequestHandler):
         if path in STATIC:
             name, ctype = STATIC[path]
             return self._send(200, (WEB / name).read_bytes(), ctype)
+        if path == "/api/starters":
+            return self._json(200, starters.catalog())
         found = SHOT.fullmatch(path)
         shot = self.server.shots.get(found[1]) if found else None
         if shot is None:
