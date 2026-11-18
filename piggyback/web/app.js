@@ -14,6 +14,7 @@ history.replaceState(null, "", "/"); // keep the session token out of the addres
 
 const NOTE_CHARS = 200; // the server's cap on a note's text
 const state = { refs: [], last: null, lastRequest: null, urls: [], busy: false, notes: new Map() };
+const starterNames = new Map(); // "starter:<id>" -> the name shown on screen, filled from the server's list
 const frames = new Map(); // frame element -> relayout function, for screenshots with pins
 const $ = (id) => document.getElementById(id);
 
@@ -67,7 +68,7 @@ function renderRefs() {
   const list = $("ref-list");
   list.replaceChildren(
     ...state.refs.map((url, index) =>
-      el("li", {}, el("span", { text: url }),
+      el("li", {}, el("span", { text: starterNames.get(url) || url }),
         el("button", { type: "button", class: "chip-x", "aria-label": `Remove reference ${index + 1}`,
           text: "×" }))),
   );
@@ -87,6 +88,10 @@ function pushRef(url) {
     showError("ref-error", "Three references is the most. More would be averaged away.");
     return false;
   }
+  if (state.refs.includes(url)) {
+    showError("ref-error", "That reference is already in the list. Each one counts once.");
+    return false;
+  }
   showError("ref-error", "");
   state.refs.push(url);
   renderRefs();
@@ -103,8 +108,9 @@ function addRef() {
 async function loadStarters() {
   const list = await api("/api/starters");
   if (!list.length) return;
+  for (const row of list) starterNames.set(`starter:${row.id}`, `${row.name} (CC0 starter)`);
   $("starter-input").replaceChildren(...list.map((row) =>
-    el("option", { value: `starter:${row.id}`, text: `${row.name} (CC0)` })));
+    el("option", { value: `starter:${row.id}`, text: starterNames.get(`starter:${row.id}`) })));
   $("starter-row").hidden = false;
 }
 
@@ -184,7 +190,7 @@ async function copyFile(endpoint, file, body = {}) {
 
 // Text helpers
 
-const bare = (url) => url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+const bare = (url) => starterNames.get(url) || url.replace(/^https?:\/\//, "").replace(/\/$/, "");
 const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const px = (value) => `${Number(value.toFixed(2))}px`;
 const pxValues = (text) => [...text.matchAll(/([\d.]+)px/g)].map((match) => Number(match[1]));
@@ -255,7 +261,9 @@ function accentSpecimen(line) {
   }
   const fill = el("span", { class: "meter-fill" });
   fill.style.width = `${Math.min(share, 100)}%`;
-  return [samples("meter", [0], () => [el("span", { class: "meter" }, fill), unit(line.detail)])];
+  // The share is all the page gives: no accent colour is measured, so the note says only that.
+  return [samples("accent", [0], () => [el("span", { class: "meter" }, fill), unit(line.detail)]),
+    el("p", { class: "note", text: "Share of the first screen in saturated colour. The accent colour itself is not measured." })];
 }
 
 function radiusSpecimen(line) {
