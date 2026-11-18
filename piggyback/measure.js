@@ -97,15 +97,20 @@
 
   // Palette: background colours by area; accent = most saturated non-neutral background.
   const SATURATED = 0.25;
+  // Chroma (max - min, 0-255) floor: a dark navy, teal or slate panel has a high ratio on a small
+  // range (rgb(21,32,35) is 0.40) but no hue an eye can pick out; real accents clear 50 easily.
+  const ACCENT_CHROMA = 50;
   const sat = ([r, g, b]) => {
     const max = Math.max(r, g, b);
     return max === 0 ? 0 : (max - Math.min(r, g, b)) / max;
   };
+  const chroma = ([r, g, b]) => Math.max(r, g, b) - Math.min(r, g, b);
   const bgs = boxes.filter((b) => b.area > 0 && hasBg(b));
   const accents = new Map();
   for (const b of bgs) {
-    const s = sat(rgba(b.cs.backgroundColor));
-    if (s < SATURATED) continue;
+    const c = rgba(b.cs.backgroundColor);
+    const s = sat(c);
+    if (s < SATURATED || chroma(c) < ACCENT_CHROMA) continue;
     const entry = accents.get(b.cs.backgroundColor) || { sat: s, area: 0 };
     entry.area += b.area;
     accents.set(b.cs.backgroundColor, entry);

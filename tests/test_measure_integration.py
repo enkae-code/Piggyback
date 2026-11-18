@@ -137,6 +137,16 @@ class MeasureIntegration(unittest.TestCase):
         self.assertGreater(background[0]["share"], 0.5)
         self.assertIn("rgb(25, 27, 24)", [row["value"] for row in background])
 
+    def test_dark_tinted_panels_are_not_the_accent(self):
+        # rgb(21,32,35) panels pass the ratio test with no hue; only the mint button counts.
+        palette = measure(f"{self.base}/accent-dark-tint.html", allow_loopback=True)["palette"]
+        self.assertGreater(palette["accent_share"], 0)
+        self.assertLess(palette["accent_share"], 0.02)
+
+    def test_saturated_hero_is_the_accent(self):
+        palette = measure(f"{self.base}/accent-hero.html", allow_loopback=True)["palette"]
+        self.assertGreater(palette["accent_share"], 0.5)
+
     def test_http_404_is_refused_with_its_status(self):
         with self.assertRaisesRegex(MeasureError, "HTTP 404"):
             measure(f"{self.base}/no-such-page.html", allow_loopback=True)
