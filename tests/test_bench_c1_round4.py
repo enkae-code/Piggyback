@@ -38,7 +38,12 @@ class TargetLockRefusals(unittest.TestCase):
             (run / "C1-01" / "pair.json").write_text(json.dumps({"status": "failed", "sides": {}}))
             manifest_data = {"spot_check": {"pool": ["C1-01", "C1-02"]}}
             (run / "manifest.json").write_text(json.dumps(manifest_data))
-            with self.assertRaises(SystemExit) as ctx:
+            primaries = {"primary": [{"id": "C1-01"}, {"id": "C1-02"}], "reserves": []}
+            with (
+                mock.patch("bench.c1.targets.check_registered"),
+                mock.patch("bench.c1.targets.load_pairs", return_value=primaries),
+                self.assertRaises(SystemExit) as ctx,
+            ):
                 targets.lock(root, "run1")
             self.assertIn("C1-02", str(ctx.exception))
             self.assertEqual(sorted(p.name for p in run.iterdir()), ["C1-01", "manifest.json"])
@@ -111,72 +116,6 @@ class Registration(unittest.TestCase):
             self.assertEqual(victim.read_text(), "keep")
 
 
-class Replacements(unittest.TestCase):
-    def setUp(self):
-        from bench.c1.capture import load_pairs
-
-        self.data = load_pairs()
-        self.tmp = tmpdir()
-        self.rundir = Path(self.tmp.name) / "run1"
-        self.rundir.mkdir()
-
-    def tearDown(self):
-        self.tmp.cleanup()
-
-    def failure(self, pid, cls):
-        folder = self.rundir / pid / "reference" / "attempt-1"
-        folder.mkdir(parents=True)
-        (folder / "failure.json").write_text(json.dumps({"class": cls}))
-
-    def decide(self, pid, decision="replace"):
-        entry = {
-            "pair_id": pid,
-            "decision": decision,
-            "reason": "bot wall",
-            "decided_by": "brodey",
-            "decided_at_utc": "2026-11-17T12:00:00+00:00",
-        }
-        (self.rundir / "eligibility.json").write_text(json.dumps([entry]))
-
-    def test_replacement_needs_an_eligible_failure_record(self):
-        with self.assertRaises(SystemExit) as ctx:
-            score._check_replacements(self.rundir, self.data, [("C1-05", "R1")])
-        self.assertIn("no failure record", str(ctx.exception))
-
-    def test_timeout_is_not_an_eligible_failure_class(self):
-        self.failure("C1-05", "timeout")
-        self.decide("C1-05")
-        with self.assertRaises(SystemExit):
-            score._check_replacements(self.rundir, self.data, [("C1-05", "R1")])
-
-    def test_replacement_needs_a_recorded_decision(self):
-        self.failure("C1-05", "http_status")
-        with self.assertRaises(SystemExit) as ctx:
-            score._check_replacements(self.rundir, self.data, [("C1-05", "R1")])
-        self.assertIn("'replace' decision", str(ctx.exception))
-
-    def test_failure_and_decision_together_allow_the_reserve(self):
-        self.failure("C1-05", "http_status")
-        self.decide("C1-05")
-        score._check_replacements(self.rundir, self.data, [("C1-05", "R1")])  # no exception
-
-    def test_reserves_must_be_used_in_order(self):
-        self.failure("C1-05", "http_status")
-        self.decide("C1-05")
-        with self.assertRaises(SystemExit):
-            score._check_replacements(self.rundir, self.data, [("C1-05", "R2")])
-
-    def test_decision_entry_must_be_complete(self):
-        (self.rundir / "eligibility.json").write_text(json.dumps([{"pair_id": "C1-05"}]))
-        with self.assertRaises(SystemExit):
-            score._eligibility(self.rundir)
-
-    def test_retained_map_names_the_reserve_for_its_primary(self):
-        mapping = score._retained_map(self.data, [("C1-05", "R1")])
-        self.assertEqual(mapping["C1-05"], "R1")
-        self.assertEqual(mapping["C1-01"], "C1-01")
-
-
 class CardPool(unittest.TestCase):
     def cards_below_fold(self):
         parent = el("div", box=(0, 0, 1440, 1400))
@@ -231,7 +170,7 @@ class ShownPinWithAbsentTarget(unittest.TestCase):
             side: {"requested_url": "u", "final_url": "u", "receipt": "r"}
             for side in ("reference", "build")
         }
-        anchor_row, rows, (shown, correct, pinned) = score._slot_rows(
+        anchor_row, pin_row, _, (shown, correct, pinned) = score._slot_rows(
             "D-01",
             "heading",
             pin,
@@ -241,7 +180,7 @@ class ShownPinWithAbsentTarget(unittest.TestCase):
             meta,
         )
         self.assertEqual((shown, correct), (1, 0))  # in the denominator, scored incorrect
-        self.assertTrue(all(row[score.PIN_COLUMNS.index("element_right")] is False for row in rows))
+        self.assertIs(pin_row[score.PIN_COLUMNS.index("element_right")], False)
         self.assertEqual(anchor_row[2], "pinned")
 
 
@@ -297,7 +236,13 @@ class AuditAndSafety(unittest.TestCase):
             victim.write_text("keep")
             (run / "targets.json").symlink_to(victim)
             (run / "manifest.json").write_text(json.dumps({"spot_check": {"pool": []}}))
-            targets.lock(root, "run1")
+            with (
+                mock.patch("bench.c1.targets.check_registered"),
+                mock.patch(
+                    "bench.c1.targets.load_pairs", return_value={"primary": [], "reserves": []}
+                ),
+            ):
+                targets.lock(root, "run1")
             self.assertEqual(victim.read_text(), "keep")
             self.assertFalse((run / "targets.json").is_symlink())
 

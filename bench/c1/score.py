@@ -4,10 +4,11 @@ Refuses to run unless the run has a manifest, targets.lock.json matches targets.
 locked from the snapshots before any pin is read), and every receipt was captured with the Chromium
 the manifest registered. Writes pins.csv, anchors.csv, pair_summary.csv and verdict.json.
 
-A replacement (--replace C1-05=R1) needs two records: a failure-attempt record of an eligible
-class for the primary, and a person's 'replace' decision in eligibility.json.
+Replacements come only from eligibility.json (capture.plan_retained): each replace decision takes
+the next unused reserve, in row order. Refuses when verdict.json already exists: the first scoring
+is final, and a later experiment needs a new run id.
 
-Usage: python -m bench.c1.score --store STORE --run RUN_ID [--replace C1-05=R1 ...]
+Usage: python -m bench.c1.score --store STORE --run RUN_ID
 """
 
 import argparse
@@ -17,8 +18,14 @@ import json
 import os
 import sys
 
-from bench.c1.capture import ELIGIBLE, SIDES, load_pairs
-from bench.c1.manifest import DEFAULT_STORE, SAMPLE_SIZE, load_manifest, run_folder
+from bench.c1.capture import SIDES, load_pairs, pair_status, plan_retained
+from bench.c1.manifest import (
+    DEFAULT_STORE,
+    SAMPLE_SIZE,
+    check_registered,
+    load_manifest,
+    run_folder,
+)
 from bench.c1.targets import js_round, sha256_file
 from piggyback import fingerprint as fp
 from piggyback.gap import ANCHORS, gap
@@ -28,22 +35,14 @@ SLOT_OF_CONCEPT = {concept: name for name, (_, concept) in ANCHORS.items()}
 PX_TOLERANCE = 1.0  # CSS px after unit conversion
 PASS_NUMERATOR, PASS_DENOMINATOR = 9, 10  # 90%, exact integer arithmetic
 MIN_AVG_PINNED = 3.0
-DECISION_FIELDS = ("pair_id", "decision", "reason", "decided_by", "decided_at_utc")
 PAIR_COLUMNS = ["pair_id", "shown_pins", "correct_pins", "anchors_pinned", "receipt_status"]
+# One row per numbered pin.
 PIN_COLUMNS = [
     "pair_id",
     "slot",
     "pin_number",
-    "side",
     "shown",
     "element_right",
-    "property",
-    "piggyback_value",
-    "hand_value",
-    "unit",
-    "abs_diff",
-    "tolerance",
-    "verdict",
     "pin_correct",
     "expected_target",
     "reviewer",
@@ -57,7 +56,20 @@ PIN_COLUMNS = [
     "reference_shown_box",
     "build_shown_box",
 ]
-PIN_CORRECT = PIN_COLUMNS.index("pin_correct")
+# One row per pin and side and measured property.
+PROP_COLUMNS = [
+    "pair_id",
+    "slot",
+    "pin_number",
+    "side",
+    "property",
+    "piggyback_value",
+    "hand_value",
+    "unit",
+    "abs_diff",
+    "tolerance",
+    "verdict",
+]
 ANCHOR_COLUMNS = ["pair_id", "slot", "disposition", "pin_number"]
 
 
@@ -203,52 +215,41 @@ def _audit(meta, pin):
 
 
 def _side_values(target, anchor, props):
-    """(hand, mine, expected) per property for one side. hand is None when the target is absent."""
+    """(hand, mine) per property for one side. hand is None when the target is absent."""
     absent = bool(target.get("absent"))
     hand = {p: None for p in props} if absent else hand_values(target, props)
     font = None if absent else fp.px(target["style"].get("font-size"))
-    expected = "absent" if absent else f"{target['tag']} {target['text']!r}"
-    return hand, piggyback_values(anchor, font), expected
+    return hand, piggyback_values(anchor, font)
 
 
-def _prop_row(ctx, side, prop, hand, mine, expected):
-    """One pin row for one side and property, and whether that value is correct."""
-    pair_id, slot, pin, shown, element_right, audit = ctx
-    ok = within("string" if isinstance(hand[prop], str) else "px", hand[prop], mine[prop])
-    numeric = isinstance(hand[prop], float) and isinstance(mine[prop], float)
-    row = [
-        pair_id,
-        slot,
-        pin.number,
-        side,
-        shown,
-        element_right,
-        prop,
-        mine[prop],
-        hand[prop],
-        "px",
-        abs(mine[prop] - hand[prop]) if numeric else None,
-        PX_TOLERANCE,
-        "correct" if ok else "incorrect",
-        None,
-        expected,
-        "bot",
-        None,
-        *audit,
-    ]
-    return row, ok
+def _expected(target):
+    return "absent" if target.get("absent") else f"{target['tag']} {target['text']!r}"
 
 
-def _value_rows(pair_id, slot, pin, target, anchors, shown, element_right, meta):
+def _value_rows(pair_id, slot, pin, target, anchors):
     """One row per side and property: hand-checked value against Piggyback's own value."""
     rows, value_ok = [], True
     props = reported_props(pin.detail)
-    ctx = (pair_id, slot, pin, shown, element_right, _audit(meta, pin))
     for side in SIDES:
-        hand, mine, expected = _side_values(target[side], anchors[side], props)
+        hand, mine = _side_values(target[side], anchors[side], props)
         for prop in props:
-            row, ok = _prop_row(ctx, side, prop, hand, mine, expected)
-            rows.append(row)
+            ok = within("string" if isinstance(hand[prop], str) else "px", hand[prop], mine[prop])
+            numeric = isinstance(hand[prop], float) and isinstance(mine[prop], float)
+            rows.append(
+                [
+                    pair_id,
+                    slot,
+                    pin.number,
+                    side,
+                    prop,
+                    mine[prop],
+                    hand[prop],
+                    "px",
+                    abs(mine[prop] - hand[prop]) if numeric else None,
+                    PX_TOLERANCE,
+                    "correct" if ok else "incorrect",
+                ]
+            )
             value_ok = value_ok and ok
     return rows, value_ok
 
@@ -261,26 +262,39 @@ def _disposition(spots):
 
 
 def _slot_rows(pair_id, slot, pin, target, anchors, fps, meta):
-    """Anchor disposition, then pin rows for one slot. Returns (anchor_row, pin_rows, counts)."""
+    """Anchor disposition, the pin row, and its property rows for one slot.
+
+    Returns (anchor_row, pin_row, prop_rows, counts).
+    """
     boxes = {"reference": pin.ref_box, "build": pin.build_box}
     spots = {side: placement(boxes[side], fps[side].get("viewport")) for side in SIDES}
     shown_sides = [side for side in SIDES if spots[side] == "in"]
     disposition = _disposition(spots)
     shown = bool(shown_sides)
     element_right = shown and all(_right(boxes[s], target[s]) for s in shown_sides)
-    pin_rows, value_ok = _value_rows(
-        pair_id, slot, pin, target, anchors, shown, element_right, meta
-    )
+    prop_rows, value_ok = _value_rows(pair_id, slot, pin, target, anchors)
     correct = shown and element_right and value_ok
-    for row in pin_rows:
-        row[PIN_CORRECT] = correct
+    expected = f"reference: {_expected(target['reference'])}; build: {_expected(target['build'])}"
+    pin_row = [
+        pair_id,
+        slot,
+        pin.number,
+        shown,
+        element_right,
+        correct,
+        expected,
+        "bot",
+        None,
+        *_audit(meta, pin),
+    ]
     counts = (int(shown), int(correct), int(disposition == "pinned"))
-    return [pair_id, slot, disposition, pin.number], pin_rows, counts
+    return [pair_id, slot, disposition, pin.number], pin_row, prop_rows, counts
 
 
 def score_pair(pair_id, targets, fps, meta):
-    """Rows for one retained pair: (pin_rows, anchor_rows, shown, correct, pinned, skipped).
+    """Rows for one retained pair.
 
+    Returns (pin_rows, prop_rows, anchor_rows, shown, correct, pinned, skipped).
     skipped counts numbered page-level pins (accent, container, motion): outside pin accuracy.
     A slot with no numbered pin is 'not found' when Piggyback has no anchor for it on a side,
     else 'no pin'. A shown pin whose target is absent on its side is scored incorrect.
@@ -290,7 +304,7 @@ def score_pair(pair_id, targets, fps, meta):
     skipped = sum(
         1 for pin in pins if pin.number is not None and pin.concept not in SLOT_OF_CONCEPT
     )
-    pin_rows, anchor_rows = [], []
+    pin_rows, prop_rows, anchor_rows = [], [], []
     shown_total = correct_total = pinned_total = 0
     for slot in SLOTS:
         target = {side: targets[side][slot] for side in SIDES}
@@ -300,15 +314,24 @@ def score_pair(pair_id, targets, fps, meta):
             missing = any(anchor is None for anchor in anchors.values())
             anchor_rows.append([pair_id, slot, "not found" if missing else "no pin", ""])
             continue
-        anchor_row, rows, (shown, correct, pinned) = _slot_rows(
+        anchor_row, pin_row, props, (shown, correct, pinned) = _slot_rows(
             pair_id, slot, pin, target, anchors, fps, meta
         )
         anchor_rows.append(anchor_row)
-        pin_rows.extend(rows)
+        pin_rows.append(pin_row)
+        prop_rows.extend(props)
         shown_total += shown
         correct_total += correct
         pinned_total += pinned
-    return pin_rows, anchor_rows, shown_total, correct_total, pinned_total, skipped
+    return (
+        pin_rows,
+        prop_rows,
+        anchor_rows,
+        shown_total,
+        correct_total,
+        pinned_total,
+        skipped,
+    )
 
 
 def _private_write(path, text):
@@ -333,67 +356,6 @@ def _lock_ok(run):
     if sha256_file(run / "targets.json") != record["targets_sha256"]:
         raise SystemExit("refusing: targets.json changed after it was locked")
     return json.loads((run / "targets.json").read_text(encoding="utf-8"))
-
-
-def _parse_replacements(items):
-    """'C1-05=R1' pairs: each reserve replaces one failed primary."""
-    out = []
-    for item in items or []:
-        primary, sep, reserve = item.partition("=")
-        if not sep or not primary or not reserve:
-            raise SystemExit(f"refusing: replacement {item!r} must read PRIMARY=RESERVE")
-        out.append((primary, reserve))
-    return out
-
-
-def _eligibility(run):
-    """Person-written decisions in eligibility.json: {pair_id: entry} for each 'replace'."""
-    path = run / "eligibility.json"
-    if not path.is_file() or path.is_symlink():
-        return {}
-    decisions = {}
-    for entry in json.loads(path.read_text(encoding="utf-8")):
-        if not all(isinstance(entry.get(k), str) and entry[k].strip() for k in DECISION_FIELDS):
-            raise SystemExit(f"refusing: eligibility entry lacks one of {DECISION_FIELDS}: {entry}")
-        if entry["decision"] == "replace":
-            decisions[entry["pair_id"]] = entry
-    return decisions
-
-
-def _eligible_failure(run, pid):
-    """True when the pair has a failure-attempt record of an eligible class."""
-    for path in (run / pid).glob("*/attempt-*/failure.json"):
-        if json.loads(path.read_text(encoding="utf-8"))["class"] in ELIGIBLE:
-            return True
-    return False
-
-
-def _check_replacements(run, data, replacements):
-    """Reserves in order; each primary needs an eligible failure record AND a recorded decision."""
-    reserve_order = [r["id"] for r in data["reserves"]]
-    used = [reserve for _, reserve in replacements]
-    if used != reserve_order[: len(used)]:
-        raise SystemExit("replacements must use reserves in order R1, R2, ...")
-    primaries = {p["id"] for p in data["primary"]}
-    decisions = _eligibility(run)
-    for primary, _ in replacements:
-        if primary not in primaries:
-            raise SystemExit(f"refusing: {primary} is not a primary pair")
-        if not _eligible_failure(run, primary):
-            raise SystemExit(f"refusing: {primary} has no failure record of an eligible class")
-        if primary not in decisions:
-            raise SystemExit(f"refusing: {primary} has no 'replace' decision in eligibility.json")
-
-
-def _retained_map(data, replacements):
-    """Primary ID -> the ID scored in its row: the reserve named for it, else itself."""
-    replaced = dict(replacements)
-    return {p["id"]: replaced.get(p["id"], p["id"]) for p in data["primary"]}
-
-
-def _pair_status(run, pid):
-    path = run / pid / "pair.json"
-    return json.loads(path.read_text(encoding="utf-8"))["status"] if path.is_file() else "missing"
 
 
 def _load_pair(run, pid, targets, chromium):
@@ -439,63 +401,82 @@ def _verdict(scored, primary_count, unresolved, shown, correct, pinned):
     return ("pass" if accuracy_ok and anchors_ok else "fail"), required
 
 
-def run_score(store, run_id, replacements=None):
-    run = run_folder(store, run_id)
-    if not run.is_dir():
-        raise SystemExit(f"refusing: no run {run_id} in {store}")
-    manifest = load_manifest(run)
-    targets = _lock_ok(run)
-    data = load_pairs()
-    pairs = _parse_replacements(replacements)
-    if pairs:
-        _check_replacements(run, data, pairs)
-    mapping = _retained_map(data, pairs)
-    unresolved, pin_rows, anchor_rows, pair_rows = [], [], [], []
-    shown_total = correct_total = pinned_total = skipped_total = 0
-    for pid in mapping.values():
-        loaded = _load_pair(run, pid, targets, manifest["chromium_version"])
-        if loaded is None:
-            unresolved.append(pid)
-            pair_rows.append([pid, 0, 0, 0, _pair_status(run, pid)])
-            anchor_rows += [[pid, slot, "not found", ""] for slot in SLOTS]
+def _unresolved(rows, pid, status):
+    rows["unresolved"].append(pid)
+    rows["pairs"].append([pid, 0, 0, 0, status])
+    rows["anchors"] += [[pid, slot, "not found", ""] for slot in SLOTS]
+
+
+def _score_plan(run, plan, targets, chromium):
+    """Rows for every plan entry in row order, and the (shown, correct, pinned, skipped) totals."""
+    rows = {"unresolved": [], "pins": [], "props": [], "anchors": [], "pairs": []}
+    totals = [0, 0, 0, 0]
+    for pid, scored in plan:
+        if scored is None:
+            _unresolved(rows, pid, "no reserve left")
             continue
-        pr, ar, shown, correct, pinned, skipped = score_pair(pid, targets[pid], *loaded)
-        pin_rows += pr
-        anchor_rows += ar
-        pair_rows.append([pid, shown, correct, pinned, _pair_status(run, pid)])
-        shown_total += shown
-        correct_total += correct
-        pinned_total += pinned
-        skipped_total += skipped
-    scored = len(pair_rows) - len(unresolved)  # resolved pairs only
-    verdict, required = _verdict(
-        scored, len(data["primary"]), unresolved, shown_total, correct_total, pinned_total
-    )
+        if scored != pid:
+            rows["pairs"].append([pid, 0, 0, 0, f"replaced by {scored}"])
+        loaded = _load_pair(run, scored, targets, chromium)
+        if loaded is None:
+            _unresolved(rows, scored, pair_status(run, scored) or "missing")
+            continue
+        pr, prop, ar, *counts = score_pair(scored, targets[scored], *loaded)
+        rows["pins"] += pr
+        rows["props"] += prop
+        rows["anchors"] += ar
+        rows["pairs"].append([scored, *counts[:3], pair_status(run, scored)])
+        totals = [a + b for a, b in zip(totals, counts, strict=True)]
+    return rows, totals
+
+
+def _report(manifest, data, plan, rows, totals):
+    shown, correct, pinned, skipped = totals
+    unresolved = sorted(set(rows["unresolved"]))
+    scored = len(plan) - len(rows["unresolved"])  # resolved pairs only
+    verdict, required = _verdict(scored, len(data["primary"]), unresolved, shown, correct, pinned)
     sample = manifest["spot_check"]["sample"]
-    report = {
+    return {
         "verdict": verdict,
-        "shown_pins": shown_total,
-        "correct_pins": correct_total,
+        "shown_pins": shown,
+        "correct_pins": correct,
         "required_correct": required,
-        "anchors_pinned": pinned_total,
-        "page_level_pins_skipped": skipped_total,
+        "anchors_pinned": pinned,
+        "page_level_pins_skipped": skipped,
         "retained_pairs": scored,
-        "avg_pinned_anchors": round(pinned_total / scored, 2) if scored else None,
-        "unresolved": sorted(set(unresolved)),
-        "replacements": [f"{p}={r}" for p, r in pairs],
+        "avg_pinned_anchors": round(pinned / scored, 2) if scored else None,
+        "unresolved": unresolved,
+        "replacements": [f"{p}={s}" for p, s in plan if s not in (None, p)],
         "spot_check": {
             "seed": manifest["spot_check"]["seed"],
             "sample_size": SAMPLE_SIZE,
             "sample": sample,
-            "retained_for_sample": {p: mapping[p] for p in sample},
+            "retained_for_sample": {p: s for p, s in plan if p in sample},
         },
         "manifest_commit": manifest["piggyback_commit"],
         "chromium_version": manifest["chromium_version"],
     }
-    _private_write(run / "pins.csv", _csv(PIN_COLUMNS, pin_rows))
-    _private_write(run / "anchors.csv", _csv(ANCHOR_COLUMNS, anchor_rows))
-    _private_write(run / "pair_summary.csv", _csv(PAIR_COLUMNS, pair_rows))
-    _private_write(run / "verdict.json", json.dumps(report, indent=2) + "\n")
+
+
+def run_score(store, run_id):
+    run = run_folder(store, run_id)
+    if not run.is_dir():
+        raise SystemExit(f"refusing: no run {run_id} in {store}")
+    manifest = load_manifest(run)
+    check_registered(manifest)
+    verdict_path = run / "verdict.json"
+    if verdict_path.exists() or verdict_path.is_symlink():
+        raise SystemExit(f"refusing: {verdict_path} exists; the first scoring is final")
+    targets = _lock_ok(run)
+    data = load_pairs()
+    plan = plan_retained(run, data)  # decisions are checked before any pin is read or written
+    rows, totals = _score_plan(run, plan, targets, manifest["chromium_version"])
+    report = _report(manifest, data, plan, rows, totals)
+    _private_write(run / "pins.csv", _csv(PIN_COLUMNS, rows["pins"]))
+    _private_write(run / "pin_properties.csv", _csv(PROP_COLUMNS, rows["props"]))
+    _private_write(run / "anchors.csv", _csv(ANCHOR_COLUMNS, rows["anchors"]))
+    _private_write(run / "pair_summary.csv", _csv(PAIR_COLUMNS, rows["pairs"]))
+    _private_write(verdict_path, json.dumps(report, indent=2) + "\n")
     return report
 
 
@@ -503,9 +484,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--store", default=str(DEFAULT_STORE))
     parser.add_argument("--run", required=True)
-    parser.add_argument("--replace", action="append", metavar="C1-05=R1")
     args = parser.parse_args(argv)
-    print(json.dumps(run_score(args.store, args.run, args.replace), indent=2))
+    print(json.dumps(run_score(args.store, args.run), indent=2))
     return 0
 
 

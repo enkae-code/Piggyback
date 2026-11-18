@@ -14,8 +14,8 @@ import math
 import re
 from datetime import datetime, timezone
 
-from bench.c1.capture import SIDES
-from bench.c1.manifest import load_manifest, run_folder, sha256_file
+from bench.c1.capture import SIDES, load_pairs, plan_retained
+from bench.c1.manifest import check_registered, load_manifest, run_folder, sha256_file
 from bench.c1.snapshot import Snapshot, px
 from piggyback.measure import publish_json
 
@@ -72,15 +72,28 @@ def has_background(el):
     return len(parts) == 3 or float(parts[3].rstrip("%")) > 0
 
 
-def ink_box(el):
-    """Bounding box of the element's text, clipped to the element; the element box if no text."""
+def _descendant_boxes(snap, el):
+    for child in el.children:
+        if child in snap.els:
+            yield snap.els[child].box
+            yield from _descendant_boxes(snap, snap.els[child])
+
+
+def ink_box(snap, el):
+    """measure.js ink rect: Range.getBoundingClientRect over the element's contents, clipped to it.
+
+    The range covers the text boxes under el (already attached to every ancestor) and the border
+    boxes of every descendant element, so a block child widens the ink. Falls back to the element
+    box when nothing is left.
+    """
     x, y, w, h = el.box
-    if not el.boxes:
+    boxes = el.boxes + [b for b in _descendant_boxes(snap, el) if b]
+    if not boxes:
         return el.box
-    left = min(b[0] for b in el.boxes)
-    top = min(b[1] for b in el.boxes)
-    right = max(b[0] + b[2] for b in el.boxes)
-    bottom = max(b[1] + b[3] for b in el.boxes)
+    left = min(b[0] for b in boxes)
+    top = min(b[1] for b in boxes)
+    right = max(b[0] + b[2] for b in boxes)
+    bottom = max(b[1] + b[3] for b in boxes)
     left, top = max(left, x), max(top, y)
     right, bottom = min(right, x + w), min(bottom, y + h)
     return (left, top, right - left, bottom - top) if right > left and bottom > top else el.box
@@ -123,7 +136,7 @@ def _heading(snap, els, vw, vh):
     heading = pick_first_best(
         pool, lambda el: (px(el.style["font-size"]) or 0, clipped_area(el, vw, vh))
     )
-    return _target(snap, heading, ink_box(heading)) if heading else None
+    return _target(snap, heading, ink_box(snap, heading)) if heading else None
 
 
 def _body(snap, els):
@@ -131,7 +144,7 @@ def _body(snap, els):
         (el for el in els if el.tag == "p" and len(snap.paragraph_inner_text(el.idx)) >= 40),
         None,
     )
-    return _target(snap, body, ink_box(body)) if body else None
+    return _target(snap, body, ink_box(snap, body)) if body else None
 
 
 def _nav(snap, els):
@@ -188,14 +201,18 @@ def _qualifies_as_card(snap, el, vw):
 
 
 def _sibling_groups(els):
-    """Rendered elements sharing a parent, tag and class, in DOM order per group."""
-    groups = {}
+    """Rendered elements sharing a parent, tag and class, in DOM order per group.
+
+    Walked as measure.js builds them: parents in first-seen order, then signatures within each
+    parent in first-seen order, so a tie goes to the same group.
+    """
+    by_parent = {}
     for el in els:
         cls = el.attrs.get("class")
         if not cls or el.parent < 0:  # an empty class is no class, as in measure.js
             continue
-        groups.setdefault((el.parent, el.tag, cls), []).append(el)
-    return groups.values()
+        by_parent.setdefault(el.parent, {}).setdefault((el.tag, cls), []).append(el)
+    return [group for sigs in by_parent.values() for group in sigs.values()]
 
 
 def _largest_card_group(snap, els, vw):
@@ -218,41 +235,32 @@ def _card(snap, els, vw):
     return target
 
 
-def _require_captured(run):
-    """Refuse unless the run is registered and every manifest primary has a pair.json."""
-    missing = [
-        pid
-        for pid in load_manifest(run)["spot_check"]["pool"]
-        if not (run / pid / "pair.json").is_file()
-    ]
-    if missing:
-        raise SystemExit(f"refusing: no pair.json for {', '.join(missing)}; capture first")
-
-
 def lock(store, run_id):
     """Write targets.json and its lock record once per run. Refuses to overwrite a lock.
 
-    Refuses before any write, so an early call cannot burn the one lock.
+    Locks the retained set only (kept primaries and chosen reserves). Refuses before any write,
+    so an early call cannot burn the one lock.
     """
     run = run_folder(store, run_id)
-    _require_captured(run)
+    manifest = load_manifest(run)
     lock_path = run / "targets.lock.json"
     if lock_path.exists() or lock_path.is_symlink():
         raise SystemExit(f"targets already locked: {lock_path}")
+    plan = plan_retained(run, load_pairs())
+    check_registered(manifest)
     pairs = {}
-    for pair_dir in sorted(p for p in run.iterdir() if p.is_dir()):
-        pair_file = pair_dir / "pair.json"
-        if not pair_file.is_file():
-            continue
-        pair = json.loads(pair_file.read_text(encoding="utf-8"))
+    for _, pid in plan:
+        if pid is None:
+            continue  # no reserve left: unresolved, nothing to lock
+        pair = json.loads((run / pid / "pair.json").read_text(encoding="utf-8"))
         if pair["status"] not in ("ok", "suspected_challenge"):
             continue  # a failed pair has no snapshot to lock; it is reported unresolved
-        pairs[pair_dir.name] = {}
+        pairs[pid] = {}
         for side in SIDES:
             attempt = pair["sides"][side]["attempt"]
-            evidence = pair_dir / side / f"attempt-{attempt}" / "evidence.json"
+            evidence = run / pid / side / f"attempt-{attempt}" / "evidence.json"
             data = json.loads(evidence.read_text(encoding="utf-8"))
-            pairs[pair_dir.name][side] = lock_targets(data)
+            pairs[pid][side] = lock_targets(data)
     targets_path = run / "targets.json"
     publish_json(targets_path, pairs)  # replaces a link at the path, never writes through it
     targets_path.chmod(0o600)

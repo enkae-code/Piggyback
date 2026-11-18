@@ -32,10 +32,11 @@ SETTLE_MS = 5_000  # a page that never goes idle is still measured
 class MeasureError(RuntimeError):
     """A refused or failed measure. status and final_url are set when the refusal knows them."""
 
-    def __init__(self, message="", *, status=None, final_url=None):
+    def __init__(self, message="", *, status=None, final_url=None, screenshot=None):
         super().__init__(message)
         self.status = status
         self.final_url = final_url
+        self.screenshot = screenshot  # set only when a failure screenshot was requested and taken
 
 
 def check_url(url, allow_loopback=False):
@@ -61,10 +62,16 @@ def receipt_refusal(status, requested, final):
     return None
 
 
-def _refuse_if_moved(status, req, page):
+def _refuse_if_moved(status, req, page, tmp=None):
     refusal = receipt_refusal(status, req["url"], page.url)
-    if refusal:
-        raise MeasureError(refusal, status=status, final_url=page.url)
+    if not refusal:
+        return
+    shot = None
+    if tmp and req.get("failure_screenshot") and req["screenshot"]:  # opt-in: keep the page
+        page.screenshot(path=tmp, type="png")
+        os.replace(tmp, req["screenshot"])
+        shot = req["screenshot"]
+    raise MeasureError(refusal, status=status, final_url=page.url, screenshot=shot)
 
 
 def refuse_links(*paths):
@@ -123,8 +130,20 @@ def write_measure(url, out_dir, *, viewport=(1440, 900), allow_loopback=False):
     return fingerprint, shot
 
 
-def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None, evidence=None):
-    """Fingerprint one page. evidence: optional path for a DOM snapshot (Python API only)."""
+def measure(
+    url,
+    *,
+    viewport=(1440, 900),
+    allow_loopback=False,
+    screenshot=None,
+    evidence=None,
+    failure_screenshot=False,
+):
+    """Fingerprint one page. evidence: optional path for a DOM snapshot (Python API only).
+
+    failure_screenshot: opt-in (C1 harness). A refused page is screenshotted to `screenshot`
+    before the refusal, and the MeasureError carries the path.
+    """
     url = check_url(url, allow_loopback)
     request = {
         "url": url,
@@ -132,6 +151,7 @@ def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None,
         "allow_loopback": allow_loopback,
         "screenshot": str(screenshot) if screenshot else None,
         "evidence": str(evidence) if evidence else None,
+        "failure_screenshot": bool(failure_screenshot),
     }
     # Playwright's bypass switch would let Chromium skip the proxy for loopback.
     env = {k: v for k, v in os.environ.items() if k != BYPASS_ENV}
@@ -157,7 +177,10 @@ def measure(url, *, viewport=(1440, 900), allow_loopback=False, screenshot=None,
         result = {"error": "worker output was not JSON"}
     if "error" in result:
         raise MeasureError(
-            result["error"], status=result.get("status"), final_url=result.get("final_url")
+            result["error"],
+            status=result.get("status"),
+            final_url=result.get("final_url"),
+            screenshot=result.get("screenshot"),
         )
     return result
 
@@ -188,7 +211,10 @@ PAGE_STATE = (
 
 
 def _paragraph_texts(session, snapshot):
-    """innerText of each <p>, keyed by backend node id, read in the same CDP session."""
+    """innerText of each <p>, keyed by backend node id, read in the same CDP session.
+
+    A paragraph that fails to resolve is left out: the snapshot falls back to its own text for it.
+    """
     nodes = snapshot["documents"][0]["nodes"]
     pseudo = set(nodes.get("pseudoType", {}).get("index", []))
     texts = {}
@@ -196,15 +222,18 @@ def _paragraph_texts(session, snapshot):
         if kind != 1 or idx in pseudo or snapshot["strings"][nodes["nodeName"][idx]] != "P":
             continue
         backend = nodes["backendNodeId"][idx]
-        node = session.send("DOM.resolveNode", {"backendNodeId": backend})["object"]
-        result = session.send(
-            "Runtime.callFunctionOn",
-            {
-                "objectId": node["objectId"],
-                "functionDeclaration": "function () { return this.innerText; }",
-                "returnByValue": True,
-            },
-        )
+        try:
+            node = session.send("DOM.resolveNode", {"backendNodeId": backend})["object"]
+            result = session.send(
+                "Runtime.callFunctionOn",
+                {
+                    "objectId": node["objectId"],
+                    "functionDeclaration": "function () { return this.innerText; }",
+                    "returnByValue": True,
+                },
+            )
+        except Exception:  # one node (detached, replaced) must not fail the whole side
+            continue
         texts[str(backend)] = result["result"].get("value", "")
     return texts
 
@@ -299,15 +328,15 @@ def _capture_page(req, tmp):
             page = ctx.new_page()
             response = page.goto(req["url"], wait_until="load", timeout=NAV_MS)
             status = response.status if response else None
-            _refuse_if_moved(status, req, page)
+            _refuse_if_moved(status, req, page, tmp)
             page.evaluate("() => document.fonts.ready")
             with contextlib.suppress(Exception):
                 page.wait_for_load_state("networkidle", timeout=SETTLE_MS)
             fingerprint = _capture_motion(page, tmp, req.get("evidence"))
             try:
-                _refuse_if_moved(status, req, page)  # a script may redirect while the page settles
-            except MeasureError:
-                if req["screenshot"]:
+                _refuse_if_moved(status, req, page, tmp)  # a script may redirect while it settles
+            except MeasureError as exc:
+                if req["screenshot"] and exc.screenshot is None:
                     Path(req["screenshot"]).unlink(missing_ok=True)
                 raise
             captured_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -338,11 +367,12 @@ def _worker():
     req = json.loads(sys.stdin.read())
     try:
         result = _capture(req)
-    except Exception as exc:  # Playwright and launch errors; the first line is enough
+    except Exception as exc:  # Playwright and launch errors
         text = str(exc).strip()
-        out: dict = {"error": text.splitlines()[0] if text else repr(exc)}
+        out: dict = {"error": text or repr(exc)}
         if isinstance(exc, MeasureError):
             out["status"], out["final_url"] = exc.status, exc.final_url
+            out["screenshot"] = exc.screenshot
         print(json.dumps(out))
         return 1
     print(json.dumps(result))

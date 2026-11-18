@@ -402,7 +402,34 @@ def write_manifest(run, chromium="156.0.1"):
     (Path(run) / "manifest.json").write_text(json.dumps(data))
 
 
+SMALL_PAIRS = {
+    "primary": [{"id": "C1-01", "reference": "https://x.test/", "build": "https://x.test/"}],
+    "reserves": [],
+}
+
+
+def decision(pid, value="keep"):
+    return {
+        "pair_id": pid,
+        "decision": value,
+        "reason": "test",
+        "decided_by": "brodey",
+        "decided_at_utc": RECEIPT,
+    }
+
+
 class LockAndOrdering(unittest.TestCase):
+    def setUp(self):
+        # Registration and the primary set are exercised in round6; here a one-pair run suffices.
+        for name in ("targets.check_registered", "score.check_registered"):
+            patch = mock.patch(f"bench.c1.{name}")
+            patch.start()
+            self.addCleanup(patch.stop)
+        for name in ("targets.load_pairs", "score.load_pairs"):
+            patch = mock.patch(f"bench.c1.{name}", return_value=SMALL_PAIRS)
+            patch.start()
+            self.addCleanup(patch.stop)
+
     def make_run(self, root, pair="C1-01", status="ok"):
         run = Path(root) / "run1"
         record = {"pair_id": pair, "status": status, "sides": {}}
@@ -447,6 +474,7 @@ class LockAndOrdering(unittest.TestCase):
     def test_unresolved_pairs_are_not_counted_as_retained(self):
         with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as root:
             run = self.make_run(root, status="failed")  # failed capture: no snapshot to lock
+            (run / "eligibility.json").write_text(json.dumps([decision("C1-01")]))
             targets.lock(root, "run1")
             report = score.run_score(root, "run1")
             self.assertEqual(report["retained_pairs"], 0)
@@ -723,7 +751,7 @@ class OffSetPinsFromGap(unittest.TestCase):
         self.assertTrue({"accent", "container"} <= concepts)  # real gap output, page-level
         targets = {side: _targets_from(self.fps[side]) for side in self.fps}
         receipts = _meta()
-        pin_rows, anchor_rows, shown, correct, pinned, skipped = score.score_pair(
+        pin_rows, _, anchor_rows, shown, correct, pinned, skipped = score.score_pair(
             "D-01", targets, self.fps, receipts
         )
         self.assertEqual(skipped, 2)  # accent and container are outside pin accuracy

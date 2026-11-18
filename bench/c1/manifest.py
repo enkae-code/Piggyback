@@ -33,10 +33,17 @@ def sha256_file(path):
 
 
 def run_folder(store, run_id):
-    """The run folder under store. The run ID must be one safe path segment."""
+    """The run folder under store. The run ID must be one safe path segment, and the folder must
+    be a real directory (or absent) that resolves inside the store and outside the repository."""
     if not RUN_ID.fullmatch(run_id or ""):
         raise SystemExit(f"refusing: run id {run_id!r} is not one safe path segment")
-    return Path(store) / run_id
+    run = Path(store) / run_id
+    if run.is_symlink():
+        raise SystemExit(f"refusing: run folder {run} is a symbolic link")
+    resolved = run.resolve()
+    if resolved.parent != Path(store).resolve() or REPO in (resolved, *resolved.parents):
+        raise SystemExit(f"refusing: run folder {resolved} is not inside the store")
+    return run
 
 
 def spot_check(pair_ids, seed, size=SAMPLE_SIZE):

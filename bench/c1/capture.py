@@ -30,6 +30,8 @@ TIMEOUT = re.compile(r"timed out|Timeout \d+ms exceeded", re.IGNORECASE)
 REDIRECT = re.compile(r"redirected to")
 # Failure classes that may justify a replacement (spec: Capture and substitution)
 ELIGIBLE = frozenset({"http_status", "cross_host_redirect"})
+DECISIONS = ("keep", "replace")
+DECISION_FIELDS = ("pair_id", "decision", "reason", "decided_by", "decided_at_utc")
 
 
 def utc_now():
@@ -127,7 +129,9 @@ def capture_side(url, side_dir, measure_fn=measure):
         )
         refuse_links(shot, evidence, fp)
         try:
-            result = measure_fn(url, viewport=VIEWPORT, screenshot=shot, evidence=evidence)
+            result = measure_fn(
+                url, viewport=VIEWPORT, screenshot=shot, evidence=evidence, failure_screenshot=True
+            )
         except MeasureError as exc:
             record = write_failure(
                 folder,
@@ -152,6 +156,24 @@ def capture_side(url, side_dir, measure_fn=measure):
         return "ok", n, {**capture, "suspected_challenge": flag}
 
 
+def _side_entry(url, state, attempt, detail):
+    entry = {"state": state, "requested_url": url, "attempt": attempt}
+    entry["final_url"] = detail.get("final_url")
+    if state == "ok":
+        entry["receipt"] = detail
+    else:
+        entry["class"] = detail["class"]
+    return entry
+
+
+def _side_status(sides):
+    if any(s["state"] != "ok" for s in sides.values()):
+        return "failed"
+    if any(s["receipt"]["suspected_challenge"] for s in sides.values()):
+        return "suspected_challenge"
+    return "ok"
+
+
 def capture_pair(pair, run_dir, measure_fn=measure):
     """Both sides of one pair. Returns the pair record written to pair.json.
 
@@ -162,25 +184,113 @@ def capture_pair(pair, run_dir, measure_fn=measure):
         raise SystemExit(f"refusing: {pair['id']} already has attempts in {pair_dir}")
     pair_dir = make_private_dir(pair_dir)
     record = {"pair_id": pair["id"], "sides": {}}
-    for side in SIDES:
-        state, attempt, detail = capture_side(pair[side], pair_dir / side, measure_fn)
-        entry = {"state": state, "requested_url": pair[side], "attempt": attempt}
-        if state == "ok":
-            entry["receipt"] = detail
-            entry["final_url"] = detail.get("final_url")
-        else:
-            entry["final_url"] = detail.get("final_url")
-            entry["class"] = detail["class"]
-        record["sides"][side] = entry
-    if any(s["state"] != "ok" for s in record["sides"].values()):
-        record["status"] = "failed"
-    elif any(s["receipt"]["suspected_challenge"] for s in record["sides"].values()):
-        record["status"] = "suspected_challenge"
-    else:
-        record["status"] = "ok"
-    _publish(pair_dir / "pair.json", record)
-    os.chmod(pair_dir / "pair.json", 0o600)
+    try:
+        for side in SIDES:
+            state, attempt, detail = capture_side(pair[side], pair_dir / side, measure_fn)
+            record["sides"][side] = _side_entry(pair[side], state, attempt, detail)
+        record["status"] = _side_status(record["sides"])
+    except BaseException as exc:  # a crash outside MeasureError still leaves a record
+        record.update(status="failed", error=str(exc) or repr(exc))
+        record["class"] = "other"
+        raise
+    finally:
+        _publish(pair_dir / "pair.json", record)
+        os.chmod(pair_dir / "pair.json", 0o600)
     return record
+
+
+def pair_status(run, pid):
+    """The status in a pair's pair.json, or None when the pair has not been captured."""
+    path = run / pid / "pair.json"
+    return json.loads(path.read_text(encoding="utf-8"))["status"] if path.is_file() else None
+
+
+def load_decisions(run):
+    """{pair_id: entry} from eligibility.json. Refuses an incomplete, unknown or repeated entry."""
+    path = run / "eligibility.json"
+    if not path.is_file() or path.is_symlink():
+        return {}
+    decisions = {}
+    for entry in json.loads(path.read_text(encoding="utf-8")):
+        complete = isinstance(entry, dict) and all(
+            isinstance(entry.get(k), str) and entry[k].strip() for k in DECISION_FIELDS
+        )
+        if not complete or entry["decision"] not in DECISIONS:
+            raise SystemExit(f"refusing: eligibility entry needs {DECISION_FIELDS}: {entry}")
+        if entry["pair_id"] in decisions:
+            raise SystemExit(f"refusing: more than one eligibility decision for {entry['pair_id']}")
+        decisions[entry["pair_id"]] = entry
+    return decisions
+
+
+def _failure_classes(run, pid):
+    return {
+        json.loads(path.read_text(encoding="utf-8"))["class"]
+        for path in (run / pid).glob("*/attempt-*/failure.json")
+    }
+
+
+def plan_retained(run, data):
+    """[(primary, scored)] in row order: a kept primary scores itself, a replaced one its reserve.
+
+    Reserves are assigned one-to-one in order, so each replacement gets the next unused reserve.
+    scored is None when a replacement is needed but no reserve is left: the gate is incomplete.
+    Refuses before anything is written, until every failed or suspected_challenge pair has a
+    decision (keep or replace) and every replacement has a captured reserve.
+    """
+    primaries = [p["id"] for p in data["primary"]]
+    reserves = [r["id"] for r in data["reserves"]]
+    _check_ids(primaries, reserves)
+    decisions = load_decisions(run)
+    status = {pid: pair_status(run, pid) for pid in primaries + reserves}
+    _check_captured(primaries, status)
+    needs = {
+        pid
+        for pid, s in status.items()
+        if s == "suspected_challenge" or (s == "failed" and pid in primaries)
+    }
+    _check_decision_targets(decisions, needs, status, reserves)
+    return _assign_reserves(run, primaries, reserves, needs, decisions, status)
+
+
+def _check_ids(primaries, reserves):
+    if len(set(primaries)) != len(primaries) or len(set(reserves)) != len(reserves):
+        raise SystemExit("refusing: pairs.json repeats a primary or reserve ID")
+
+
+def _check_captured(primaries, status):
+    missing = [pid for pid in primaries if status[pid] is None]
+    if missing:
+        raise SystemExit(f"refusing: no pair.json for {', '.join(missing)}; capture first")
+
+
+def _check_decision_targets(decisions, needs, status, reserves):
+    for pid in sorted(needs - set(decisions)):
+        raise SystemExit(f"refusing: {pid} is {status[pid]}; record keep or replace for it first")
+    for pid, entry in decisions.items():
+        if pid not in needs:
+            raise SystemExit(f"refusing: {pid} needs no eligibility decision")
+        if entry["decision"] == "replace" and pid in reserves:
+            raise SystemExit(f"refusing: {pid} is a reserve; only primaries are replaced")
+
+
+def _assign_reserves(run, primaries, reserves, needs, decisions, status):
+    plan, used = [], 0
+    for pid in primaries:
+        if pid not in needs or decisions[pid]["decision"] == "keep":
+            plan.append((pid, pid))
+            continue
+        if status[pid] == "failed" and not _failure_classes(run, pid) & ELIGIBLE:
+            raise SystemExit(f"refusing: {pid} has no failure record of an eligible class")
+        if used == len(reserves):
+            plan.append((pid, None))
+            continue
+        reserve = reserves[used]
+        used += 1
+        if status[reserve] is None:
+            raise SystemExit(f"refusing: {reserve} has no pair.json; capture it first")
+        plan.append((pid, reserve))
+    return plan
 
 
 def main(argv=None):
