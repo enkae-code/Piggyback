@@ -397,7 +397,7 @@ def write_manifest(run, chromium="156.0.1"):
     data = {
         "piggyback_commit": "c0ffee",
         "chromium_version": chromium,
-        "spot_check": {"seed": 1, "sample": ["C1-01"]},
+        "spot_check": {"seed": 1, "pool": ["C1-01"], "sample": ["C1-01"]},
     }
     (Path(run) / "manifest.json").write_text(json.dumps(data))
 

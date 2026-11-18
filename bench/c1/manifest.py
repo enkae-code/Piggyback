@@ -41,6 +41,8 @@ def run_folder(store, run_id):
 
 def spot_check(pair_ids, seed, size=SAMPLE_SIZE):
     """A reproducible sample of `size` pair IDs: the same seed and pool give the same list."""
+    if size > len(pair_ids):
+        raise SystemExit(f"refusing: spot-check size {size} exceeds the pool of {len(pair_ids)}")
     return sorted(random.Random(seed).sample(sorted(pair_ids), size))
 
 

@@ -15,7 +15,7 @@ import re
 from datetime import datetime, timezone
 
 from bench.c1.capture import SIDES
-from bench.c1.manifest import run_folder, sha256_file
+from bench.c1.manifest import load_manifest, run_folder, sha256_file
 from bench.c1.snapshot import Snapshot, px
 from piggyback.measure import publish_json
 
@@ -218,9 +218,24 @@ def _card(snap, els, vw):
     return target
 
 
+def _require_captured(run):
+    """Refuse unless the run is registered and every manifest primary has a pair.json."""
+    missing = [
+        pid
+        for pid in load_manifest(run)["spot_check"]["pool"]
+        if not (run / pid / "pair.json").is_file()
+    ]
+    if missing:
+        raise SystemExit(f"refusing: no pair.json for {', '.join(missing)}; capture first")
+
+
 def lock(store, run_id):
-    """Write targets.json and its lock record once per run. Refuses to overwrite a lock."""
+    """Write targets.json and its lock record once per run. Refuses to overwrite a lock.
+
+    Refuses before any write, so an early call cannot burn the one lock.
+    """
     run = run_folder(store, run_id)
+    _require_captured(run)
     lock_path = run / "targets.lock.json"
     if lock_path.exists() or lock_path.is_symlink():
         raise SystemExit(f"targets already locked: {lock_path}")

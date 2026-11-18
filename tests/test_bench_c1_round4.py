@@ -20,6 +20,37 @@ def tmpdir():
     return tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR"))
 
 
+class TargetLockRefusals(unittest.TestCase):
+    def test_lock_refuses_without_manifest_and_writes_nothing(self):
+        with tmpdir() as root:
+            run = Path(root) / "run1"
+            (run / "C1-01").mkdir(parents=True)
+            (run / "C1-01" / "pair.json").write_text(json.dumps({"status": "failed", "sides": {}}))
+            with self.assertRaises(SystemExit) as ctx:
+                targets.lock(root, "run1")
+            self.assertIn("no manifest", str(ctx.exception))
+            self.assertEqual([p.name for p in run.iterdir()], ["C1-01"])
+
+    def test_lock_refuses_when_a_primary_has_no_pair_and_writes_nothing(self):
+        with tmpdir() as root:
+            run = Path(root) / "run1"
+            (run / "C1-01").mkdir(parents=True)
+            (run / "C1-01" / "pair.json").write_text(json.dumps({"status": "failed", "sides": {}}))
+            manifest_data = {"spot_check": {"pool": ["C1-01", "C1-02"]}}
+            (run / "manifest.json").write_text(json.dumps(manifest_data))
+            with self.assertRaises(SystemExit) as ctx:
+                targets.lock(root, "run1")
+            self.assertIn("C1-02", str(ctx.exception))
+            self.assertEqual(sorted(p.name for p in run.iterdir()), ["C1-01", "manifest.json"])
+
+
+class SpotCheckPool(unittest.TestCase):
+    def test_pool_smaller_than_sample_is_refused_with_a_message(self):
+        with self.assertRaises(SystemExit) as ctx:
+            manifest.spot_check(["C1-01", "C1-02"], 1)
+        self.assertIn("exceeds the pool of 2", str(ctx.exception))
+
+
 class Registration(unittest.TestCase):
     def test_capture_refuses_without_manifest(self):
         with tmpdir() as root:
@@ -265,6 +296,7 @@ class AuditAndSafety(unittest.TestCase):
             victim = Path(root) / "victim"
             victim.write_text("keep")
             (run / "targets.json").symlink_to(victim)
+            (run / "manifest.json").write_text(json.dumps({"spot_check": {"pool": []}}))
             targets.lock(root, "run1")
             self.assertEqual(victim.read_text(), "keep")
             self.assertFalse((run / "targets.json").is_symlink())
