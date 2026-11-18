@@ -40,23 +40,30 @@ def _has_visible_child(tag, index, nodes):
     )
 
 
-def _in_class(alt, node, nodes):
-    return any(alt["in_class"] in class_names(nodes[j]["attrs"]) for j in node["path"])
+def _words(attrs, strict):
+    """Class words to match against: the last word of each token when strict, any word otherwise."""
+    return class_names(attrs) if strict else class_words(attrs)
+
+
+def _in_class(alt, node, nodes, strict):
+    return any(alt["in_class"] in _words(nodes[j]["attrs"], strict) for j in node["path"])
 
 
 # Each check reads one key of an alternative. An alternative matches when every key it sets holds.
 _ALT_CHECKS = {
-    "tag": lambda alt, node, index, nodes: alt["tag"] == node["tag"],
-    "class": lambda alt, node, index, nodes: alt["class"] in class_names(node["attrs"]),
-    "attr": lambda alt, node, index, nodes: _attr_matches(alt["attr"], node["attrs"]),
-    "in_class": lambda alt, node, index, nodes: _in_class(alt, node, nodes),
-    "has": lambda alt, node, index, nodes: _has_visible_child(alt["has"], index, nodes),
+    "tag": lambda alt, node, index, nodes, strict: alt["tag"] == node["tag"],
+    "class": lambda alt, node, index, nodes, strict: alt["class"] in _words(node["attrs"], strict),
+    "attr": lambda alt, node, index, nodes, strict: _attr_matches(alt["attr"], node["attrs"]),
+    "in_class": lambda alt, node, index, nodes, strict: _in_class(alt, node, nodes, strict),
+    "has": lambda alt, node, index, nodes, strict: _has_visible_child(alt["has"], index, nodes),
 }
 
 
-def _alt_matches(alt, index, nodes):
+def _alt_matches(alt, index, nodes, strict):
     node = nodes[index]
-    return all(check(alt, node, index, nodes) for key, check in _ALT_CHECKS.items() if key in alt)
+    return all(
+        check(alt, node, index, nodes, strict) for key, check in _ALT_CHECKS.items() if key in alt
+    )
 
 
 def _nearest_table(nodes, path):
@@ -69,10 +76,11 @@ def _is_tag_alt(alt):
 
 # ponytail: a bare tag item (<article> with no class) holding several tag-matched children
 # (3 figures) still over-counts; add a class to the item when a task needs the exact count.
-def _matched_items(pred, nodes):
+def _matched_items(pred, nodes, strict):
     """Visible elements matching an alternative, outside the excluded ancestors.
 
-    A tag-only match inside a class-matched element is that item's content, not another item.
+    Strict (repeated items): a tag-only match inside a class-matched element is that item's content,
+    not another item. Otherwise every match counts, which is enough for a presence check.
     """
     excluded = pred.get("exclude_within", [])
     eligible = [
@@ -80,25 +88,33 @@ def _matched_items(pred, nodes):
         for index, node in enumerate(nodes)
         if node["visible"] and not any(nodes[j]["tag"] in excluded for j in node["path"])
     ]
+    if not strict:
+        return {
+            i for i in eligible if any(_alt_matches(alt, i, nodes, False) for alt in pred["any"])
+        }
     by_class = {
         i
         for i in eligible
-        if any(not _is_tag_alt(alt) and _alt_matches(alt, i, nodes) for alt in pred["any"])
+        if any(not _is_tag_alt(alt) and _alt_matches(alt, i, nodes, True) for alt in pred["any"])
     }
-    by_tag = {i for i in eligible if any(_alt_matches(alt, i, nodes) for alt in pred["any"])}
+    by_tag = {i for i in eligible if any(_alt_matches(alt, i, nodes, True) for alt in pred["any"])}
     return {i for i in by_tag if i in by_class or not any(j in by_class for j in nodes[i]["path"])}
 
 
 def count_matches(pred, nodes):
-    """Items matching any alternative. A match that wraps another match is a container of that
-    item, so only innermost matches count. With per_table, the count is the most matches held by
+    """Items matching any alternative. Repeated items (min 2 or more) count by last class word,
+    keep only innermost matches, and drop tag matches inside a class match. A presence check (min 1)
+    counts any match, with any class word. With per_table, the count is the most matches held by
     one table: rows must share a table.
     """
-    matched = _matched_items(pred, nodes)
+    strict = pred.get("min", 1) >= 2
+    matched = _matched_items(pred, nodes, strict)
     if pred.get("per_table"):
         groups = Counter(_nearest_table(nodes, nodes[i]["path"]) for i in matched)
         groups.pop(None, None)
         return max(groups.values(), default=0)
+    if not strict:
+        return len(matched)
     return sum(1 for i in matched if not any(i in nodes[k]["path"] for k in matched))
 
 
@@ -128,7 +144,7 @@ def follows_headline(pred, nodes):
     return any(
         nodes[i]["visible"]
         and not class_words(nodes[i]["attrs"]) & excluded
-        and any(_alt_matches(alt, i, nodes) for alt in pred["any"])
+        and any(_alt_matches(alt, i, nodes, False) for alt in pred["any"])
         for i in section
     )
 

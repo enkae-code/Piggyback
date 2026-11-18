@@ -107,7 +107,7 @@ CASES = [
     (
         "T01",
         "one prominent signal",
-        ['<div role="alert">Engine due</div>', '<div class="strip signal">Engine due</div>'],
+        ['<div role="alert">Engine due</div>', '<div class="signal-strip">Engine due</div>'],
         ['<div class="showcase">Engine due</div>'],
     ),
     (
@@ -518,6 +518,22 @@ class RepeatedItemProbes(unittest.TestCase):
         for task, item, markup, expected in PROBES:
             with self.subTest(task=task, item=item, markup=markup[:70]):
                 self.assertEqual(passes(task, item, markup), expected)
+
+
+class SinglePresenceMatching(unittest.TestCase):
+    def test_min_one_class_matches_any_word(self):
+        for markup in (
+            '<div class="signal-strip">Engine due</div>',
+            '<div class="alert-box">Engine due</div>',
+            '<div class="banner-inner">Engine due</div>',
+        ):
+            with self.subTest(markup=markup):
+                self.assertTrue(passes("T01", "one prominent signal", markup))
+
+    def test_min_one_still_fails_unrelated_markup(self):
+        self.assertFalse(
+            passes("T01", "one prominent signal", '<div class="showcase">Engine due</div>')
+        )
 
 
 if __name__ == "__main__":
