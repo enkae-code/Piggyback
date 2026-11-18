@@ -190,10 +190,10 @@ PAGE_STATE = (
 def _paragraph_texts(session, snapshot):
     """innerText of each <p>, keyed by backend node id, read in the same CDP session."""
     nodes = snapshot["documents"][0]["nodes"]
-    pseudo = nodes.get("pseudoType", {})
+    pseudo = set(nodes.get("pseudoType", {}).get("index", []))
     texts = {}
     for idx, kind in enumerate(nodes["nodeType"]):
-        if kind != 1 or str(idx) in pseudo or snapshot["strings"][nodes["nodeName"][idx]] != "P":
+        if kind != 1 or idx in pseudo or snapshot["strings"][nodes["nodeName"][idx]] != "P":
             continue
         backend = nodes["backendNodeId"][idx]
         node = session.send("DOM.resolveNode", {"backendNodeId": backend})["object"]

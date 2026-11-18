@@ -162,7 +162,7 @@ class CardPool(unittest.TestCase):
     def test_pseudo_element_node_is_not_a_card(self):
         ev = evidence(self.cards_below_fold())
         pseudo_idx = 3  # node order: parent, card, its text, card, its text, card, its text
-        ev["documents"][0]["nodes"]["pseudoType"] = {str(pseudo_idx): "before"}
+        ev["documents"][0]["nodes"]["pseudoType"] = {"index": [pseudo_idx], "value": [0]}
         t = targets.lock_targets(ev)["card"]
         self.assertEqual(t, {"absent": True})  # the pseudo node drops out: two cards, not three
 

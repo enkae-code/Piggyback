@@ -40,7 +40,8 @@ class Snapshot:
         self.kind = nodes["nodeType"]
         self.parents = nodes["parentIndex"]
         self.backend = nodes.get("backendNodeId", [-1] * count)
-        self.pseudo = {int(k) for k in nodes.get("pseudoType", {})}  # ::before/::after nodes
+        # pseudoType is a rare-string table {"index": [node ids], "value": [...]}: ::before/::after
+        self.pseudo = set(nodes.get("pseudoType", {}).get("index", []))
         self.paragraph_text = evidence.get("inner_text", {})  # opt-in hook: innerText by backend id
         self.children = [[] for _ in range(count)]
         for idx, parent in enumerate(self.parents):
