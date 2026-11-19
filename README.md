@@ -46,6 +46,12 @@ Type, palette, radius, anchors and container width are measured on the first scr
 
 To try Piggyback without a page of your own, pick a **starter** in the reference slot. Starters are six CC0 pages shipped inside the package (`starter:<id>`, listed by `list_starters`). They are read from the package, never fetched, and their brief is labelled with the starter id. Their source pages are in [starters/](starters/README.md).
 
+| | |
+|---|---|
+| <img src="https://raw.githubusercontent.com/enkae-code/piggyback/main/piggyback/starters/northline-ops/screenshot.png" width="420" alt="Northline Field Ops starter, first screen at 1440×900"><br>`starter:northline-ops` | <img src="https://raw.githubusercontent.com/enkae-code/piggyback/main/piggyback/starters/mina-okafor/screenshot.png" width="420" alt="Mina Okafor starter, first screen at 1440×900"><br>`starter:mina-okafor` |
+| <img src="https://raw.githubusercontent.com/enkae-code/piggyback/main/piggyback/starters/field-journal/screenshot.png" width="420" alt="Field Journal starter, first screen at 1440×900"><br>`starter:field-journal` | <img src="https://raw.githubusercontent.com/enkae-code/piggyback/main/piggyback/starters/ink-and-rule/screenshot.png" width="420" alt="INK / RULE starter, first screen at 1440×900"><br>`starter:ink-and-rule` |
+| <img src="https://raw.githubusercontent.com/enkae-code/piggyback/main/piggyback/starters/little-plot/screenshot.png" width="420" alt="Little Plot starter, first screen at 1440×900"><br>`starter:little-plot` | <img src="https://raw.githubusercontent.com/enkae-code/piggyback/main/piggyback/starters/good-day-assembly/screenshot.png" width="420" alt="Good Day Assembly starter, first screen at 1440×900"><br>`starter:good-day-assembly` |
+
 Copy the brief to your agent as `BRIEF.md`, let it revise, then re-run. Fixed pins tick and open ones stay. "Copy DESIGN.md" writes the first reference as a `DESIGN.md` that works with Impeccable.
 
 On a reference's brief, press Borrow or Avoid on a measured row to add a note, with optional text of up to 200 characters. Each note hangs off one row of one reference, and `BRIEF.md` prints it under that reference with the row's measured value. Notes are kept while the reference list stays the same.
