@@ -52,17 +52,20 @@ On a reference's brief, press Borrow or Avoid on a measured row to add a note, w
 
 ## Status
 
-Pre-release. v0.1 is in progress and nothing is installable yet. This README describes what v0.1 will do, not something you can run today.
+Release candidate: `0.1.0rc1` is on PyPI. `0.1.0` waits for the pin-accuracy check on 20 site pairs. Expect rough edges, and report them in the issues.
 
 ## Install
 
-Coming with v0.1. The planned command:
+Piggyback needs Python 3.11 or newer and a Chromium that Playwright downloads once:
 
 ```sh
+uvx --from "piggyback-design[measure]" playwright install chromium
 uvx "piggyback-design[measure]"
 ```
 
-This does not work yet. It will need Python 3.11 or newer. `pip install piggyback` installs a different project; this one is `piggyback-design`.
+The second command opens the local screen. Run `uvx --from "piggyback-design[measure]" piggyback doctor` if a page will not measure; it checks Python, Playwright and whether Chromium starts with its sandbox.
+
+With pip, add `--pre` while only the release candidate exists: `pip install --pre "piggyback-design[measure]"`, then `python -m playwright install chromium`. `pip install piggyback` installs a different project; this one is `piggyback-design`.
 
 ## Measure a list
 
@@ -100,7 +103,7 @@ Add this to your MCP client config (Claude Desktop, or `.mcp.json` for Claude Co
 - `get_brief` returns the brief. Its `refresh` flag measures again. `check` measures the build and returns numbered differences, marking the ones now within tolerance as fixed, plus any generic defaults on the build.
 - `list_starters` lists the packaged starter ids. The agent cannot add or change a reference.
 - The Claude Code skill in `skills/piggyback/SKILL.md` tells the agent when to call these tools.
-- This is a config you edit. Your agent does not install or run it. Like the install command above, it works once v0.1 is installable.
+- This is a config you edit. Your agent does not install or run it. Install Chromium once first, as in [Install](#install).
 
 ## Works with design skills
 
