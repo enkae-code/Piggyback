@@ -139,7 +139,7 @@ def _heading(snap, els, vw, vh):
     return _target(snap, heading, ink_box(snap, heading)) if heading else None
 
 
-BODY_TAGS = {"p", "div", "span", "li", "blockquote"}
+BODY_FALLBACK_TAGS = {"div", "span", "li", "blockquote"}
 BODY_OUTSIDE_TAGS = {"nav", "footer"}
 BODY_OUTSIDE_ROLES = {"navigation", "contentinfo", "dialog", "alertdialog"}
 
@@ -168,18 +168,18 @@ def _body_text(snap, el):
     return snap.paragraph_inner_text(el.idx) if el.tag == "p" else snap.own_text(el.idx)
 
 
+def _body_ok(snap, el, vw, vh):
+    return (
+        in_first_screen(el.box, vw, vh)
+        and len(_body_text(snap, el)) >= 40
+        and not _outside_body(snap, el)
+    )
+
+
 def _body(snap, els, vw, vh):
-    """First text block in DOM order, fully in the first screen, 40+ characters, not outside."""
-    body = next(
-        (
-            el
-            for el in els
-            if el.tag in BODY_TAGS
-            and in_first_screen(el.box, vw, vh)
-            and len(_body_text(snap, el)) >= 40
-            and not _outside_body(snap, el)
-        ),
-        None,
+    """First <p> in DOM order that qualifies; else the first fallback block whose own text does."""
+    body = next((el for el in els if el.tag == "p" and _body_ok(snap, el, vw, vh)), None) or next(
+        (el for el in els if el.tag in BODY_FALLBACK_TAGS and _body_ok(snap, el, vw, vh)), None
     )
     return _target(snap, body, ink_box(snap, body)) if body else None
 
@@ -252,7 +252,7 @@ def _sibling_groups(els):
     return [group for sigs in by_parent.values() for group in sigs.values()]
 
 
-def _largest_card_group(snap, els, vw, vh):
+def _card_group(snap, els, vw, vh):
     """Qualifying members of the group of three or more whose first member fits the first screen,
     then the largest; the first group wins a tie. Mirrors measure.js.
     """
@@ -269,7 +269,7 @@ def _largest_card_group(snap, els, vw, vh):
 
 
 def _card(snap, els, vw, vh):
-    best = _largest_card_group(snap, els, vw, vh)
+    best = _card_group(snap, els, vw, vh)
     if best is None:
         return None
     first = best[0]

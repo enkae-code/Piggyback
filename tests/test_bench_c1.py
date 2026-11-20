@@ -206,6 +206,16 @@ class TargetRules(unittest.TestCase):
         )
         self.assertEqual(t["text"], "x" * 40)
 
+    def test_body_p_in_the_first_screen_beats_an_earlier_div_with_text(self):
+        badge = el("div", box=(0, 0, 600, 30), text="b" * 40)
+        lead = el("p", box=(0, 40, 600, 30), text="p" * 40)
+        self.assertEqual(target_of([badge, lead], "body")["text"], "p" * 40)
+
+    def test_body_p_crossing_the_fold_is_not_the_body(self):
+        crossing = el("p", box=(0, 880, 300, 40), text="p" * 40)
+        lead = el("p", box=(0, 40, 300, 40), text="q" * 40)
+        self.assertEqual(target_of([crossing, lead], "body")["text"], "q" * 40)
+
     def test_body_takes_div_text_in_the_first_screen_not_a_p_below_the_fold(self):
         below = el("p", box=(0, 1000, 300, 20), text="p" * 40)
         lead = el("div", box=(0, 0, 600, 60), text="d" * 40)
@@ -215,8 +225,12 @@ class TargetRules(unittest.TestCase):
         nav = el("nav", box=(0, 0, 600, 200))
         inner = el("div", parent=0, box=(0, 0, 600, 60), text="n" * 40)
         cookie = el("div", box=(0, 300, 600, 60), text="c" * 40, attrs={"class": "CookieBar"})
+        footer = el("div", box=(0, 480, 600, 60), text="f" * 40, attrs={"role": "contentinfo"})
+        cookie_id = el("div", box=(0, 560, 600, 60), text="i" * 40, attrs={"id": "cookie-x"})
         lead = el("div", box=(0, 400, 600, 60), text="d" * 40)
-        self.assertEqual(target_of([nav, inner, cookie, lead], "body")["text"], "d" * 40)
+        self.assertEqual(
+            target_of([nav, inner, cookie, footer, cookie_id, lead], "body")["text"], "d" * 40
+        )
 
     def test_cta_prefers_painted_background_over_larger_unpainted(self):
         t = target_of(

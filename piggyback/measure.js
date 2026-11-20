@@ -284,9 +284,10 @@
     boxes.filter((b) => /^H[1-6]$/.test(b.tag) && b.area > 0 && textOf(b.el) !== ""),
     (b) => parseFloat(b.cs.fontSize) * 1e9 + b.area,
   );
-  // Body: the first text block (a <p>, or a block whose own text has 40+ characters) fully inside the
-  // first screen and outside nav, footer, dialogs and cookie banners.
-  const BODY_TAGS = new Set(["P", "DIV", "SPAN", "LI", "BLOCKQUOTE"]);
+  // Body: the first <p> of 40+ characters fully inside the first screen and outside nav, footer,
+  // dialogs and cookie banners. Only when no <p> qualifies, the first div, span, li or blockquote
+  // whose own text does.
+  const BODY_FALLBACK = new Set(["DIV", "SPAN", "LI", "BLOCKQUOTE"]);
   const BODY_OUTSIDE =
     '[role="navigation"], [role="contentinfo"], [role="dialog"], [role="alertdialog"], nav, footer, [class*="cookie" i], [id*="cookie" i]';
   const ownText = (el) =>
@@ -297,13 +298,11 @@
       .replace(/\s+/g, " ")
       .trim();
   const bodyText = (b) => (b.tag === "P" ? textOf(b.el) : ownText(b.el));
-  const body = boxes.find(
-    (b) =>
-      BODY_TAGS.has(b.tag) &&
-      inFirstScreen(b.r) &&
-      bodyText(b).length >= 40 &&
-      !b.el.closest(BODY_OUTSIDE),
-  );
+  const bodyOk = (b) =>
+    inFirstScreen(b.r) && bodyText(b).length >= 40 && !b.el.closest(BODY_OUTSIDE);
+  const body =
+    boxes.find((b) => b.tag === "P" && bodyOk(b)) ||
+    boxes.find((b) => BODY_FALLBACK.has(b.tag) && bodyOk(b));
   const ctaSelector =
     'button, input[type=button], input[type=submit], a[role=button], a[class*="btn" i], a[class*="button" i]';
   const cta = best(
@@ -312,7 +311,7 @@
   );
   const nav = boxes.find((b) => b.area > 0 && b.el.matches('nav, [role="navigation"]'));
 
-  // Most-repeated sibling: same tag and class under one parent, at least 3 of them.
+  // Sibling groups: same tag and class under one parent. Cards are picked from them below.
   const groups = new Map();
   for (const b of boxes) {
     const cls = b.el.getAttribute("class");

@@ -305,6 +305,13 @@ class MeasureIntegration(unittest.TestCase):
             body["text"], "Our new tools help small teams ship without the usual overhead."
         )
 
+    def test_body_p_in_the_first_screen_beats_an_earlier_div_with_text(self):
+        body = measure(f"{self.base}/body-p-after-div-badge.html", allow_loopback=True)["anchors"][
+            "body"
+        ]
+        self.assertEqual(body["tag"], "p")
+        self.assertTrue(body["text"].startswith("Teams keep the paragraph"))
+
     def test_card_group_in_the_first_screen_beats_a_larger_group_below_the_fold(self):
         card = measure(f"{self.base}/card-grid-below-fold.html", allow_loopback=True)["anchors"][
             "card"
