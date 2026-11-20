@@ -305,6 +305,14 @@ class MeasureIntegration(unittest.TestCase):
             body["text"], "Our new tools help small teams ship without the usual overhead."
         )
 
+    def test_heading_span_is_never_the_body(self):
+        # The span is 40+ characters inside the h1 and comes first in DOM order.
+        body = measure(f"{self.base}/body-span-in-heading.html", allow_loopback=True)["anchors"][
+            "body"
+        ]
+        self.assertEqual(body["tag"], "div")
+        self.assertTrue(body["text"].startswith("Teams keep the lead copy"))
+
     def test_body_p_in_the_first_screen_beats_an_earlier_div_with_text(self):
         body = measure(f"{self.base}/body-p-after-div-badge.html", allow_loopback=True)["anchors"][
             "body"

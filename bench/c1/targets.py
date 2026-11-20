@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 
 from bench.c1.capture import SIDES, load_pairs, plan_retained
 from bench.c1.manifest import check_registered, load_manifest, run_folder, sha256_file
-from bench.c1.snapshot import Snapshot, px
+from bench.c1.snapshot import Snapshot, js_length, px
 from piggyback.measure import publish_json
 
 SLOTS = ("heading", "body", "cta", "nav", "card")
@@ -140,7 +140,7 @@ def _heading(snap, els, vw, vh):
 
 
 BODY_FALLBACK_TAGS = {"div", "span", "li", "blockquote"}
-BODY_OUTSIDE_TAGS = {"nav", "footer"}
+BODY_OUTSIDE_TAGS = {"nav", "footer"} | HEADINGS
 BODY_OUTSIDE_ROLES = {"navigation", "contentinfo", "dialog", "alertdialog"}
 
 
@@ -151,13 +151,16 @@ def in_first_screen(box, vw, vh):
 
 
 def _outside_body(snap, el):
-    """Inside nav, footer, a dialog or a cookie banner, by ancestor (measure.js BODY_OUTSIDE)."""
+    """Inside nav, footer, a heading, dialog or cookie banner (measure.js BODY_OUTSIDE).
+
+    The cookie match is ASCII-case-insensitive, as CSS [attr*=cookie i] is.
+    """
     while el is not None:
-        names = f"{el.attrs.get('class', '')} {el.attrs.get('id', '')}".lower()
+        names = f"{el.attrs.get('class', '')} {el.attrs.get('id', '')}"
         if (
             el.tag in BODY_OUTSIDE_TAGS
             or el.attrs.get("role") in BODY_OUTSIDE_ROLES
-            or "cookie" in names
+            or re.search("cookie", names, re.IGNORECASE | re.ASCII)
         ):
             return True
         el = snap.els.get(el.parent)
@@ -171,14 +174,15 @@ def _body_text(snap, el):
 def _body_ok(snap, el, vw, vh):
     return (
         in_first_screen(el.box, vw, vh)
-        and len(_body_text(snap, el)) >= 40
+        and js_length(_body_text(snap, el)) >= 40
         and not _outside_body(snap, el)
     )
 
 
 def _body(snap, els, vw, vh):
     """First <p> in DOM order that qualifies; else the first fallback block whose own text does."""
-    body = next((el for el in els if el.tag == "p" and _body_ok(snap, el, vw, vh)), None) or next(
+    p = next((el for el in els if el.tag == "p" and _body_ok(snap, el, vw, vh)), None)
+    body = p or next(
         (el for el in els if el.tag in BODY_FALLBACK_TAGS and _body_ok(snap, el, vw, vh)), None
     )
     return _target(snap, body, ink_box(snap, body)) if body else None

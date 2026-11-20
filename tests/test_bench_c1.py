@@ -232,6 +232,65 @@ class TargetRules(unittest.TestCase):
             target_of([nav, inner, cookie, footer, cookie_id, lead], "body")["text"], "d" * 40
         )
 
+    def test_heading_text_is_never_the_body(self):
+        h1 = el("h1", box=(0, 0, 600, 40))
+        span = el("span", parent=0, box=(0, 0, 600, 40), text="s" * 40)
+        lead = el("div", box=(0, 60, 600, 40), text="d" * 40)
+        self.assertEqual(target_of([h1, span, lead], "body")["text"], "d" * 40)
+        own = target_of([el("h2", box=(0, 0, 600, 40), text="h" * 40), lead], "body")
+        self.assertEqual(own["text"], "d" * 40)
+
+    def test_fallback_uses_own_text_not_descendants(self):
+        wrapper = el("div", box=(0, 0, 600, 200), text="w" * 10)
+        child = el("div", parent=0, box=(0, 20, 600, 60), text="c" * 40)
+        t = target_of([wrapper, child], "body")
+        self.assertEqual((t["tag"], t["text"]), ("div", "c" * 40))
+
+    def test_footer_paragraph_is_never_the_body(self):
+        footer = el("footer", box=(0, 0, 600, 60))
+        p = el("p", parent=0, box=(0, 0, 600, 40), text="f" * 40)
+        lead = el("div", box=(0, 100, 600, 40), text="d" * 40)
+        self.assertEqual(target_of([footer, p, lead], "body")["text"], "d" * 40)
+
+    def test_li_fallback_is_the_body(self):
+        t = target_of([el("li", box=(0, 0, 600, 40), text="l" * 40)], "body")
+        self.assertEqual((t["tag"], t["text"]), ("li", "l" * 40))
+
+    def test_body_length_counts_utf16_units(self):
+        astral = "a" * 38 + "\U0001f680"  # 39 code points, 40 UTF-16 units
+        t = target_of([el("div", box=(0, 0, 600, 60), text=astral)], "body")
+        self.assertEqual(t.get("text"), astral)
+        short = target_of([el("div", box=(0, 0, 600, 60), text="a" * 39)], "body")
+        self.assertEqual(short, {"absent": True})
+
+    def test_body_text_uses_ecmascript_whitespace(self):
+        feff = target_of([el("div", box=(0, 0, 600, 60), text="\ufeff" + "a" * 39)], "body")
+        self.assertEqual(feff, {"absent": True})
+        sep = "a" * 39 + "\x1c"  # \x1c is not JS whitespace: it counts toward the 40
+        t = target_of([el("div", box=(0, 0, 600, 60), text=sep)], "body")
+        self.assertEqual(t["text"], sep)
+
+    def test_cookie_match_is_ascii_case_insensitive(self):
+        # U+212A (Kelvin sign) lowers to ASCII "k" in Python; CSS [class*=cookie i] ignores it.
+        t = target_of(
+            [el("div", box=(0, 0, 600, 60), text="c" * 40, attrs={"class": "coo\u212aie-bar"})],
+            "body",
+        )
+        self.assertEqual(t.get("text"), "c" * 40)
+
+    def test_card_larger_group_wins_and_equal_groups_keep_first(self):
+        def card(cls, x, text):
+            return el("div", parent=0, box=(x, 0, 200, 100), text=text, attrs={"class": cls})
+
+        wrapper = el("div", box=(0, 0, 900, 120))
+        a = [card("a", x, f"a{n}") for n, x in enumerate((0, 220, 440))]
+        b = [card("b", x, f"b{n}") for n, x in enumerate((0, 220, 440, 660))]
+        t = target_of([wrapper, *a, *b], "card")
+        self.assertEqual((t["text"], t["count"]), ("b0", 4))
+        equal_b = [card("b", x, f"b{n}") for n, x in enumerate((0, 220, 440))]
+        t = target_of([wrapper, *a, *equal_b], "card")
+        self.assertEqual((t["text"], t["count"]), ("a0", 3))
+
     def test_cta_prefers_painted_background_over_larger_unpainted(self):
         t = target_of(
             [
@@ -785,6 +844,19 @@ class SnapshotRead(unittest.TestCase):
         )
         snap = Snapshot(data)
         self.assertEqual(snap.inner_text(0), "shown")
+
+    def test_body_ignores_shadow_root_text_before_a_light_dom_lead(self):
+        # measure.js queries the light DOM only: the shadow <p>, first in DOM order, must not win.
+        data = evidence(
+            [
+                el("div"),  # shadow host
+                el("#document-fragment", parent=0),  # its shadow root (nodeType 11)
+                el("p", parent=1, box=(0, 0, 600, 40), text="s" * 40),
+                el("p", box=(0, 100, 600, 40), text="p" * 40),
+            ]
+        )
+        data["documents"][0]["nodes"]["nodeType"][1] = 11
+        self.assertEqual(targets.lock_targets(data)["body"]["text"], "p" * 40)
 
 
 class FingerprintContract(unittest.TestCase):

@@ -8,12 +8,32 @@ import re
 from dataclasses import dataclass, field
 
 PX = re.compile(r"(-?\d+(?:\.\d+)?)px")
+# ECMAScript WhiteSpace and LineTerminator: what JS \s and trim() match (not Python's str.split).
+ES_WS = "\t\n\x0b\x0c\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+ES_RUN = re.compile(f"[{ES_WS}]+")
+ES_EDGE = re.compile(f"^[{ES_WS}]+|[{ES_WS}]+$")
+SHADOW_ROOT = 11  # DOCUMENT_FRAGMENT_NODE: a shadow root sits under its host
 
 
 def px(value):
     """CSS px from a computed length, or None for 'normal' and anything else."""
     found = PX.fullmatch(value) if isinstance(value, str) else None
     return float(found.group(1)) if found else None
+
+
+def js_length(s):
+    """String length in UTF-16 code units, as JS .length counts it."""
+    return len(s.encode("utf-16-le", "surrogatepass")) // 2
+
+
+def js_collapse(s):
+    """replace(/\\s+/g, " ").trim() with ECMAScript whitespace."""
+    return ES_RUN.sub(" ", s).strip(" ")
+
+
+def js_trim(s):
+    """trim() with ECMAScript whitespace."""
+    return ES_EDGE.sub("", s)
 
 
 @dataclass
@@ -66,7 +86,7 @@ class Snapshot:
         flat_attrs = nodes.get("attributes", [[]] * count)
         els = {}
         for idx in range(count):
-            if self.kind[idx] != 1 or idx in self.pseudo:
+            if self.kind[idx] != 1 or idx in self.pseudo or self._in_shadow(idx):
                 continue
             flat = flat_attrs[idx]
             attrs = {
@@ -83,12 +103,21 @@ class Snapshot:
             els[idx] = El(idx, tag, attrs, self.parents[idx], self.children[idx], style, box)
         return els
 
+    def _in_shadow(self, idx):
+        """True when a shadow root is above idx: measure.js queries the light DOM only."""
+        parent = self.parents[idx]
+        while parent >= 0:
+            if self.kind[parent] == SHADOW_ROOT:
+                return True
+            parent = self.parents[parent]
+        return False
+
     def _attach_text_boxes(self, doc):
         layout = doc["layout"]
         boxes = doc.get("textBoxes", {"layoutIndex": [], "bounds": []})
         for k, li in enumerate(boxes["layoutIndex"]):
             parent = self.parents[layout["nodeIndex"][li]]
-            while parent >= 0:
+            while parent >= 0 and self.kind[parent] != SHADOW_ROOT:
                 if parent in self.els:
                     self.els[parent].boxes.append(self._shift(boxes["bounds"][k]))
                 parent = self.parents[parent]
@@ -99,12 +128,12 @@ class Snapshot:
     def paragraph_inner_text(self, idx):
         """innerText of a <p> as the browser reported it (opt-in hook), else the approximation."""
         recorded = self.paragraph_text.get(str(self.backend[idx]))
-        return recorded.strip() if recorded is not None else self.inner_text(idx)
+        return js_trim(recorded) if recorded is not None else self.inner_text(idx)
 
     def own_text(self, idx):
         """Own text nodes of idx, child elements left out, whitespace collapsed (as measure.js)."""
-        return " ".join(
-            "".join(self.text_value[c] for c in self.children[idx] if self.kind[c] == 3).split()
+        return js_collapse(
+            "".join(self.text_value[c] for c in self.children[idx] if self.kind[c] == 3)
         )
 
     def inner_text(self, idx):
@@ -115,7 +144,7 @@ class Snapshot:
                 parts.append(self.text_value[child])
             elif child in self.els and self._rendered(child):
                 parts.append(f" {self.inner_text(child)} ")
-        return " ".join("".join(parts).split())
+        return js_collapse("".join(parts))
 
     def _rendered(self, idx):
         el = self.els[idx]

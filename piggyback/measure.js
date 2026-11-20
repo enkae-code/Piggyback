@@ -289,7 +289,7 @@
   // whose own text does.
   const BODY_FALLBACK = new Set(["DIV", "SPAN", "LI", "BLOCKQUOTE"]);
   const BODY_OUTSIDE =
-    '[role="navigation"], [role="contentinfo"], [role="dialog"], [role="alertdialog"], nav, footer, [class*="cookie" i], [id*="cookie" i]';
+    '[role="navigation"], [role="contentinfo"], [role="dialog"], [role="alertdialog"], nav, footer, h1, h2, h3, h4, h5, h6, [class*="cookie" i], [id*="cookie" i]';
   const ownText = (el) =>
     [...el.childNodes]
       .filter((n) => n.nodeType === Node.TEXT_NODE)
