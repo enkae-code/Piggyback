@@ -402,6 +402,20 @@ class TargetRules(unittest.TestCase):
         ]
         self.assertEqual(target_of([svg, foreign, *cards], "card")["count"], 3)
 
+    def test_foreign_object_wrappers_are_svg_not_cards(self):
+        svg = el("svg", box=(0, 0, 900, 400))
+        wrappers = [
+            el(
+                "foreignObject",
+                parent=0,
+                box=(i * 210, 0, 200, 120),
+                text="c",
+                attrs={"class": "w"},
+            )
+            for i in range(3)
+        ]
+        self.assertEqual(target_of([svg, *wrappers], "card"), {"absent": True})
+
     def test_lock_is_deterministic_and_has_all_slots(self):
         data = evidence([el("h1", box=(0, 0, 100, 40), text="x", font_size="30px")])
         first = targets.lock_targets(data)

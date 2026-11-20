@@ -104,13 +104,16 @@ def is_control(el):
 
 
 def in_svg(snap, el):
-    """An SVG element, as measure.js `instanceof SVGElement`: HTML inside <foreignObject> is not."""
-    while el is not None:
-        if el.tag == "foreignobject" and not el.shadow:
-            return False
-        if el.tag == "svg" and not el.shadow:
-            return True
-        el = snap.els.get(el.parent)
+    """An SVG element, as measure.js `instanceof SVGElement`: HTML inside <foreignObject> is not,
+    the <foreignObject> itself is."""
+    node = el
+    while node is not None:
+        if not node.shadow:
+            if node.tag == "svg":
+                return True
+            if node.tag == "foreignobject" and node is not el:
+                return False
+        node = snap.els.get(node.parent)
     return False
 
 
