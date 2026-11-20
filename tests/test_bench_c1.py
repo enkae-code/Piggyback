@@ -206,6 +206,18 @@ class TargetRules(unittest.TestCase):
         )
         self.assertEqual(t["text"], "x" * 40)
 
+    def test_body_takes_div_text_in_the_first_screen_not_a_p_below_the_fold(self):
+        below = el("p", box=(0, 1000, 300, 20), text="p" * 40)
+        lead = el("div", box=(0, 0, 600, 60), text="d" * 40)
+        self.assertEqual(target_of([lead, below], "body")["text"], "d" * 40)
+
+    def test_body_skips_nav_and_cookie_banner_text(self):
+        nav = el("nav", box=(0, 0, 600, 200))
+        inner = el("div", parent=0, box=(0, 0, 600, 60), text="n" * 40)
+        cookie = el("div", box=(0, 300, 600, 60), text="c" * 40, attrs={"class": "CookieBar"})
+        lead = el("div", box=(0, 400, 600, 60), text="d" * 40)
+        self.assertEqual(target_of([nav, inner, cookie, lead], "body")["text"], "d" * 40)
+
     def test_cta_prefers_painted_background_over_larger_unpainted(self):
         t = target_of(
             [
@@ -256,6 +268,20 @@ class TargetRules(unittest.TestCase):
         ]
         t = target_of(three, "card")
         self.assertEqual((t["count"], t["text"]), (3, "c0"))
+
+    def test_card_group_in_the_first_screen_beats_a_larger_group_below_the_fold(self):
+        spec = [el("div", box=(0, 0, 1440, 160))]  # parent of the top row, node 0
+        spec += [
+            el("div", parent=0, box=(x, 20, 200, 120), text=f"t{x}", attrs={"class": "c"})
+            for x in (0, 220, 440)
+        ]
+        spec += [el("div", box=(0, 1160, 1440, 600))]  # parent of the lower row, node 7
+        spec += [
+            el("div", parent=7, box=(x, 1180, 200, 120), text=f"b{x}", attrs={"class": "c"})
+            for x in (0, 220, 440, 660)
+        ]
+        t = target_of(spec, "card")
+        self.assertEqual((t["count"], t["box"][1]), (3, 20))
 
     def test_card_excludes_offscreen_small_and_svg(self):
         parent = el("div", box=(0, 0, 900, 900))

@@ -101,6 +101,12 @@ class Snapshot:
         recorded = self.paragraph_text.get(str(self.backend[idx]))
         return recorded.strip() if recorded is not None else self.inner_text(idx)
 
+    def own_text(self, idx):
+        """Own text nodes of idx, child elements left out, whitespace collapsed (as measure.js)."""
+        return " ".join(
+            "".join(self.text_value[c] for c in self.children[idx] if self.kind[c] == 3).split()
+        )
+
     def inner_text(self, idx):
         """Approximates innerText: rendered text under idx, whitespace collapsed and trimmed."""
         parts = []

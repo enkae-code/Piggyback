@@ -67,6 +67,8 @@
   };
   const best = (list, score) =>
     list.reduce((top, b) => (top === null || score(b) > score(top) ? b : top), null);
+  // Fully inside the first screen: the only place a pin shows on both sides.
+  const inFirstScreen = (r) => r.left >= 0 && r.top >= 0 && r.right <= VW && r.bottom <= VH;
 
   const boxes = [];
   for (const el of document.body ? document.body.querySelectorAll("*") : []) {
@@ -282,7 +284,26 @@
     boxes.filter((b) => /^H[1-6]$/.test(b.tag) && b.area > 0 && textOf(b.el) !== ""),
     (b) => parseFloat(b.cs.fontSize) * 1e9 + b.area,
   );
-  const body = boxes.find((b) => b.tag === "P" && b.area > 0 && textOf(b.el).length >= 40);
+  // Body: the first text block (a <p>, or a block whose own text has 40+ characters) fully inside the
+  // first screen and outside nav, footer, dialogs and cookie banners.
+  const BODY_TAGS = new Set(["P", "DIV", "SPAN", "LI", "BLOCKQUOTE"]);
+  const BODY_OUTSIDE =
+    '[role="navigation"], [role="contentinfo"], [role="dialog"], [role="alertdialog"], nav, footer, [class*="cookie" i], [id*="cookie" i]';
+  const ownText = (el) =>
+    [...el.childNodes]
+      .filter((n) => n.nodeType === Node.TEXT_NODE)
+      .map((n) => n.textContent)
+      .join("")
+      .replace(/\s+/g, " ")
+      .trim();
+  const bodyText = (b) => (b.tag === "P" ? textOf(b.el) : ownText(b.el));
+  const body = boxes.find(
+    (b) =>
+      BODY_TAGS.has(b.tag) &&
+      inFirstScreen(b.r) &&
+      bodyText(b).length >= 40 &&
+      !b.el.closest(BODY_OUTSIDE),
+  );
   const ctaSelector =
     'button, input[type=button], input[type=submit], a[role=button], a[class*="btn" i], a[class*="button" i]';
   const cta = best(
@@ -313,12 +334,22 @@
     (textOf(b.el) !== "" || b.el.children.length > 0) &&
     !b.el.matches(CONTROL) &&
     !(b.el instanceof SVGElement);
+  // A group whose first member sits fully in the first screen beats a larger one below the fold,
+  // because only a visible pin counts. Then the largest group; a tie goes to the first group found.
   let repeated = null;
+  let repeatedFits = false;
   for (const siblings of groups.values()) {
     for (const list of siblings.values()) {
       const cards = list.filter(isCard);
-      if (cards.length >= 3 && (repeated === null || cards.length > repeated.length)) {
+      if (cards.length < 3) continue;
+      const fits = inFirstScreen(cards[0].r);
+      if (
+        repeated === null ||
+        (fits && !repeatedFits) ||
+        (fits === repeatedFits && cards.length > repeated.length)
+      ) {
         repeated = cards;
+        repeatedFits = fits;
       }
     }
   }

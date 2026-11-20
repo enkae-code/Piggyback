@@ -297,6 +297,21 @@ class MeasureIntegration(unittest.TestCase):
         self.assertEqual(result["anchors"]["card"]["count"], 3)  # five slides, two off screen
         self.assertGreaterEqual(result["anchors"]["card"]["box"]["x"], 0)
 
+    def test_body_copy_in_a_div_in_the_first_screen_is_the_body(self):
+        # The div lead is on screen; the <p> below the fold is not the body.
+        body = measure(f"{self.base}/body-div-lead.html", allow_loopback=True)["anchors"]["body"]
+        self.assertEqual(body["tag"], "div")
+        self.assertEqual(
+            body["text"], "Our new tools help small teams ship without the usual overhead."
+        )
+
+    def test_card_group_in_the_first_screen_beats_a_larger_group_below_the_fold(self):
+        card = measure(f"{self.base}/card-grid-below-fold.html", allow_loopback=True)["anchors"][
+            "card"
+        ]
+        self.assertEqual(card["count"], 3)  # the four-card row sits below the fold
+        self.assertLessEqual(card["box"]["y"] + card["box"]["height"], 900)
+
     def test_button_row_is_not_a_card(self):
         result = measure(f"{self.base}/button-row.html", allow_loopback=True)
         self.assertIsNone(result["anchors"]["card"])

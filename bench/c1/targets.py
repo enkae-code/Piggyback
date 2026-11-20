@@ -139,9 +139,46 @@ def _heading(snap, els, vw, vh):
     return _target(snap, heading, ink_box(snap, heading)) if heading else None
 
 
-def _body(snap, els):
+BODY_TAGS = {"p", "div", "span", "li", "blockquote"}
+BODY_OUTSIDE_TAGS = {"nav", "footer"}
+BODY_OUTSIDE_ROLES = {"navigation", "contentinfo", "dialog", "alertdialog"}
+
+
+def in_first_screen(box, vw, vh):
+    """Fully inside the first screen: the only place a pin shows on both sides."""
+    x, y, w, h = box
+    return x >= 0 and y >= 0 and x + w <= vw and y + h <= vh
+
+
+def _outside_body(snap, el):
+    """Inside nav, footer, a dialog or a cookie banner, by ancestor (measure.js BODY_OUTSIDE)."""
+    while el is not None:
+        names = f"{el.attrs.get('class', '')} {el.attrs.get('id', '')}".lower()
+        if (
+            el.tag in BODY_OUTSIDE_TAGS
+            or el.attrs.get("role") in BODY_OUTSIDE_ROLES
+            or "cookie" in names
+        ):
+            return True
+        el = snap.els.get(el.parent)
+    return False
+
+
+def _body_text(snap, el):
+    return snap.paragraph_inner_text(el.idx) if el.tag == "p" else snap.own_text(el.idx)
+
+
+def _body(snap, els, vw, vh):
+    """First text block in DOM order, fully in the first screen, 40+ characters, not outside."""
     body = next(
-        (el for el in els if el.tag == "p" and len(snap.paragraph_inner_text(el.idx)) >= 40),
+        (
+            el
+            for el in els
+            if el.tag in BODY_TAGS
+            and in_first_screen(el.box, vw, vh)
+            and len(_body_text(snap, el)) >= 40
+            and not _outside_body(snap, el)
+        ),
         None,
     )
     return _target(snap, body, ink_box(snap, body)) if body else None
@@ -159,10 +196,10 @@ def lock_targets(evidence):
     els = [el for el in snap.elements() if visible(el, vw, vh)]
     targets = {
         "heading": _heading(snap, els, vw, vh),
-        "body": _body(snap, els),
+        "body": _body(snap, els, vw, vh),
         "cta": _cta(snap, els, vw, vh),
         "nav": _nav(snap, els),
-        "card": _card(snap, [el for el in snap.elements() if rendered(el)], vw),
+        "card": _card(snap, [el for el in snap.elements() if rendered(el)], vw, vh),
     }
     return {slot: targets[slot] or {"absent": True} for slot in SLOTS}
 
@@ -215,18 +252,24 @@ def _sibling_groups(els):
     return [group for sigs in by_parent.values() for group in sigs.values()]
 
 
-def _largest_card_group(snap, els, vw):
-    """Qualifying members of the largest group of three or more; the first group wins a tie."""
-    best = None
+def _largest_card_group(snap, els, vw, vh):
+    """Qualifying members of the group of three or more whose first member fits the first screen,
+    then the largest; the first group wins a tie. Mirrors measure.js.
+    """
+    groups = []
     for members in _sibling_groups(els):
         qualifying = [el for el in members if _qualifies_as_card(snap, el, vw)]
-        if len(qualifying) >= 3 and (best is None or len(qualifying) > len(best)):
-            best = qualifying
-    return best
+        if len(qualifying) >= 3:
+            groups.append(qualifying)
+    return max(
+        groups,
+        key=lambda g: (in_first_screen(g[0].box, vw, vh), len(g)),
+        default=None,
+    )
 
 
-def _card(snap, els, vw):
-    best = _largest_card_group(snap, els, vw)
+def _card(snap, els, vw, vh):
+    best = _largest_card_group(snap, els, vw, vh)
     if best is None:
         return None
     first = best[0]
