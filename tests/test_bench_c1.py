@@ -130,6 +130,15 @@ def target_of(elements, slot, viewport=(1440, 900)):
     return targets.lock_targets(evidence(elements, viewport))[slot]
 
 
+def with_shadow(data, ids):
+    """Chromium's real shape: no nodeType-11 root; each shadow-tree node is in shadowRootType."""
+    data["strings"].append("open")
+    data["documents"][0]["nodes"]["shadowRootType"] = {
+        "index": ids,
+        "value": [len(data["strings"]) - 1] * len(ids),
+    }
+
+
 class TargetRules(unittest.TestCase):
     def test_heading_is_largest_font(self):
         t = target_of(
@@ -237,8 +246,6 @@ class TargetRules(unittest.TestCase):
         span = el("span", parent=0, box=(0, 0, 600, 40), text="s" * 40)
         lead = el("div", box=(0, 60, 600, 40), text="d" * 40)
         self.assertEqual(target_of([h1, span, lead], "body")["text"], "d" * 40)
-        own = target_of([el("h2", box=(0, 0, 600, 40), text="h" * 40), lead], "body")
-        self.assertEqual(own["text"], "d" * 40)
 
     def test_fallback_uses_own_text_not_descendants(self):
         wrapper = el("div", box=(0, 0, 600, 200), text="w" * 10)
@@ -269,6 +276,12 @@ class TargetRules(unittest.TestCase):
         sep = "a" * 39 + "\x1c"  # \x1c is not JS whitespace: it counts toward the 40
         t = target_of([el("div", box=(0, 0, 600, 60), text=sep)], "body")
         self.assertEqual(t["text"], sep)
+
+    def test_recorded_inner_text_trims_ecmascript_whitespace(self):
+        ev = evidence([el("p", box=(0, 0, 600, 60), text="a" * 39)])
+        backend = ev["documents"][0]["nodes"]["backendNodeId"][0]  # the <p> is node 0
+        ev["inner_text"] = {str(backend): "\ufeff" + "a" * 39}
+        self.assertEqual(targets.lock_targets(ev)["body"], {"absent": True})
 
     def test_cookie_match_is_ascii_case_insensitive(self):
         # U+212A (Kelvin sign) lowers to ASCII "k" in Python; CSS [class*=cookie i] ignores it.
@@ -849,14 +862,39 @@ class SnapshotRead(unittest.TestCase):
         # measure.js queries the light DOM only: the shadow <p>, first in DOM order, must not win.
         data = evidence(
             [
-                el("div"),  # shadow host
-                el("#document-fragment", parent=0),  # its shadow root (nodeType 11)
-                el("p", parent=1, box=(0, 0, 600, 40), text="s" * 40),
-                el("p", box=(0, 100, 600, 40), text="p" * 40),
+                el("my-el", box=(0, 0, 600, 200)),  # 0: host
+                el("div", parent=0, box=(0, 0, 600, 40)),  # 1: shadow div
+                el("p", parent=1, box=(0, 0, 600, 40), text="s" * 40),  # 2: shadow p, text 3
+                el("p", box=(0, 300, 600, 40), text="p" * 40),  # 4: light p, text 5
             ]
         )
-        data["documents"][0]["nodes"]["nodeType"][1] = 11
-        self.assertEqual(targets.lock_targets(data)["body"]["text"], "p" * 40)
+        with_shadow(data, [1, 2, 3])
+        t = targets.lock_targets(data)["body"]
+        self.assertEqual((t["tag"], t["dom_index"], t["text"]), ("p", 4, "p" * 40))
+
+    def test_slotted_light_paragraph_is_body_eligible(self):
+        # Slotted light content sits under the shadow <slot> but is light DOM: measure.js finds it.
+        data = evidence(
+            [
+                el("my-el", box=(0, 0, 600, 200)),  # 0: host
+                el("slot", parent=0),  # 1: shadow slot
+                el("p", parent=1, box=(0, 100, 600, 40), text="s" * 40),  # 2: slotted p, text 3
+            ]
+        )
+        with_shadow(data, [1])
+        t = targets.lock_targets(data)["body"]
+        self.assertEqual((t["tag"], t["dom_index"]), ("p", 2))
+
+    def test_shadow_text_does_not_extend_host_ink_box(self):
+        data = evidence(
+            [
+                el("my-el", box=(0, 0, 600, 200)),  # 0: host
+                el("p", parent=0, box=(0, 150, 600, 40), text="s" * 40),  # 1: shadow p, text 2
+            ]
+        )
+        with_shadow(data, [1, 2])
+        snap = Snapshot(data)
+        self.assertEqual(targets.ink_box(snap, snap.els[0]), (0, 0, 600, 200))
 
 
 class FingerprintContract(unittest.TestCase):

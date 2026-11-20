@@ -9,10 +9,12 @@ from dataclasses import dataclass, field
 
 PX = re.compile(r"(-?\d+(?:\.\d+)?)px")
 # ECMAScript WhiteSpace and LineTerminator: what JS \s and trim() match (not Python's str.split).
-ES_WS = "\t\n\x0b\x0c\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
-ES_RUN = re.compile(f"[{ES_WS}]+")
-ES_EDGE = re.compile(f"^[{ES_WS}]+|[{ES_WS}]+$")
-SHADOW_ROOT = 11  # DOCUMENT_FRAGMENT_NODE: a shadow root sits under its host
+ES_CHARS = (
+    "\t\n\x0b\x0c\r \u00a0\u1680"
+    + "".join(chr(c) for c in range(0x2000, 0x200B))
+    + "\u2028\u2029\u202f\u205f\u3000\ufeff"
+)
+ES_RUN = re.compile(f"[{ES_CHARS}]+")
 
 
 def px(value):
@@ -33,7 +35,7 @@ def js_collapse(s):
 
 def js_trim(s):
     """trim() with ECMAScript whitespace."""
-    return ES_EDGE.sub("", s)
+    return s.strip(ES_CHARS)
 
 
 @dataclass
@@ -62,6 +64,8 @@ class Snapshot:
         self.backend = nodes.get("backendNodeId", [-1] * count)
         # pseudoType is a rare-string table {"index": [node ids], "value": [...]}: ::before/::after
         self.pseudo = set(nodes.get("pseudoType", {}).get("index", []))
+        # shadowRootType: same rare-string table; lists every shadow-tree node, not a root node.
+        self.shadow = set(nodes.get("shadowRootType", {}).get("index", []))
         self.paragraph_text = evidence.get("inner_text", {})  # opt-in hook: innerText by backend id
         self.children = [[] for _ in range(count)]
         for idx, parent in enumerate(self.parents):
@@ -86,7 +90,7 @@ class Snapshot:
         flat_attrs = nodes.get("attributes", [[]] * count)
         els = {}
         for idx in range(count):
-            if self.kind[idx] != 1 or idx in self.pseudo or self._in_shadow(idx):
+            if self.kind[idx] != 1 or idx in self.pseudo or idx in self.shadow:
                 continue
             flat = flat_attrs[idx]
             attrs = {
@@ -103,21 +107,15 @@ class Snapshot:
             els[idx] = El(idx, tag, attrs, self.parents[idx], self.children[idx], style, box)
         return els
 
-    def _in_shadow(self, idx):
-        """True when a shadow root is above idx: measure.js queries the light DOM only."""
-        parent = self.parents[idx]
-        while parent >= 0:
-            if self.kind[parent] == SHADOW_ROOT:
-                return True
-            parent = self.parents[parent]
-        return False
-
     def _attach_text_boxes(self, doc):
         layout = doc["layout"]
         boxes = doc.get("textBoxes", {"layoutIndex": [], "bounds": []})
         for k, li in enumerate(boxes["layoutIndex"]):
-            parent = self.parents[layout["nodeIndex"][li]]
-            while parent >= 0 and self.kind[parent] != SHADOW_ROOT:
+            node = layout["nodeIndex"][li]
+            if node in self.shadow:  # innerText/Range over the host leave shadow text out
+                continue
+            parent = self.parents[node]
+            while parent >= 0:
                 if parent in self.els:
                     self.els[parent].boxes.append(self._shift(boxes["bounds"][k]))
                 parent = self.parents[parent]
