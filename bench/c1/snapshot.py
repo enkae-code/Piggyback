@@ -48,6 +48,7 @@ class El:
     style: dict | None  # computed styles; None when the element has no layout (not rendered)
     box: tuple | None  # x, y, width, height in viewport px
     boxes: list = field(default_factory=list)  # boxes of the text under this element
+    shadow: bool = False  # shadow-tree element: transparent to walks, never a candidate
 
 
 class Snapshot:
@@ -90,7 +91,7 @@ class Snapshot:
         flat_attrs = nodes.get("attributes", [[]] * count)
         els = {}
         for idx in range(count):
-            if self.kind[idx] != 1 or idx in self.pseudo or idx in self.shadow:
+            if self.kind[idx] != 1 or idx in self.pseudo:
                 continue
             flat = flat_attrs[idx]
             attrs = {
@@ -104,7 +105,10 @@ class Snapshot:
                 )
                 box = self._shift(layout["bounds"][li])
             tag = self._text(nodes["nodeName"][idx]).lower()
-            els[idx] = El(idx, tag, attrs, self.parents[idx], self.children[idx], style, box)
+            shadow = idx in self.shadow
+            els[idx] = El(
+                idx, tag, attrs, self.parents[idx], self.children[idx], style, box, shadow=shadow
+            )
         return els
 
     def _attach_text_boxes(self, doc):
@@ -121,7 +125,18 @@ class Snapshot:
                 parent = self.parents[parent]
 
     def elements(self):
-        return [self.els[idx] for idx in sorted(self.els)]
+        return [self.els[idx] for idx in sorted(self.els) if not self.els[idx].shadow]
+
+    def light_children(self, idx):
+        """Children of idx with shadow nodes transparent: a shadow node's children take its place.
+
+        Slotted light nodes sit under the shadow <slot> in the flat tree; shadow text is dropped.
+        """
+        for child in self.children[idx]:
+            if child in self.shadow:
+                yield from self.light_children(child)
+            else:
+                yield child
 
     def paragraph_inner_text(self, idx):
         """innerText of a <p> as the browser reported it (opt-in hook), else the approximation."""
@@ -131,13 +146,13 @@ class Snapshot:
     def own_text(self, idx):
         """Own text nodes of idx, child elements left out, whitespace collapsed (as measure.js)."""
         return js_collapse(
-            "".join(self.text_value[c] for c in self.children[idx] if self.kind[c] == 3)
+            "".join(self.text_value[c] for c in self.light_children(idx) if self.kind[c] == 3)
         )
 
     def inner_text(self, idx):
         """Approximates innerText: rendered text under idx, whitespace collapsed and trimmed."""
         parts = []
-        for child in self.children[idx]:
+        for child in self.light_children(idx):
             if self.kind[child] == 3:
                 parts.append(self.text_value[child])
             elif child in self.els and self._rendered(child):

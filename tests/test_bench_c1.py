@@ -896,6 +896,51 @@ class SnapshotRead(unittest.TestCase):
         snap = Snapshot(data)
         self.assertEqual(targets.ink_box(snap, snap.els[0]), (0, 0, 600, 200))
 
+    def test_slotted_paragraph_under_light_nav_is_excluded_from_body(self):
+        # Chromium: <nav><x-u>(shadow: <slot>)<p>slotted</p></x-u></nav>. The slotted p's flat
+        # parent is the shadow slot; the walk must pass it and reach the light nav.
+        data = evidence(
+            [
+                el("nav", box=(0, 0, 600, 40)),  # 0
+                el("x-u", parent=0, box=(0, 0, 600, 40)),  # 1: light host
+                el("slot", parent=1),  # 2: shadow slot
+                el("p", parent=2, box=(0, 50, 600, 40), text="s" * 40),  # 3: slotted, text 4
+                el("p", box=(0, 300, 600, 40), text="p" * 40),  # 5: plain, text 6
+            ]
+        )
+        with_shadow(data, [2])
+        t = targets.lock_targets(data)["body"]
+        self.assertEqual((t["tag"], t["dom_index"]), ("p", 5))
+
+    def test_slotted_light_heading_text_counts_and_shadow_text_does_not(self):
+        # Chromium: <h1><x-s>(shadow: <b>SHADOWTXT</b><slot>)<span>Light heading</span></x-s></h1>
+        data = evidence(
+            [
+                el("h1", box=(0, 0, 400, 40)),  # 0
+                el("x-s", parent=0, box=(0, 0, 200, 40)),  # 1: light host
+                el("b", parent=1, box=(0, 0, 80, 40), text="SHADOWTXT"),  # 2: shadow, text 3
+                el("slot", parent=1),  # 4: shadow slot
+                el("span", parent=4, box=(0, 0, 200, 40), text="Light heading"),  # 5, text 6
+            ]
+        )
+        with_shadow(data, [2, 3, 4])
+        t = targets.lock_targets(data)["heading"]
+        self.assertEqual((t["tag"], t["text"], t["box"]), ("h1", "Light heading", [0, 0, 200, 40]))
+
+    def test_inner_text_and_own_text_take_slotted_light_text_only(self):
+        # Chromium: div host with shadow 'SHADOWONLY <slot>' and light text 'slot light'.
+        data = evidence(
+            [
+                el("div", box=(0, 0, 600, 200)),  # 0: host
+                el("span", parent=0, box=(0, 0, 100, 20), text="SHADOWONLY "),  # 1: shadow, text 2
+                el("slot", parent=0, box=(0, 40, 200, 20), text="slot light"),  # 3, text 4
+            ]
+        )
+        with_shadow(data, [1, 2, 3])
+        snap = Snapshot(data)
+        self.assertEqual(snap.inner_text(0), "slot light")
+        self.assertEqual(snap.own_text(0), "slot light")
+
 
 class FingerprintContract(unittest.TestCase):
     def test_gap_anchor_slots_match_contract(self):

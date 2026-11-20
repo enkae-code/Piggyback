@@ -73,7 +73,7 @@ def has_background(el):
 
 
 def _descendant_boxes(snap, el):
-    for child in el.children:
+    for child in snap.light_children(el.idx):
         if child in snap.els:
             yield snap.els[child].box
             yield from _descendant_boxes(snap, snap.els[child])
@@ -105,7 +105,7 @@ def is_control(el):
 
 def in_svg(snap, el):
     while el is not None:
-        if el.tag == "svg":
+        if el.tag == "svg" and not el.shadow:
             return True
         el = snap.els.get(el.parent)
     return False
@@ -157,7 +157,7 @@ def _outside_body(snap, el):
     """
     while el is not None:
         names = f"{el.attrs.get('class', '')} {el.attrs.get('id', '')}"
-        if (
+        if not el.shadow and (
             el.tag in BODY_OUTSIDE_TAGS
             or el.attrs.get("role") in BODY_OUTSIDE_ROLES
             or re.search("cookie", names, re.IGNORECASE | re.ASCII)
@@ -229,7 +229,9 @@ def _cta(snap, els, vw, vh):
 
 def _qualifies_as_card(snap, el, vw):
     x, y, w, h = el.box
-    has_content = snap.inner_text(el.idx) != "" or any(c in snap.els for c in el.children)
+    has_content = snap.inner_text(el.idx) != "" or any(
+        c in snap.els for c in snap.light_children(el.idx)
+    )
     return (
         w >= 120
         and h >= 80
