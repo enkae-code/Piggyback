@@ -393,6 +393,15 @@ class TargetRules(unittest.TestCase):
         self.assertEqual(target_of([parent, svg, *groups], "card"), {"absent": True})
         self.assertEqual(target_of([parent, *controls], "card"), {"absent": True})
 
+    def test_html_cards_inside_foreign_object_are_cards(self):
+        svg = el("svg", box=(0, 0, 900, 400))
+        foreign = el("foreignObject", parent=0, box=(0, 0, 900, 400))
+        cards = [
+            el("article", parent=1, box=(i * 210, 0, 200, 120), text="c", attrs={"class": "tile"})
+            for i in range(3)
+        ]
+        self.assertEqual(target_of([svg, foreign, *cards], "card")["count"], 3)
+
     def test_lock_is_deterministic_and_has_all_slots(self):
         data = evidence([el("h1", box=(0, 0, 100, 40), text="x", font_size="30px")])
         first = targets.lock_targets(data)
